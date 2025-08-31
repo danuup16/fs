@@ -2643,7 +2643,9 @@ do
                         if itemCount > 0 and itemCount <= 10 then
                             for uuid, itemData in pairs(data) do
                                 if itemData and type(itemData) == "table" then
-                                    print("[DEBUG]   Item UUID:", uuid:sub(1, 8).."...")
+                                    print(string.format("[DEBUG] Fish: %s (ID: %d) | Qty: %d | Weight: %s | UUID: %s", 
+    fishName, itemData.Id, quantity, tostring(weight), tostring(uuid):sub(1, 8) .. "..."))
+
                                     if itemData.Id then
                                         print("[DEBUG]     ID:", itemData.Id)
                                     end

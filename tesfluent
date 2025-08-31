@@ -2275,23 +2275,44 @@ do
         end
     end)
 end
-do
-    -- Webhook Tab
+-- Webhook Tab
 Tabs.Webhook = Window:AddTab({ Title = "Webhook", Icon = "globe" })
 
 local webhookURL = ""
+local webhookEnabled = false
+
+-- Input webhook URL
 Tabs.Webhook:AddInput("WebhookURL", {
     Title = "Discord Webhook URL",
     Default = "",
     Placeholder = "Masukkan URL Webhook...",
     Callback = function(Value)
         webhookURL = Value
+        print("[Webhook] URL set ke:", webhookURL)
+    end
+})
+
+-- Toggle enable webhook
+Tabs.Webhook:AddToggle("EnableWebhook", {
+    Title = "Enable Webhook",
+    Description = "Aktifkan/Matikan kirim data ke Discord",
+    Default = false,
+    Callback = function(Value)
+        webhookEnabled = Value
+        print("[Webhook] Enabled:", webhookEnabled)
     end
 })
 
 -- fungsi kirim webhook ke Discord
 local function sendFishToDiscord(username, fishName, weight, price, tier)
-    if webhookURL == "" then return end
+    if not webhookEnabled then 
+        print("[Webhook] Disabled, tidak mengirim ke Discord.")
+        return 
+    end
+    if webhookURL == "" then 
+        print("[Webhook] URL kosong, set dulu di input box!")
+        return 
+    end
 
     local embed = {
         ["embeds"] = {{
@@ -2319,10 +2340,26 @@ local function sendFishToDiscord(username, fishName, weight, price, tier)
             Headers = {["Content-Type"] = "application/json"},
             Body = body
         })
+        print("[Webhook] Terkirim ke Discord:", fishName, weight .. "kg", price, tier)
     else
-        warn("Webhook: executor tidak support request!")
+        warn("[Webhook] Executor tidak support request()!")
     end
 end
+
+-- Tombol test webhook
+Tabs.Webhook:AddButton({
+    Title = "Test Webhook",
+    Description = "Kirim pesan test ke Discord",
+    Callback = function()
+        local username = game.Players.LocalPlayer.Name
+        local fishName = "Test Fish"
+        local weight = 3.5
+        local price = 150000
+        local tier = "Secret (T7)"
+        print("[Webhook] Mengirim test webhook...")
+        sendFishToDiscord(username, fishName, weight, price, tier)
+    end
+})
 
 -- Hook ke InventoryController untuk deteksi ikan baru
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -2345,14 +2382,17 @@ if success and InventoryController and InventoryController.InventoryStateChanged
             local tierInfo = tierUtility:GetTier(itemData.Data.Tier)
             local tier = tierInfo and (tierInfo.Name .. " (T" .. tostring(itemData.Data.Tier) .. ")") or tostring(itemData.Data.Tier)
 
+            -- Debug print selalu aktif
+            print("[Webhook] Fish detected ->", "User:", username, "| Fish:", fishName, "| Weight:", weight, "| Price:", price, "| Tier:", tier)
+
+            -- Kirim ke Discord kalau toggle aktif
             sendFishToDiscord(username, fishName, weight, price, tier)
         end
     end)
 else
-    warn("Webhook: InventoryController tidak ditemukan!")
+    warn("[Webhook] InventoryController tidak ditemukan!")
 end
 
-end
 end
 Window:SelectTab(1)
 AutoConfig:Initialize(Fluent)

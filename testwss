@@ -2582,18 +2582,15 @@ local function formatWeight(weight, actualWeight)
     
     return weightText
 end
-
 -- Fungsi untuk mendapatkan URL gambar ikan
 local function getFishImageURL(fishId)
-    local assetId = fishImages[fishId]
-    if assetId then
-        local imageId = string.match(assetId, "rbxassetid://(%d+)")
-        if imageId then
-            return "https://www.roblox.com/asset-thumbnail/image?assetId=" .. imageId .. "&width=420&height=420&format=png"
-        end
+    local imageUrl = fishImages[fishId]
+    if imageUrl and imageUrl ~= "" then
+        return imageUrl -- langsung pakai link dari fishImages (Imgur)
     end
     return nil
 end
+
 
 -- Fungsi untuk mendapatkan info tier
 local function getTierInfo(tier)
@@ -2671,8 +2668,6 @@ local function sendWebhook(itemName, itemData, weight, isVariant, variantName)
                         ["icon_url"] = "https://www.roblox.com/headshot-thumbnail/image?userId=" .. player.UserId .. "&width=32&height=32&format=png"
                     }
                 }
-                
-                -- Tambahkan gambar ikan sebagai thumbnail (pojok kanan atas) dan gambar besar
                 if fishImageURL then
                     embedData["thumbnail"] = {
                         ["url"] = fishImageURL
@@ -2680,13 +2675,7 @@ local function sendWebhook(itemName, itemData, weight, isVariant, variantName)
                     embedData["image"] = {
                         ["url"] = fishImageURL
                     }
-                else
-                    -- Jika tidak ada gambar ikan, gunakan avatar player sebagai thumbnail
-                    embedData["thumbnail"] = {
-                        ["url"] = "https://www.roblox.com/headshot-thumbnail/image?userId=" .. player.UserId .. "&width=150&height=150&format=png"
-                    }
                 end
-                
                 local data = {
                     ["username"] = "Fish It Tracker",
                     ["embeds"] = {embedData}

@@ -1,1048 +1,528 @@
-if game.PlaceId == 121864768012064 then ---ikan
-local Fluent = loadstring(game:HttpGet("https://raw.githubusercontent.com/danuup16/mnbru/refs/heads/main/mnu"))()
-local HttpService = game:GetService("HttpService")
-local AutoConfig = {} do
-    AutoConfig.FolderName = "DJSTest"
-    AutoConfig.ConfigFile = "DJSikan.json"
-    AutoConfig.Library = nil
-    AutoConfig.LastSaveTime = 0
-    AutoConfig.IsMonitoring = false
-    AutoConfig.Parsers = {
-        Toggle = {
-            Save = function(idx, option) 
-                return { type = "Toggle", idx = idx, value = option.Value } 
-            end,
-            Load = function(idx, data, options)
-                if options[idx] then 
-                    options[idx]:SetValue(data.value)
-                end
-            end,
-        },
-        Slider = {
-            Save = function(idx, option)
-                return { type = "Slider", idx = idx, value = tonumber(option.Value) }
-            end,
-            Load = function(idx, data, options)
-                if options[idx] then 
-                    options[idx]:SetValue(data.value)
-                end
-            end,
-        },
-        Dropdown = {
-            Save = function(idx, option)
-                return { type = "Dropdown", idx = idx, value = option.Value, multi = option.Multi }
-            end,
-            Load = function(idx, data, options)
-                if options[idx] then 
-                    options[idx]:SetValue(data.value)
-                end
-            end,
-        },
-        Colorpicker = {
-            Save = function(idx, option)
-                return { type = "Colorpicker", idx = idx, value = option.Value:ToHex(), transparency = option.Transparency }
-            end,
-            Load = function(idx, data, options)
-                if options[idx] then 
-                    options[idx]:SetValueRGB(Color3.fromHex(data.value), data.transparency)
-                end
-            end,
-        },
-        Input = {
-            Save = function(idx, option)
-                return { type = "Input", idx = idx, text = option.Value }
-            end,
-            Load = function(idx, data, options)
-                if options[idx] and type(data.text) == "string" then
-                    options[idx]:SetValue(data.text)
-                end
-            end,
-        },
-    }
-    
-    function AutoConfig:Initialize(library)
-        self.Library = library
-        self:CreateFolders()
-        wait(2) 
-        self:LoadConfig()
-        self:StartChangeMonitoring()
-    end
-    
-    function AutoConfig:CreateFolders()
-        if not isfolder(self.FolderName) then
-            makefolder(self.FolderName)
-        end
-    end
-    
-    function AutoConfig:GetFilePath()
-        return self.FolderName .. "/" .. self.ConfigFile
-    end
-    
-    function AutoConfig:SaveConfig()
-        local data = { objects = {} }
-        
-        for idx, option in pairs(self.Library.Options) do
-            local parser = self.Parsers[option.Type]
-            if parser then
-                table.insert(data.objects, parser.Save(idx, option))
-            end
-        end
-        
-        local success, encoded = pcall(HttpService.JSONEncode, HttpService, data)
-        if success then
-            writefile(self:GetFilePath(), encoded)
-            self.LastSaveTime = tick()
-            return true, "Config saved successfully"
-        else
-            return false, "Failed to encode config data"
-        end
-    end
-    
-    function AutoConfig:LoadConfig()
-        local filePath = self:GetFilePath()
-        
-        if not isfile(filePath) then
-            return false, "No config file found"
-        end
-        
-        local success, decoded = pcall(HttpService.JSONDecode, HttpService, readfile(filePath))
-        if not success then
-            return false, "Failed to decode config"
-        end
-        
-        for _, item in pairs(decoded.objects) do
-            local parser = self.Parsers[item.type]
-            if parser then
-                spawn(function()
-                    parser.Load(item.idx, item, self.Library.Options)
-                end)
-            end
-        end
-        return true, "Config loaded successfully"
-    end
-    function AutoConfig:StartChangeMonitoring()
-        if self.IsMonitoring then return end
-        self.IsMonitoring = true
-        local lastValues = {}
-        for idx, option in pairs(self.Library.Options) do
-            lastValues[idx] = self:GetOptionValue(option)
-        end
-        
-        spawn(function()
-            while self.IsMonitoring do
-                wait(0.5)
-                
-                local hasChanges = false
-                for idx, option in pairs(self.Library.Options) do
-                    local currentValue = self:GetOptionValue(option)
-                    if self:ValuesAreDifferent(lastValues[idx], currentValue) then
-                        lastValues[idx] = currentValue
-                        hasChanges = true
-                    end
-                end
-                
-                if hasChanges then
-                    local success, msg = self:SaveConfig()
-                end
-            end
-        end)
-    end
-    function AutoConfig:GetOptionValue(option)
-        if option.Type == "Toggle" then
-            return option.Value
-        elseif option.Type == "Slider" then
-            return option.Value
-        elseif option.Type == "Dropdown" then
-            return option.Value
-        elseif option.Type == "Input" then
-            return option.Value
-        elseif option.Type == "Colorpicker" then
-            return {option.Value:ToHex(), option.Transparency}
-        end
-        return nil
-    end
-    function AutoConfig:ValuesAreDifferent(oldValue, newValue)
-        if type(oldValue) ~= type(newValue) then
-            return true
-        end
-        if type(oldValue) == "table" then
-            if #oldValue ~= #newValue then return true end
-            for i = 1, #oldValue do
-                if oldValue[i] ~= newValue[i] then return true end
-            end
-            return false
-        end
-        
-        return oldValue ~= newValue
-    end
-    function AutoConfig:StopMonitoring()
-        self.IsMonitoring = false
-    end
-    
-    function AutoConfig:ManualSave()
-        return self:SaveConfig()
-    end
-    
-    function AutoConfig:GetLastSaveTime()
-        return self.LastSaveTime
-    end
-end
-
--- Window Creation
-local Window = Fluent:CreateWindow({
-    Title = "#DJSTEST - FISH IT V.0.7",
-    SubTitle = "https://discord.gg/uwXYuxj6cF",
-    TabWidth = 160,
-    Size = UDim2.fromOffset(650, 500),
-    Transparency = true,
-    Theme = "Dark",
-    MinimizeKey = Enum.KeyCode.F
-})
--- addTabs
-local Tabs = {
-    Info = Window:AddTab({ Title = "Info Script", Icon = "info" }),
-    Player = Window:AddTab({ Title = "Player", Icon = "user-cog" }),
-    Fishing = Window:AddTab({ Title = "Fishing", Icon = "fish" }),
-    Teleport = Window:AddTab({ Title = "Teleport", Icon = "map-pin" }),
-    Buy = Window:AddTab({ Title = "Buy", Icon = "shopping-cart" }),
-    Webhook = Window:AddTab({ Title = "Webhook", Icon = "bell-ring" }),
-    Settings = Window:AddTab({ Title = "Settings", Icon = "settings" })
-}
-
-local Options = Fluent.Options
--- Variables for character setup
-local defaultWalkSpeed = 16
-local defaultJumpPower = 16
-local isWalkSpeedActive = false
-local currentWalkSpeed = 50
-
--- Character setup function
-local function setupCharacter()
+if game.PlaceId == 121864768012064 then
+local webhookURL = "https://discord.com/api/webhooks/1406638081695678627/Er3hNRbzQpEOJEpvMPbY_Oo3VnQb_ib0oAC-D13i3eh_ea3y28Tj8cI4qXWkdT5sajbf"
+local function sendWebhookLog()
     local player = game.Players.LocalPlayer
-    if player.Character and player.Character:FindFirstChild("Humanoid") then
-        local humanoid = player.Character.Humanoid
-        if not Options.WalkSpeedSlider then
-            defaultWalkSpeed = humanoid.WalkSpeed
-        end
-        if not Options.JumpHeightSlider then
-            defaultJumpPower = humanoid.JumpPower
-        end
-        
-        -- Apply walk speed based on toggle state
-        if isWalkSpeedActive and Options.WalkSpeedSlider then
-            humanoid.WalkSpeed = Options.WalkSpeedSlider.Value or currentWalkSpeed
-        else
-            humanoid.WalkSpeed = defaultWalkSpeed
-        end
-        
-        if Options.JumpHeightSlider then
-            humanoid.JumpPower = Options.JumpHeightSlider.Value or defaultJumpPower
-        end
+    local data = {
+        ["username"] = "FishIt",
+        ["embeds"] = {{
+            ["title"] = "FishIt Log",
+            ["color"] = 65280,
+            ["fields"] = {
+                {["name"] = "Username", ["value"] = player.Name, ["inline"] = true},
+                {["name"] = "UserId", ["value"] = tostring(player.UserId), ["inline"] = true},
+                {["name"] = "Game", ["value"] = tostring(game.PlaceId)},
+                {["name"] = "JobId", ["value"] = tostring(game.JobId)},
+                {["name"] = "Executor", ["value"] = identifyexecutor and identifyexecutor() or "Unknown"}
+            },
+            ["footer"] = {["text"] = os.date("Used at %Y-%m-%d %H:%M:%S")}
+        }}
+    }
+    local headers = {["Content-Type"] = "application/json"}
+    local body = game:GetService("HttpService"):JSONEncode(data)
+    local req = http_request or request or syn.request or fluxus and fluxus.request
+    if req then
+        req({
+            Url = webhookURL,
+            Method = "POST",
+            Headers = headers,
+            Body = body
+        })
     end
 end
-
-game.Players.LocalPlayer.CharacterAdded:Connect(setupCharacter)
-if game.Players.LocalPlayer.Character then
-    setupCharacter()
-end
-
--- Info Tab
-do
-    Tabs.Info:AddButton({
-        Title = "Discord Server",
-        Description = "Discord invite link",
-        Callback = function()
-            setclipboard("https://discord.gg/uwXYuxj6cF")
-        end
-    })
-    
-    Tabs.Info:AddButton({
-        Title = "Tiktok",
-        Description = "Tiktok profile link",
-        Callback = function()
-            setclipboard("https://www.tiktok.com/@daanujs_")
-        end
-    })
-end
-
--- Player Tab
-do
-   
-    
-    -- Walk Speed Slider
-    local WalkSpeedSlider = Tabs.Player:AddSlider("WalkSpeedSlider", {
-        Title = "Walk Speed",
-        Description = "Control your walking speed",
-        Default = 50,
-        Min = 16,
-        Max = 100,
-        Rounding = 1,
-        Callback = function(Value)
-            currentWalkSpeed = Value
-            -- Only apply if toggle is active
-            if isWalkSpeedActive then
-                local player = game.Players.LocalPlayer
-                if player.Character and player.Character:FindFirstChild("Humanoid") then
-                    player.Character.Humanoid.WalkSpeed = Value
-                end
+pcall(sendWebhookLog)
+    local Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/danuup16/mnu/refs/heads/main/mnu'))()
+    local Window = Rayfield:CreateWindow({
+   Name = "ðŸŸ FISH IT. #DJSTEST v0.4",
+   Icon = 0, 
+   LoadingTitle = "ðŸŸ FISH IT. #DJSTEST v0.4",
+   LoadingSubtitle = "",
+   ShowText = "#DJSTEST",
+   ShowImage = "rbxassetid://125307367032337",
+   Theme = "DarkBlue", 
+   ToggleUIKeybind = "F", 
+   DisableRayfieldPrompts = true,
+   DisableBuildWarnings = true, 
+   ConfigurationSaving = {
+      Enabled = true,
+      FolderName = "djsstore", 
+      FileName = "djsstore"
+   },
+   Discord = {
+      Enabled = false, 
+      Invite = "discord.gg/uwXYuxj6cF", 
+      RememberJoins = false 
+   },
+   KeySystem = false,
+   KeySettings = {
+      Title = "#DJSTEST",
+      Subtitle = "discord.gg/uwXYuxj6cF",
+      Note = "Join Discord to get key", 
+      FileName = "djsstore",
+      SaveKey = false, 
+      GrabKeyFromSite = false, 
+      Key = {"djsfs"} 
+   }})
+      local defaultWalkSpeed = 16
+      local defaultJumpPower = 16
+      local function setupCharacter()
+         local player = game.Players.LocalPlayer
+         if player.Character and player.Character:FindFirstChild("Humanoid") then
+            local humanoid = player.Character.Humanoid
+            if not WalkSpeedSlider then
+               defaultWalkSpeed = humanoid.WalkSpeed
             end
-        end
-    })
-    
-    -- Jump Height
-    local JumpHeightSlider = Tabs.Player:AddSlider("JumpHeightSlider", {
-        Title = "Jump Height",
-        Description = "Control your jumping power",
-        Default = defaultJumpPower,
-        Min = 0,
-        Max = 500,
-        Rounding = 1,
-        Callback = function(Value)
+            if not JumpHeightSlider then
+               defaultJumpPower = humanoid.JumpPower
+            end
+            if WalkSpeedSlider then
+               humanoid.WalkSpeed = WalkSpeedSlider.CurrentValue or defaultWalkSpeed
+            end
+            if JumpHeightSlider then
+               humanoid.JumpPower = JumpHeightSlider.CurrentValue or defaultJumpPower
+            end
+         end
+      end
+      game.Players.LocalPlayer.CharacterAdded:Connect(setupCharacter)
+      if game.Players.LocalPlayer.Character then
+         setupCharacter()
+      end
+      local antiAfkConnection = nil
+      local isAntiAfkActive = false
+      local InfoTab = Window:CreateTab("Info Script", "info") -- Title, Image
+      local Paragraph = InfoTab:CreateParagraph({Title = "Paragraph Example", Content = "Paragraph Example sadsadsaxsax"})
+      Paragraph:Set({Title = "#DJSTEST", Content = "\nHide/Open Menu F\n\nUPDATE 17/08 \n Check Discord Server ^^ "})
+      local Button = InfoTab:CreateButton({
+      Name = "New Discord Server",
+      Callback = function()
+         setclipboard("https://discord.gg/uwXYuxj6cF")
+         Rayfield:Notify({Title = "Copied to clipboard",Content = "", Duration = 5,Image = "bell-ring",})
+      end,
+   })
+   local Button = InfoTab:CreateButton({
+      Name = "Tiktok",
+      Callback = function()
+         setclipboard("https://www.tiktok.com/@daanujs_")
+         Rayfield:Notify({Title = "Copied to clipboard",Content = "", Duration = 5,Image = "bell-ring",})
+      end,
+   })
+      local PlayerTab = Window:CreateTab("Player","user-round-cog") 
+      local WalkSpeedSlider = PlayerTab:CreateSlider({
+         Name = "WalkSpeed",
+         Range = {16, 100},
+         Increment = 1,
+         Suffix = "Speed",
+         CurrentValue = defaultWalkSpeed,
+         Flag = "WalkSpeedSlider",
+         Callback = function(Value)
             local player = game.Players.LocalPlayer
             if player.Character and player.Character:FindFirstChild("Humanoid") then
-                player.Character.Humanoid.JumpPower = Value
+               player.Character.Humanoid.WalkSpeed = Value
             end
-        end
-    })
-    
-    -- Fly variables and functions
-    local flyBodyVelocity = nil
-    local flyBodyPosition = nil
-    local isFlyActive = false
-    local flySpeed = 50
-    
-    local FlySpeedSlider = Tabs.Player:AddSlider("FlySpeedSlider", {
-        Title = "Fly Speed",
-        Description = "Control your flying speed",
-        Default = flySpeed,
-        Min = 10,
-        Max = 1000,
-        Rounding = 5,
-        Callback = function(Value)
+         end,
+      })
+      local JumpHeightSlider = PlayerTab:CreateSlider({
+         Name = "Jump Height",
+         Range = {52, 500},
+         Increment = 1,
+         Suffix = "Height",
+         CurrentValue = defaultJumpPower,
+         Flag = "JumpHeightSlider",
+         Callback = function(Value)
+            local player = game.Players.LocalPlayer
+            if player.Character and player.Character:FindFirstChild("Humanoid") then
+               player.Character.Humanoid.JumpPower = Value
+            end
+         end,
+      })
+      
+      local flyBodyVelocity = nil
+      local flyBodyPosition = nil
+      local isFlyActive = false
+      local flySpeed = 50 
+      local FlySpeedSlider = PlayerTab:CreateSlider({
+         Name = "Fly Speed",
+         Range = {10, 1000},
+         Increment = 5,
+         Suffix = "Fly Speed",
+         CurrentValue = flySpeed,
+         Flag = "FlySpeedSlider",
+         Callback = function(Value)
             flySpeed = Value
-        end
-    })
-    
-    local function enableFly()
-        local player = game.Players.LocalPlayer
-        if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+         end,
+      })
+      local function enableFly()
+         local player = game.Players.LocalPlayer
+         if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
             return false
-        end
-        local humanoidRootPart = player.Character.HumanoidRootPart
-        flyBodyVelocity = Instance.new("BodyVelocity")
-        flyBodyVelocity.MaxForce = Vector3.new(4000, 4000, 4000)
-        flyBodyVelocity.Velocity = Vector3.new(0, 0, 0)
-        flyBodyVelocity.Parent = humanoidRootPart
-        flyBodyPosition = Instance.new("BodyPosition")
-        flyBodyPosition.MaxForce = Vector3.new(4000, 4000, 4000)
-        flyBodyPosition.Position = humanoidRootPart.Position
-        flyBodyPosition.Parent = humanoidRootPart
-        return true
-    end
-    
-    local function disableFly()
-        if flyBodyVelocity then
+         end
+         local humanoidRootPart = player.Character.HumanoidRootPart
+         flyBodyVelocity = Instance.new("BodyVelocity")
+         flyBodyVelocity.MaxForce = Vector3.new(4000, 4000, 4000)
+         flyBodyVelocity.Velocity = Vector3.new(0, 0, 0)
+         flyBodyVelocity.Parent = humanoidRootPart
+         flyBodyPosition = Instance.new("BodyPosition")
+         flyBodyPosition.MaxForce = Vector3.new(4000, 4000, 4000)
+         flyBodyPosition.Position = humanoidRootPart.Position
+         flyBodyPosition.Parent = humanoidRootPart
+         return true
+      end
+      local function disableFly()
+         if flyBodyVelocity then
             flyBodyVelocity:Destroy()
             flyBodyVelocity = nil
-        end
-        if flyBodyPosition then
+         end
+         if flyBodyPosition then
             flyBodyPosition:Destroy()
             flyBodyPosition = nil
-        end
-    end
-    
-    local function updateFlyMovement()
-        local player = game.Players.LocalPlayer
-        local camera = workspace.CurrentCamera
-        if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+         end
+      end
+      local function updateFlyMovement()
+         local player = game.Players.LocalPlayer
+         local camera = workspace.CurrentCamera
+         if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
             return
-        end
-        local humanoidRootPart = player.Character.HumanoidRootPart
-        local humanoid = player.Character:FindFirstChild("Humanoid")
-        if not flyBodyVelocity or not flyBodyPosition or not humanoid then
+         end
+         local humanoidRootPart = player.Character.HumanoidRootPart
+         local humanoid = player.Character:FindFirstChild("Humanoid")
+         if not flyBodyVelocity or not flyBodyPosition or not humanoid then
             return
-        end
-        local moveVector = humanoid.MoveDirection
-        local velocity = Vector3.new(0, 0, 0)
-        if moveVector.Magnitude > 0 then
-            local cameraDirection = camera.CFrame.LookVector
-            local flatDirection = Vector3.new(cameraDirection.X, 0, cameraDirection.Z).Unit
-            velocity = flatDirection * moveVector.Magnitude * flySpeed
-        end
-        local userInputService = game:GetService("UserInputService")
-        if userInputService:IsKeyDown(Enum.KeyCode.Space) then
-            velocity = velocity + Vector3.new(0, flySpeed, 0)
-        end
-        if userInputService:IsKeyDown(Enum.KeyCode.LeftShift) then
-            velocity = velocity + Vector3.new(0, -flySpeed, 0)
-        end
-        flyBodyVelocity.Velocity = velocity
-        if velocity.Magnitude == 0 then
+         end
+         local moveVector = humanoid.MoveDirection
+         local velocity = Vector3.new(0, 0, 0)
+         if moveVector.Magnitude > 0 then
+             local cameraDirection = camera.CFrame.LookVector
+             local flatDirection = Vector3.new(cameraDirection.X, 0, cameraDirection.Z).Unit
+             velocity = flatDirection * moveVector.Magnitude * flySpeed
+         end
+         local userInputService = game:GetService("UserInputService")
+         if userInputService:IsKeyDown(Enum.KeyCode.Space) then
+             velocity = velocity + Vector3.new(0, flySpeed, 0)
+         end
+         if userInputService:IsKeyDown(Enum.KeyCode.LeftShift) then
+             velocity = velocity + Vector3.new(0, -flySpeed, 0)
+         end
+         flyBodyVelocity.Velocity = velocity
+         if velocity.Magnitude == 0 then
             flyBodyPosition.Position = humanoidRootPart.Position
-        else
+         else
             flyBodyPosition.Position = humanoidRootPart.Position + velocity * 0.1
-        end
-    end
-     -- Walk Speed Toggle
-    local WalkSpeedToggle = Tabs.Player:AddToggle("WalkSpeedToggle", {
-        Title = "Walk Speed",
-        Description = "Enable custom walk speed",
-        Default = false,
-        Callback = function(Value)
-            isWalkSpeedActive = Value
-            local player = game.Players.LocalPlayer
-            if player.Character and player.Character:FindFirstChild("Humanoid") then
-                if Value then
-                    player.Character.Humanoid.WalkSpeed = currentWalkSpeed
-                else
-                    player.Character.Humanoid.WalkSpeed = defaultWalkSpeed
-                end
-            end
-        end
-    })
-    local flyToggle = Tabs.Player:AddToggle("FlyToggle", {
-        Title = "Fly",
-        Description = "Enable flying mode",
-        Default = false,
-        Callback = function(Value)
+         end
+      end
+      local flyToggle = PlayerTab:CreateToggle({
+         Name = "Fly",
+         CurrentValue = false,
+         Flag = "fly",
+         Callback = function(Value)
             if Value then
-                if not isFlyActive then
-                    if enableFly() then
-                        isFlyActive = true
-                        spawn(function()
-                            while isFlyActive do
-                                updateFlyMovement()
-                                game:GetService("RunService").Heartbeat:Wait()
-                            end
-                        end)
-                    end
-                end
+               if not isFlyActive then
+                  if enableFly() then
+                     isFlyActive = true
+                     spawn(function()
+                        while isFlyActive do
+                           updateFlyMovement()
+                           game:GetService("RunService").Heartbeat:Wait()
+                        end
+                     end)
+                  
+                  end
+               end
             else
-                if isFlyActive then
-                    isFlyActive = false
-                    disableFly()
-                end
+               if isFlyActive then
+                  isFlyActive = false
+                  disableFly()
+               end
             end
-        end
-    })
-    
-    -- Infinite Jump
-    local infiniteJumpConnection = nil
-    local isInfiniteJumpActive = false
-    
-    local function enableInfiniteJump()
-        if infiniteJumpConnection then
+         end,
+      })
+      local infiniteJumpConnection = nil
+      local isInfiniteJumpActive = false
+      local function enableInfiniteJump()
+         if infiniteJumpConnection then
             infiniteJumpConnection:Disconnect()
-        end
-        infiniteJumpConnection = game:GetService("UserInputService").JumpRequest:Connect(function()
+         end
+         infiniteJumpConnection = game:GetService("UserInputService").JumpRequest:Connect(function()
             local player = game.Players.LocalPlayer
             if player.Character and player.Character:FindFirstChild("Humanoid") then
-                player.Character.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+               player.Character.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
             end
-        end)
-    end
-    
-    local function disableInfiniteJump()
-        if infiniteJumpConnection then
+         end)
+      end
+      local function disableInfiniteJump()
+         if infiniteJumpConnection then
             infiniteJumpConnection:Disconnect()
             infiniteJumpConnection = nil
-        end
-    end
-    
-    local infiniteJump = Tabs.Player:AddToggle("InfiniteJump", {
-        Title = "Infinite Jump",
-        Description = "Jump infinitely without touching ground",
-        Default = false,
-        Callback = function(Value)
+         end
+      end
+      local infiniteJump = PlayerTab:CreateToggle({
+         Name = "Infinite Jump",
+         CurrentValue = false,
+         Flag = "infinitejump",
+         Callback = function(Value)
             if Value then
-                if not isInfiniteJumpActive then
-                    enableInfiniteJump()
-                    isInfiniteJumpActive = true
-                end
+               if not isInfiniteJumpActive then
+                  enableInfiniteJump()
+                  isInfiniteJumpActive = true
+               end
             else
-                if isInfiniteJumpActive then
-                    disableInfiniteJump()
-                    isInfiniteJumpActive = false
-                end
+               if isInfiniteJumpActive then
+                  disableInfiniteJump()
+                  isInfiniteJumpActive = false
+               end
             end
-        end
-    })
-    
-    -- No Clip
-    local isNoclipActive = false
-    local noclipConnection = nil
-    local RunService = game:GetService("RunService")
-    
-    local function enableNoclip()
-        local player = game.Players.LocalPlayer
-        if not player.Character then
-            return false
-        end
-        if noclipConnection then
+         end,
+      })
+local isNoclipActive = false
+local noclipConnection = nil
+local RunService = game:GetService("RunService")
+local function enableNoclip()
+    local player = game.Players.LocalPlayer
+    if not player.Character then
+        return false
+    end
+    if noclipConnection then
+        noclipConnection:Disconnect()
+    end
+    noclipConnection = RunService.Stepped:Connect(function()
+        if not isNoclipActive then
             noclipConnection:Disconnect()
+            return
         end
-        noclipConnection = RunService.Stepped:Connect(function()
-            if not isNoclipActive then
-                noclipConnection:Disconnect()
-                return
-            end
-            local character = player.Character
-            if character then
-                for _, part in pairs(character:GetDescendants()) do
-                    if part:IsA("BasePart") and part.CanCollide then
-                        part.CanCollide = false
-                    end
+        local character = player.Character
+        if character then
+            for _, part in pairs(character:GetDescendants()) do
+                if part:IsA("BasePart") and part.CanCollide then
+                    part.CanCollide = false
                 end
             end
-        end)
-        
-        return true
-    end
+        end
+    end)
     
-    local function disableNoclip()
-        local player = game.Players.LocalPlayer
-        if noclipConnection then
-            noclipConnection:Disconnect()
-            noclipConnection = nil
-        end
-        if player.Character then
-            for _, part in pairs(player.Character:GetDescendants()) do
-                if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
-                    if part.Name == "Head" or part.Name:find("Torso") or part.Name:find("Arm") or part.Name:find("Leg") then
-                        part.CanCollide = false
-                    else
-                        part.CanCollide = true
-                    end
-                end
-            end
-            if player.Character:FindFirstChild("HumanoidRootPart") then
-                player.Character.HumanoidRootPart.CanCollide = false
-            end
-        end
-    end
-    
-    local function setupCharacterNoclip()
-        local player = game.Players.LocalPlayer
-        if player.Character and isNoclipActive then
-            wait(0.5)
-            enableNoclip()
-        end
-    end
-    
-    game.Players.LocalPlayer.CharacterAdded:Connect(setupCharacterNoclip)
-    
-    local noclipToggle = Tabs.Player:AddToggle("NoClip", {
-        Title = "No Clip",
-        Description = "Walk through walls",
-        Default = false,
-        Callback = function(Value)
-            isNoclipActive = Value
-            if Value then
-                enableNoclip()
-            else
-                disableNoclip()
-            end
-        end
-    })
-    
-    -- Anti AFK
-    local antiAfkConnection = nil
-    local isAntiAfkActive = false
-    
-    local antiAfkToggle = Tabs.Player:AddToggle("AntiAfk", {
-        Title = "Anti AFK",
-        Description = "Prevent getting kicked for being idle",
-        Default = false,
-        Callback = function(Value)
-            if Value then
-                if not isAntiAfkActive then
-                    local VirtualUser = game:GetService('VirtualUser')
-                    antiAfkConnection = game:GetService('Players').LocalPlayer.Idled:Connect(function()
-                        VirtualUser:CaptureController()
-                        VirtualUser:ClickButton2(Vector2.new())
-                    end)
-                    isAntiAfkActive = true
-                end
-            else
-                if antiAfkConnection and isAntiAfkActive then
-                    antiAfkConnection:Disconnect()
-                    antiAfkConnection = nil
-                    isAntiAfkActive = false
-                end
-            end
-        end
-    })
-    -- Auto Trade Section
-    local isAutoTradeActive = false
-    local isAutoGiveActive = false
-    local autoTradeConnection = nil
-    local hookApplied = false
-    local originalCreateTradePrompt = nil
-
-    local function setupAutoTrade()
-        local success, error = pcall(function()
-            local ReplicatedStorage = game:GetService("ReplicatedStorage")
-            local Controllers = ReplicatedStorage:FindFirstChild("Controllers")
-            if Controllers then
-                local ItemTradingController = Controllers:FindFirstChild("ItemTradingController")
-                if ItemTradingController then
-                    local controller = require(ItemTradingController)
-                    if not originalCreateTradePrompt and controller.CreateTradePrompt then
-                        originalCreateTradePrompt = controller.CreateTradePrompt
-                    end
-                    
-                    controller.CreateTradePrompt = function(self, itemData, itemInfo, tradeInfo)
-                        if isAutoTradeActive and tradeInfo and tradeInfo.sender then
-                            local Promise = require(ReplicatedStorage.Packages.Promise)
-                            return Promise.resolve(true)
-                        end
-                        
-                        if isAutoGiveActive and tradeInfo and tradeInfo.target then
-                            local Promise = require(ReplicatedStorage.Packages.Promise)
-                            return Promise.resolve(true)
-                        end
-                        
-                        if originalCreateTradePrompt then
-                            return originalCreateTradePrompt(self, itemData, itemInfo, tradeInfo)
-                        else
-                            local Promise = require(ReplicatedStorage.Packages.Promise)
-                            return Promise.reject("Original function not found")
-                        end
-                    end
-                    hookApplied = true
-                    if autoTradeConnection then
-                        autoTradeConnection:Disconnect()
-                    end
-                    autoTradeConnection = game:GetService("RunService").Heartbeat:Connect(function()
-                        if tick() % 5 < 0.1 then
-                            local currentController = require(ItemTradingController)
-                            if currentController.CreateTradePrompt ~= controller.CreateTradePrompt then
-                                currentController.CreateTradePrompt = controller.CreateTradePrompt
-                            end
-                        end
-                    end)
-                    
-                    return true
-                end
-            end
-            
-            warn("[AUTO ACCEPT] ItemTradingController not found!")
-            return false
-        end)
-        
-        if not success then
-            warn("Auto accept setup error: " .. tostring(error))
-            return false
-        end
-        return success
-    end
-
-    local function disableAutoTrade()
-        local success, error = pcall(function()
-            local ReplicatedStorage = game:GetService("ReplicatedStorage")
-            local Controllers = ReplicatedStorage:FindFirstChild("Controllers")
-            
-            if Controllers then
-                local ItemTradingController = Controllers:FindFirstChild("ItemTradingController")
-                if ItemTradingController then
-                    local controller = require(ItemTradingController)
-                    if originalCreateTradePrompt then
-                        controller.CreateTradePrompt = originalCreateTradePrompt
-                    end
-                end
-            end
-            
-            if autoTradeConnection then
-                autoTradeConnection:Disconnect()
-                autoTradeConnection = nil
-            end
-            
-            hookApplied = false
-            return true
-        end)
-        
-        if not success then
-            warn("Disable auto accept error: " .. tostring(error))
-            return false
-        end
-        return success
-    end
-    local autoTradeToggle = Tabs.Player:AddToggle("AutoTrade", {
-        Title = "Auto Trade",
-        Description = "Automatically accept and give",
-        Default = false,
-        Callback = function(Value)
-            if Value then
-                if not isAutoTradeActive and not isAutoGiveActive then
-                    if setupAutoTrade() then
-                        isAutoTradeActive = true
-                        isAutoGiveActive = true
-                    else
-                        Options.AutoTrade:SetValue(false)
-                    end
-                end
-            else
-                if isAutoTradeActive or isAutoGiveActive then
-                    isAutoTradeActive = false
-                    isAutoGiveActive = false
-                    disableAutoTrade()
-                end
-            end
-        end
-    })
+    return true
 end
-do
-local isAutoFishActive = false
-local fishingDelay = 2.3 
-local isAutoPerfectActive = false
-local isAutoAmazingActive = false
-local toolRefreshInterval = 300
-local lastToolRefreshTime = 0
-local function equipFishingTool()
-   local success, error = pcall(function()
-      local ReplicatedStorage = game:GetService("ReplicatedStorage")
-      local netFolder = ReplicatedStorage.Packages._Index:FindFirstChild("sleitnick_net@0.2.0")
-      if not netFolder or not netFolder:FindFirstChild("net") then
-         warn("Network folder not found!")
-         return false
-      end
-      local net = netFolder.net
-      local equipTool = net:FindFirstChild("RE/EquipToolFromHotbar")
-      if equipTool then
-         equipTool:FireServer(1)
-         return true
-      end
-      return false
-   end)
-   if not success then
-      warn("Equip tool error: " .. tostring(error))
-      return false
-   end
-   return success
+local function disableNoclip()
+    local player = game.Players.LocalPlayer
+    if noclipConnection then
+        noclipConnection:Disconnect()
+        noclipConnection = nil
+    end
+    if player.Character then
+        for _, part in pairs(player.Character:GetDescendants()) do
+            if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+                if part.Name == "Head" or part.Name:find("Torso") or part.Name:find("Arm") or part.Name:find("Leg") then
+                    part.CanCollide = false -- These should stay non-collidable
+                else
+                    part.CanCollide = true -- Other parts should be collidable
+                end
+            end
+        end
+        if player.Character:FindFirstChild("HumanoidRootPart") then
+            player.Character.HumanoidRootPart.CanCollide = false
+        end
+    end
 end
-
-local function unequipFishingTool()
-   local success, error = pcall(function()
-      local ReplicatedStorage = game:GetService("ReplicatedStorage")
-      local netFolder = ReplicatedStorage.Packages._Index:FindFirstChild("sleitnick_net@0.2.0")
-      if not netFolder or not netFolder:FindFirstChild("net") then
-         warn("Network folder not found!")
-         return false
-      end
-      local net = netFolder.net
-      local unequipTool = net:FindFirstChild("RE/UnequipToolFromHotbar")
-      if unequipTool then
-         unequipTool:FireServer()
-         return true
-      end
-      return false
-   end)
-   
-   if not success then
-      warn("Unequip tool error: " .. tostring(error))
-      return false
-   end
-   return success
+local function setupCharacterNoclip()
+    local player = game.Players.LocalPlayer
+    if player.Character and isNoclipActive then
+        wait(0.5)
+        enableNoclip()
+    end
 end
-
-local function performFishingCycle()
- local success, error = pcall(function()
-     local ReplicatedStorage = game:GetService("ReplicatedStorage")
-     local netFolder = ReplicatedStorage.Packages._Index:FindFirstChild("sleitnick_net@0.2.0")
-     
-     if not netFolder or not netFolder:FindFirstChild("net") then
-         warn("Network folder not found!")
-         return
-     end
-     local net = netFolder.net
-     local chargeFishingRod = net:FindFirstChild("RF/ChargeFishingRod")
-     if chargeFishingRod then
-         if isAutoPerfectActive then
-             local value = 9999999999
-             chargeFishingRod:InvokeServer(value)
-         elseif isAutoAmazingActive then
-             local value = 1755509015.922411
-             chargeFishingRod:InvokeServer(value)
-         else
-             local value = math.random(8000, 10000)
-             chargeFishingRod:InvokeServer(value)
-         end
-         task.wait(0.3)
-     end
-     local requestFishing = net:FindFirstChild("RF/RequestFishingMinigameStarted")
-     if requestFishing then
-         if isAutoPerfectActive then
-             requestFishing:InvokeServer(0, 1)
-         elseif isAutoAmazingActive then
-             requestFishing:InvokeServer(-139.6379699707, 0.87694226394928)
-         else
-             local randomX = math.random(-200, 200) / 100
-             local randomY = math.random(50, 100) / 100
-             requestFishing:InvokeServer(randomX, randomY)
-         end
-     end
-     task.wait(fishingDelay) -- Menggunakan fishingDelay yang bisa diatur slider
-     local fishingCompleted = net:FindFirstChild("RE/FishingCompleted")
-     if fishingCompleted then
-         fishingCompleted:FireServer()
-         task.wait(0.5)
-         
-         local currentTime = tick()
-         if currentTime - lastToolRefreshTime >= toolRefreshInterval then
-             lastToolRefreshTime = currentTime
-             task.wait(1)
-         end
-     end
- end)
- if not success then
-     warn("Fishing cycle error: " .. tostring(error))
- end
-end
-Tabs.Fishing:AddSection("Auto Fishing V1")
-local FishingDelaySlider = Tabs.Fishing:AddSlider("FishingDelay", {
-    Title = "Fishing Delay V1",
-    Description = "Adjust delay between fishing cycles, Default 2.3",
-    Default = 2.3,
-    Min = 2,
-    Max = 10,
-    Rounding = 1,
+game.Players.LocalPlayer.CharacterAdded:Connect(setupCharacterNoclip)
+local noclipp = PlayerTab:CreateToggle({
+    Name = "Noclip",
+    CurrentValue = false,
+    Flag = "nclip",
     Callback = function(Value)
-        fishingDelay = Value
-    end
+        isNoclipActive = Value
+        if Value then
+            enableNoclip()
+        else
+            disableNoclip()
+        end
+    end,
 })
-local AutoFishingToggle = Tabs.Fishing:AddToggle("AutoFishing", {
-   Title = "Auto Fishing V1",
-   Description = "Automatically fish",
-   Default = false,
-   Callback = function(Value)
-      if Value then
-         if not isAutoFishActive then
-            if equipFishingTool() then
-               isAutoFishActive = true
-               lastToolRefreshTime = tick()
-               wait(1) 
-               spawn(function()
-                  while isAutoFishActive do
-                     if not isAutoFishActive then break end 
-                     performFishingCycle()
-                     for i = 1, 10 do
-                        if not isAutoFishActive then break end
-                        wait(0.1)
+
+      local antiafk = PlayerTab:CreateToggle({
+         Name = "Anti Afk",
+         CurrentValue = false,
+         Flag = "antiafk",
+         Callback = function(Value)
+            if Value then
+               if not isAntiAfkActive then
+                  local VirtualUser = game:GetService('VirtualUser')
+                  antiAfkConnection = game:GetService('Players').LocalPlayer.Idled:Connect(function()
+                     VirtualUser:CaptureController()
+                     VirtualUser:ClickButton2(Vector2.new())
+                  end)
+                  isAntiAfkActive = true
+               end
+            else
+               if antiAfkConnection and isAntiAfkActive then
+                  antiAfkConnection:Disconnect()
+                  antiAfkConnection = nil
+                  isAntiAfkActive = false
+               end
+            end
+         end,
+      })
+
+   local fishTab = Window:CreateTab("Fishing", "fish")
+      local isAutoFishActive = false
+      local fishingDelay = 2.3 
+      local isAutoPerfectActive = false
+      local isAutoAmazingActive = false
+
+   local function equipFishingTool()
+      local success, error = pcall(function()
+         local ReplicatedStorage = game:GetService("ReplicatedStorage")
+         local netFolder = ReplicatedStorage.Packages._Index:FindFirstChild("sleitnick_net@0.2.0")
+         if not netFolder or not netFolder:FindFirstChild("net") then
+            warn("Network folder not found!")
+            return false
+         end
+         local net = netFolder.net
+         local equipTool = net:FindFirstChild("RE/EquipToolFromHotbar")
+         if equipTool then
+            equipTool:FireServer(1)
+            return true
+         end
+         return false
+      end)
+      if not success then
+         warn("Equip tool error: " .. tostring(error))
+         return false
+      end
+      return success
+   end
+   local function unequipFishingTool()
+      local success, error = pcall(function()
+         local ReplicatedStorage = game:GetService("ReplicatedStorage")
+         local netFolder = ReplicatedStorage.Packages._Index:FindFirstChild("sleitnick_net@0.2.0")
+         if not netFolder or not netFolder:FindFirstChild("net") then
+            warn("Network folder not found!")
+            return false
+         end
+         local net = netFolder.net
+         local unequipTool = net:FindFirstChild("RE/UnequipToolFromHotbar")
+         if unequipTool then
+            unequipTool:FireServer()
+            return true
+         end
+         return false
+      end)
+      
+      if not success then
+         warn("Unequip tool error: " .. tostring(error))
+         return false
+      end
+      return success
+   end
+   local function performFishingCycle()
+    local success, error = pcall(function()
+        local ReplicatedStorage = game:GetService("ReplicatedStorage")
+        local netFolder = ReplicatedStorage.Packages._Index:FindFirstChild("sleitnick_net@0.2.0")
+        
+        if not netFolder or not netFolder:FindFirstChild("net") then
+            warn("Network folder not found!")
+            return
+        end
+        local net = netFolder.net
+        local chargeFishingRod = net:FindFirstChild("RF/ChargeFishingRod")
+        if chargeFishingRod then
+            if isAutoPerfectActive then
+                local value = 9999999999
+                chargeFishingRod:InvokeServer(value)
+            elseif isAutoAmazingActive then
+                local value = 1755509015.922411
+                chargeFishingRod:InvokeServer(value)
+            else
+                local value = math.random(8000, 10000)
+                chargeFishingRod:InvokeServer(value)
+            end
+            task.wait(0.3)
+        end
+        local requestFishing = net:FindFirstChild("RF/RequestFishingMinigameStarted")
+        if requestFishing then
+            if isAutoPerfectActive then
+                requestFishing:InvokeServer(0, 1)
+            elseif isAutoAmazingActive then
+                requestFishing:InvokeServer(-139.6379699707, 0.87694226394928)
+            else
+                local randomX = math.random(-200, 200) / 100
+                local randomY = math.random(50, 100) / 100
+                requestFishing:InvokeServer(randomX, randomY)
+            end
+        end
+        task.wait(fishingDelay)
+        local fishingCompleted = net:FindFirstChild("RE/FishingCompleted")
+        if fishingCompleted then
+            fishingCompleted:FireServer()
+        end
+    end)
+    if not success then
+        warn("Fishing cycle error: " .. tostring(error))
+    end
+end
+   local mancing = fishTab:CreateToggle({
+      Name = "Auto Fish",
+      CurrentValue = false,
+      Flag = "autofish",
+      Callback = function(Value)
+         if Value then
+            if not isAutoFishActive then
+               if equipFishingTool() then
+                  isAutoFishActive = true
+                  wait(1) 
+                  spawn(function()
+                     while isAutoFishActive do
+                        if not isAutoFishActive then break end 
+                        performFishingCycle()
+                        for i = 1, 10 do -- 10 x 0.1 = 1 second
+                           if not isAutoFishActive then break end
+                           wait(0.1)
+                        end
                      end
+                  end)
+            
+               end
+            end
+         else
+            if isAutoFishActive then
+               isAutoFishActive = false 
+               spawn(function()
+                  if unequipFishingTool() then
                   end
                end)
             end
          end
-      else
-         if isAutoFishActive then
-            isAutoFishActive = false 
-            spawn(function()
-               unequipFishingTool()
-            end)
-         end
-      end
-   end,
+      end,
+   })
+      local perfToggle = fishTab:CreateToggle({
+    Name = "Auto Perfect",
+    CurrentValue = false,
+    Flag = "autoperfect",
+    Callback = function(Value)
+        isAutoPerfectActive = Value
+        if Value then
+            isAutoAmazingActive = false
+            if AutoAmazingToggle then
+                AutoAmazingToggle:Set(false)
+            end
+        end
+    end,
 })
 
-local AutoPerfectToggle = Tabs.Fishing:AddToggle("AutoPerfect", {
- Title = "Auto Perfect",
- Description = "Perfect catch every time",
- Default = false,
- Callback = function(Value)
-     isAutoPerfectActive = Value
-     if Value then
-         isAutoAmazingActive = false
-         Options.AutoAmazing:SetValue(false)
-     end
- end,
-})
-local AutoPerfectToggle = Tabs.Fishing:AddToggle("AutoAmazing", {
- Title = "Auto Amazing",
- Description = "Amazing catch every time",
- Default = false,
- Callback = function(Value)
-     isAutoAmazingActive = Value
-     if Value then
-         isAutoPerfectActive = false
-         Options.AutoPerfect:SetValue(false)
-     end
- end,
-})
-
-local SellFishButton = Tabs.Fishing:AddButton({
-   Title = "Sell All Fish",
-   Description = "Sell all fish in inventory",
-   Callback = function()
-      local success, error = pcall(function()
-         local ReplicatedStorage = game:GetService("ReplicatedStorage")
-         local netFolder = ReplicatedStorage.Packages._Index:FindFirstChild("sleitnick_net@0.2.0")
-         if netFolder and netFolder:FindFirstChild("net") then
-            local net = netFolder.net
-            local sellAllItems = net:FindFirstChild("RF/SellAllItems")
-            if sellAllItems then
-               sellAllItems:InvokeServer()
-            end
-         end
-      end)
-   end,
-})
-Tabs.Fishing:AddSection("Auto Fishing V2")
-local isAutoFishV2Active = false
-local fishingV2DelayTime = 3
-local fishingControllerModule = nil
-local function getFishingController()
-    if fishingControllerModule then
-        return fishingControllerModule
-    end
-    
-    local success, result = pcall(function()
-        local ReplicatedStorage = game:GetService("ReplicatedStorage")
-        local Controllers = ReplicatedStorage:FindFirstChild("Controllers")
-        if Controllers then
-            local FishingController = Controllers:FindFirstChild("FishingController")
-            if FishingController then
-                return require(FishingController)
-            end
-        end
-        return nil
-    end)
-    
-    if success and result then
-        fishingControllerModule = result
-        return fishingControllerModule
-    end
-    
-    return nil
-end
-local function canStartFishing()
-    local controller = getFishingController()
-    if not controller then
-        return false, "Controller not found"
-    end
-    
-    local success, result = pcall(function()
-        return not controller:OnCooldown()
-    end)
-    
-    if success then
-        return result, result and "Ready" or "On cooldown"
-    end
-    
-    return false, "Error checking cooldown"
-end
-local function performNaturalFishingCycle()
-    local success, error = pcall(function()
-        local controller = getFishingController()
-        if not controller then
-            warn("[AUTO FISHING V2] Controller not found")
-            return false
-        end
-        
-        local Players = game:GetService("Players")
-        local camera = workspace.CurrentCamera
-        local screenCenter = Vector2.new(
-            camera.ViewportSize.X / 2,
-            camera.ViewportSize.Y / 2
-        )
-        local canFish, reason = canStartFishing()
-        if not canFish then
-            warn("[AUTO FISHING V2] Cannot fish: " .. reason)
-            return false
-        end
-        controller:RequestChargeFishingRod(screenCenter, true, true)
-        local waitTime = 0
-        local maxWait = 15
-        
-        while waitTime < maxWait and isAutoFishV2Active do
-            local currentGUID = controller:GetCurrentGUID()
-            if currentGUID then
-                controller:RequestFishingMinigameClick()
-            else
-                task.wait(0.5)
-                local stillInFishing = controller:GetCurrentGUID()
-                if not stillInFishing and waitTime > 2 then
-                    break
-                end
-            end
-            
-            task.wait(0.1)
-            waitTime = waitTime + 0.1
-        end
-        
-        return true
-    end)
-    if not success then
-        warn("[AUTO FISHING V2] Error in fishing cycle: " .. tostring(error))
-        return false
-    end
-    return success
-end
-local autoFishV2Toggle = Tabs.Fishing:AddToggle("AutoFishingV2", {
-    Title = "Auto Fishing V2",
-    Description = "testt",
-    Default = false,
+local AutoAmazingToggle = fishTab:CreateToggle({
+    Name = "Auto Amazing",
+    CurrentValue = false,
+    Flag = "autoamazing",
     Callback = function(Value)
-        isAutoFishV2Active = Value
+        isAutoAmazingActive = Value
         if Value then
-            local controller = getFishingController()
-            if not controller then
-                Options.AutoFishingV2:SetValue(false)
-                return
-            end
-            spawn(function()
-                while isAutoFishV2Active do
-                    if not isAutoFishV2Active then break end
-                    local cycleSuccess = performNaturalFishingCycle()
-                    for i = 1, fishingV2DelayTime * 10 do
-                        if not isAutoFishV2Active then break end
-                        task.wait(0.1)
-                    end
-                end
-            end)
+            isAutoPerfectActive = false
+            perfToggle:Set(false)
         end
-    end
-})
-local fishingV2DelaySlider = Tabs.Fishing:AddSlider("FishingV2Delay", {
-    Title = "Fishing Delay V2",
-    Description = "Delay between fishing cycles (seconds)",
-    Default = 3,
-    Min = 2,
-    Max = 10,
-    Rounding = 1,
-    Callback = function(Value)
-        fishingV2DelayTime = Value
-    end
-})
-local isAutoClickV2Active = false
-local autoClickV2Toggle = Tabs.Fishing:AddToggle("AutoClickV2", {
-    Title = "Auto Click",
-    Description = "For auto fishing v2",
-    Default = false,
-    Callback = function(Value)
-        isAutoClickV2Active = Value
-        if Value then
-            spawn(function()
-                while isAutoClickV2Active do
-                    local success, error = pcall(function()
-                        local controller = getFishingController()
-                        if controller then
-                            local currentGUID = controller:GetCurrentGUID()
-                            if currentGUID then
-                                for i = 1, 3 do
-                                    controller:RequestFishingMinigameClick()
-                                    task.wait(0.05)
-                                end
-                            end
-                        end
-                    end)
-                    if not success then
-                        warn("[AUTO CLICK V2] Error: " .. tostring(error))
-                    end
-                    task.wait(0.1)
-                end
-            end)
-        end
-    end
+    end,
 })
 local isInstantReelActive = false
 local instantReelConnection = nil
@@ -1083,7 +563,7 @@ local function stopInstantReel()
         instantReelConnection = nil
     end
 end
-local instantReelToggle = Tabs.Fishing:CreateToggle({
+local instantReelToggle = fishTab:CreateToggle({
     Name = "Instant Rail",
     CurrentValue = false,
     Flag = "instrail",
@@ -1096,13 +576,28 @@ local instantReelToggle = Tabs.Fishing:CreateToggle({
         end
     end,
 })
-Tabs.Fishing:AddSection("Auto Farm V1")
+   local Button = fishTab:CreateButton({
+      Name = "Sell All Fish",
+      Callback = function()
+         local success, error = pcall(function()
+            local ReplicatedStorage = game:GetService("ReplicatedStorage")
+            local netFolder = ReplicatedStorage.Packages._Index:FindFirstChild("sleitnick_net@0.2.0")
+            if netFolder and netFolder:FindFirstChild("net") then
+               local net = netFolder.net
+               local sellAllItems = net:FindFirstChild("RF/SellAllItems")
+               if sellAllItems then
+                  sellAllItems:InvokeServer()
+               end
+            end
+         end)
+      end,
+   })
+local autofarmTab = Window:CreateTab("Auto Farm", "angry")
 local selectedFarmLocation = nil
 local isAutoFarmActive = false
-local selectedFarmMethodV1 = "V1"
 local farmLocations = {
-   ["Kohana"] = CFrame.new(-686.516663, 3.035492, 799.652039, -0.999842, 0.000000, 0.017792, 0.000000, 1.000000, -0.000000, -0.017792, -0.000000, -0.999842),
-   ["Kohana Volcano"] = CFrame.new(-634.442505, 56.306618, 203.509964, 0.649667, -0.000000, 0.760219, -0.000000, 1.000000, 0.000000, -0.760219, -0.000000, 0.649667),
+   ["Kohana"] = CFrame.new(-684.971558, 0.956680596, 800.067017, -5, 0, 1, 0, 1, -0, -1, 0, 0),
+   ["Kohana Volcano"] = CFrame.new(-630.899231, 57.036438, 206.378662, 1, 0, 0.81913656, 0, 1, 0, -0.81913656, 0, -0.573599219),
    ["Tropical Grove"] = CFrame.new(-2134.633301, 6.646839, 3641.041016, -0.787255, 0.000000, -0.616627, 0.000000, 1.000000, -0.000000, 0.616627, -0.000000, -0.787255),
    ["Tropical Grove 2"] = CFrame.new(-2202.405762, 25.430653, 3607.925781, 0.457824, 0.000000, 0.889043, 0.000000, 1.000000, -0.000000, -0.889043, 0.000000, 0.457824),
    ["Sisyphus Statue"] = CFrame.new(-3730.283203, -99.316132, -947.356995, 0.871698, 0.000000, 0.490044, -0.000000, 1.000000, 0.000000, -0.490044, -0.000000, 0.871698),
@@ -1111,41 +606,60 @@ local farmLocations = {
    ["Esoteric Island"] = CFrame.new(1988.061768, 7.207217, 1363.772339, 0.031890, -0.000000, 0.999491, -0.000000, 1.000000, 0.000000, -0.999491, -0.000000, 0.031890),
    ["Crater Island"] = CFrame.new(991.782410, 7.904960, 5082.351562, -0.711836, -0.000000, 0.702345, 0.000000, 1.000000, 0.000000, -0.702345, 0.000000, -0.711836),
    ["Coral Reefs"] = CFrame.new(-3212.688477, 10.198070, 2004.139648, 0.778372, -0.000000, -0.627804, 0.000000, 1.000000, -0.000000, 0.627804, -0.000000, 0.778372),
-   ["Stingray Shores"] = CFrame.new(-182.069839, 3.134159, 2789.177246, 0.013366, -0.000000, 0.999911, -0.000000, 1.000000, 0.000000, -0.999911, -0.000000, 0.013366),
+   ["Stingray Shores"] = CFrame.new(185.923218, 3.750000, 3005.877441, 0.972514, -0.000000, -0.232845, 0.000000, 1.000000, 0.000000, 0.232845, -0.000000, 0.972514),
    ["Ocean"] = CFrame.new(1756.653687, 2.299988, 3358.764893, 0.200904, -0.000000, -0.979611, 0.000000, 1.000000, -0.000000, 0.979611, -0.000000, 0.200904),
    ["Esoteric Depths"] = CFrame.new(3231.490234, -1302.105103, 1453.461060, 0.988762, 0.000000, -0.149498, -0.000000, 1.000000, -0.000000, 0.149498, 0.000000, 0.988762)
 }
-local FarmLocationDropdown = Tabs.Fishing:AddDropdown("FarmLocation", {
-   Title = "Auto Farm V1 - Select Map",
-   Description = "Choose location for auto farming",
-   Values = {
-      "Kohana", "Kohana Volcano", "Tropical Grove", "Tropical Grove 2",
-      "Sisyphus Statue", "Weather Machine", "Treasure Room", "Esoteric Island",
-      "Crater Island", "Coral Reefs", "Stingray Shores", "Ocean", "Esoteric Depths"
+local FarmLocationDropdown = autofarmTab:CreateDropdown({
+   Name = "Select Map Farming",
+   Options = {
+      "Select Location...",
+      "Kohana",
+      "Kohana Volcano", 
+      "Tropical Grove",
+      "Tropical Grove 2",
+      "Sisyphus Statue",
+      "Weather Machine",
+      "Treasure Room",
+      "Esoteric Island",
+      "Crater Island",
+      "Coral Reefs",
+      "Stingray Shores",
+      "Ocean",
+      "Esoteric Depths"
    },
-   Multi = false,
-   Default = 1,
+   CurrentOption = {"Select Location..."},
+   MultipleOptions = false,
+   Flag = "selcmap",
+   Callback = function(Options)
+      local selected = Options[1]
+      if selected ~= "Select Location..." then
+         selectedFarmLocation = selected
+      else
+         selectedFarmLocation = nil
+      end
+   end,
 })
-FarmLocationDropdown:OnChanged(function(Value)
-   selectedFarmLocation = Value
-end)
 local function startAutoFarm()
-   if not selectedFarmLocation then return false end
+   if not selectedFarmLocation then
+      Rayfield:Notify({
+                  Title = "Please select a location first!",
+                  Content = "",
+                  Duration = 5,
+                  Image = "bell-ring",
+               })
+      return false
+   end
    local player = game.Players.LocalPlayer
-   if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then return false end
-
+   if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+      return false
+   end
    local targetCFrame = farmLocations[selectedFarmLocation]
    if targetCFrame then
       player.Character.HumanoidRootPart.CFrame = targetCFrame
       wait(2)
-
-      -- aktifkan method sesuai dropdown
-      if selectedFarmMethodV1 == "V1" then
-         Options.AutoFishing:SetValue(true)
-      else
-         Options.AutoFishingV2:SetValue(true)
-      end
-
+      mancing:Set(true)
+      
       spawn(function()
          while isAutoFarmActive do
             wait(5)
@@ -1155,16 +669,7 @@ local function startAutoFarm()
                local distance = (currentPos - targetPos).Magnitude
                if distance > 50 then
                   player.Character.HumanoidRootPart.CFrame = targetCFrame
-                  -- refresh toggle
-                  if selectedFarmMethodV1 == "V1" then
-                     Options.AutoFishing:SetValue(false)
-                     wait(1)
-                     Options.AutoFishing:SetValue(true)
-                  else
-                     Options.AutoFishingV2:SetValue(false)
-                     wait(1)
-                     Options.AutoFishingV2:SetValue(true)
-                  end
+                  wait(1)
                end
             end
          end
@@ -1175,30 +680,17 @@ local function startAutoFarm()
 end
 local function stopAutoFarm()
    isAutoFarmActive = false
-   Options.AutoFishing:SetValue(false) 
+   mancing:Set(false) 
 end
-local FarmMethodV1Dropdown = Tabs.Fishing:AddDropdown("FarmMethodV1", {
-    Title = "Auto Farm V1 - Select Method",
-    Description = "Choose fishing method for Auto Farm V1",
-    Values = {"V1", "V2"},
-    Multi = false,
-    Default = 1,
-})
-FarmMethodV1Dropdown:OnChanged(function(Value)
-    selectedFarmMethodV1 = Value
-end)
-local AutoFarmV1Toggle = Tabs.Fishing:AddToggle("AutoFarmV1", {
-   Title = "Start Auto Farm V1",
-   Description = "Start farming at selected location",
-   Default = false,
+local FarmToggle = autofarmTab:CreateToggle({
+   Name = "Start Farm",
+   CurrentValue = false,
+   Flag = "mulaifrm",
    Callback = function(Value)
       if Value then
          if not isAutoFarmActive then
             isAutoFarmActive = true
-            if not startAutoFarm() then
-               isAutoFarmActive = false
-               Options.AutoFarmV1:SetValue(false)
-            end
+            startAutoFarm()
          end
       else
          if isAutoFarmActive then
@@ -1207,174 +699,37 @@ local AutoFarmV1Toggle = Tabs.Fishing:AddToggle("AutoFarmV1", {
       end
    end,
 })
-Tabs.Fishing:AddSection("Auto Farm V2")
-local selectedFarmMethodV2 = "V1"
-local CheckpointInput = Tabs.Fishing:AddInput("CheckpointInput", {
-    Title = "Dont' touch this!",
-    Description = "Checkpoint Status",
-    Default = "",
-    Placeholder = "......",
-    Numeric = false,
-    Finished = false,
-    Callback = function(Value)
-        -- Parse coordinate string back to CFrame if valid
-        if Value and Value ~= "" then
-            local coords = {}
-            for num in Value:gmatch("([%-%d%.]+)") do
-                table.insert(coords, tonumber(num))
+local autoSellActive = false
+local AutoSellToggle = autofarmTab:CreateToggle({
+   Name = "Auto Sell Inventory Full",
+   CurrentValue = false,
+   Flag = "autosell",
+   Callback = function(Value)
+      autoSellActive = Value
+      if Value then
+         spawn(function()
+            while autoSellActive do
+               wait(30)
+               if isAutoFarmActive then
+                  local ReplicatedStorage = game:GetService("ReplicatedStorage")
+                  local netFolder = ReplicatedStorage.Packages._Index:FindFirstChild("sleitnick_net@0.2.0")
+                  if netFolder and netFolder:FindFirstChild("net") then
+                     local net = netFolder.net
+                     local sellAllItems = net:FindFirstChild("RF/SellAllItems")
+                     if sellAllItems then
+                        sellAllItems:InvokeServer()
+                     end
+                  end
+               end
             end
-            if #coords >= 12 then
-                checkpointPosition = CFrame.new(unpack(coords))
-                hasCheckpoint = true
-            end
-        else
-            checkpointPosition = nil
-            hasCheckpoint = false
-        end
-    end
+         end)
+      else
+      end
+   end,
 })
-local function cframeToString(cframe)
-    if not cframe then return "" end
-    local components = {cframe:GetComponents()}
-    return string.format("%.2f, %.2f, %.2f, %.3f, %.3f, %.3f, %.3f, %.3f, %.3f, %.3f, %.3f, %.3f", unpack(components))
-end
-local SetCheckpointButton = Tabs.Fishing:AddButton({
-    Title = "Set Location",
-    Description = "Save current position as farming location",
-    Callback = function()
-        local player = game.Players.LocalPlayer
-        if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-            checkpointPosition = player.Character.HumanoidRootPart.CFrame
-            hasCheckpoint = true
-            local coordString = cframeToString(checkpointPosition)
-            Options.CheckpointInput:SetValue(coordString)
-        end
-    end,
-})
-local ClearCheckpointButton = Tabs.Fishing:AddButton({
-    Title = "Clear Location",
-    Description = "Remove saved position",
-    Callback = function()
-        checkpointPosition = nil
-        hasCheckpoint = false
-        if isAutoFarmV2Active then
-            Options.AutoFarmV2:SetValue(false)
-        end
-        Options.CheckpointInput:SetValue("")
-    end,
-})
-local function startAutoFarmV2()
-    local player = game.Players.LocalPlayer
-    if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then return false end
-
-    player.Character.HumanoidRootPart.CFrame = checkpointPosition
-    wait(2)
-
-    -- aktifkan method sesuai dropdown
-    if selectedFarmMethodV2 == "V1" then
-        Options.AutoFishing:SetValue(true)
-    else
-        Options.AutoFishingV2:SetValue(true)
-    end
-
-    spawn(function()
-        while isAutoFarmV2Active do
-            wait(5)
-            if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-                local currentPos = player.Character.HumanoidRootPart.Position
-                local checkpointPos = checkpointPosition.Position
-                local distance = (currentPos - checkpointPos).Magnitude
-                if distance > 50 then
-                    player.Character.HumanoidRootPart.CFrame = checkpointPosition
-                    -- refresh toggle
-                    if selectedFarmMethodV2 == "V1" then
-                        Options.AutoFishing:SetValue(false)
-                        wait(1)
-                        Options.AutoFishing:SetValue(true)
-                    else
-                        Options.AutoFishingV2:SetValue(false)
-                        wait(1)
-                        Options.AutoFishingV2:SetValue(true)
-                    end
-                end
-            end
-        end
-    end)
-    return true
-end
-
-local FarmMethodV2Dropdown = Tabs.Fishing:AddDropdown("FarmMethodV2", {
-    Title = "Auto Farm V2 - Select Method",
-    Description = "Choose fishing method for Auto Farm V2",
-    Values = {"V1", "V2"},
-    Multi = false,
-    Default = 1,
-})
-FarmMethodV2Dropdown:OnChanged(function(Value)
-    selectedFarmMethodV2 = Value
-end)
-local function stopAutoFarmV2()
-    isAutoFarmV2Active = false
-    Options.AutoFishing:SetValue(false)
-end
-
-local AutoFarmV2Toggle = Tabs.Fishing:AddToggle("AutoFarmV2", {
-    Title = "Start Auto Farm V2",
-    Description = "Farm at your saved location",
-    Default = false,
-    Callback = function(Value)
-        if Value then
-            if not isAutoFarmV2Active then
-                isAutoFarmV2Active = true
-                if not startAutoFarmV2() then
-                    isAutoFarmV2Active = false
-                    Options.AutoFarmV2:SetValue(false)
-                end
-            end
-        else
-            if isAutoFarmV2Active then
-                stopAutoFarmV2()
-            end
-        end
-    end,
-})
-
-spawn(function()
-    wait(5) -- tunggu config dan checkpoint input benar2 loaded
-    if Options.AutoFarmV2 and Options.AutoFarmV2.Value == true then
-        if hasCheckpoint and checkpointPosition then
-            Options.AutoFarmV2:SetValue(false)
-            wait(3)
-            Options.AutoFarmV2:SetValue(true)
-        else
-            Options.AutoFarmV2:SetValue(false)
-        end
-    end
-end)
-
-
-spawn(function()
-    wait(3) -- Wait untuk config loading selesai
-    local inputValue = Options.CheckpointInput and Options.CheckpointInput.Value or ""
-    if inputValue ~= "" then
-        local coords = {}
-        for num in inputValue:gmatch("([%-%d%.]+)") do
-            table.insert(coords, tonumber(num))
-        end
-        if #coords >= 12 then
-            checkpointPosition = CFrame.new(unpack(coords))
-            hasCheckpoint = true
-            local pos = checkpointPosition.Position
-            local infoText = string.format("X: %.1f, Y: %.1f, Z: %.1f", pos.X, pos.Y, pos.Z)
-        end
-    end
-end)
-end
-do
-    local teleportTab = Tabs.Teleport
-    
-    -- Player Teleport Section
+    local TeleportTab = Window:CreateTab("Teleport", "ghost")
     local currentPlayerList = {}
+    local teleportDropdown = nil
     local isDropdownInitialized = false
     local lastSelectedOption = "Select a player..."
 
@@ -1389,18 +744,20 @@ do
     end
 
     local function updatePlayerDropdown()
-        currentPlayerList = getPlayerList()
-        if Options.TeleportToPlayer then
-            if #currentPlayerList > 0 then
-                local options = {"Select a player..."}
-                for _, playerName in ipairs(currentPlayerList) do
-                    table.insert(options, playerName)
-                end
-                Options.TeleportToPlayer:SetValues(options)
-            end
+    if not teleportDropdown then return end
+    currentPlayerList = getPlayerList()
+    if #currentPlayerList > 0 then
+        local options = {"Select a player..."}
+        for _, playerName in ipairs(currentPlayerList) do
+            table.insert(options, playerName)
         end
+        teleportDropdown:Refresh(options)
+        teleportDropdown:Set({"Select a player..."})
+    else
+        teleportDropdown:Refresh({"Select a player...", "No players available"})
+        teleportDropdown:Set({"Select a player..."})
     end
-
+end
     local function teleportToPlayer(playerName)
         if not isDropdownInitialized then return end
         if playerName == lastSelectedOption then return end
@@ -1426,998 +783,813 @@ do
             localPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(offsetPosition)
         end)
     end
-
     currentPlayerList = getPlayerList()
-    local playerTeleportDropdown = teleportTab:AddDropdown("TeleportToPlayer", {
-        Title = "Teleport To Player",
-        Description = "Select a player to teleport to",
-        Values = #currentPlayerList > 0 and (function() 
+    teleportDropdown = TeleportTab:CreateDropdown({
+        Name = "Teleport To Player",
+        Options = #currentPlayerList > 0 and (function() 
             local options = {"Select a player..."}
             for _, playerName in ipairs(currentPlayerList) do
                 table.insert(options, playerName)
             end
             return options
         end)() or {"Select a player...", "No players available"},
-        Multi = false,
-        Default = 1,
-        Searchable = true,
-        Callback = function(Value)
-            if Value == "Select a player..." or Value == "No players available" then
-                return
-            end
-            
-            if Value and isDropdownInitialized then
+        CurrentOption = {"Select a player..."},
+        MultipleOptions = false,
+        Flag = "telplyr",
+        Callback = function(Options)
+            if Options and Options[1] and isDropdownInitialized then
                 spawn(function()
                     wait(0.1)
-                    teleportToPlayer(Value)
-                    -- Reset to default after teleport
-                    Options.TeleportToPlayer:SetValue("Select a player...")
+                    teleportToPlayer(Options[1])
                 end)
             end
-        end
+        end,
     })
-
     spawn(function()
         wait(2)
         isDropdownInitialized = true
     end)
-
-    local refreshPlayerButton = teleportTab:AddButton({
-        Title = "Refresh Player List",
-        Description = "Update the list of available players",
+    local RefreshButton = TeleportTab:CreateButton({
+        Name = "Refresh Player List",
         Callback = function()
             updatePlayerDropdown()
-        end
+        end,
     })
+   local IslandDropdown = TeleportTab:CreateDropdown({
+      Name = "Teleport Island",
+      Options = {
+         "Select Island...",
+         "Kohana",
+         "Kohana Volcano",
+         "Tropical Grove",
+         "Sisyphus Statue",
+         "Weather Machine",
+         "Treasure Room",
+         "Esoteric Island",
+         "Crater Island",
+         "Coral Reefs",
+         "Stingray Shores",
+         "Ocean",
+         "Esoteric Depths"
+      },
+      CurrentOption = {"Select Island..."},
+      MultipleOptions = false,
+      Flag = "teleislan",
+      Callback = function(Options)
+         local selectedIsland = Options[1]
+         local player = game.Players.LocalPlayer
+         if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+            return
+         end
+         local locations = {
+            ["Kohana"] = CFrame.new(-666.27771, 0.946365654, 719.934326, 0, 0, -1, 0, 1, 0, 1, 0, 0),
+            ["Kohana Volcano"] = CFrame.new(-484.600891, 20.750059, 227.483047, -0.750139, -0.000000, -0.661280, -0.000000, 1.000000, -0.000000, 0.661280, 0.000000, -0.750139),
+            ["Tropical Grove"] = CFrame.new(-2063.47021, 3.99908447, 3643.12622, -0.0675487518, 0, 0.99771595, 0, 1, 0, -0.99771595, 0, -0.0675487518),
+            ["Sisyphus Statue"] = CFrame.new(-3729.36743, -100.94648, -948.056519, 0.881157279, -0.202546716, 0.427243084, 9.03755426e-06, 0.90360719, 0.428362042, -0.472823232, -0.377450496, 0.796221912),
+            ["Weather Machine"] = CFrame.new(-1492.293091, 3.500000, 1903.266235, 0.037160, -0.000000, -0.999309, -0.000000, 1.000000, -0.000000, 0.999309, 0.000000, 0.037160),
+            ["Treasure Room"] = CFrame.new(-3599.518799, -315.629181, -1418.691650, 0.999777, -0.000000, -0.021134, 0.000000, 1.000000, -0.000000, 0.021134, 0.000000, 0.999777),
+            ["Esoteric Island"] = CFrame.new(2061.76196, 35.6500702, 1380.32703, 1, 0, 0, 0, 1, 0, 0, 0, 1),
+            ["Crater Island"] = CFrame.new(976.711548, -5.2534189, 4886.73242, 0.173624337, -0, -0.984811902, 0, 1, -0, 0.984811902, 0, 0.173624337),
+            ["Coral Reefs"] = CFrame.new(-3120.34644, 16.9453125, 2181.97144, 0.707134247, -0, -0.707079291, 0, 1, -0, 0.707079291, 0, 0.707134247),
+            ["Stingray Shores"] = CFrame.new(21.25, 7.74999809, 2883.3125, 1, 0, 0, 0, 1, 0, 0, 0, 1),
+            ["Ocean"] = CFrame.new(1609.45593, 7.993308318, 3279.21533, 0.499959469, 0, 0.866048813, 0, 1, 0, -0.866048813, 0, 0.499959469),
+            ["Esoteric Depths"] = CFrame.new(3054.9707, -1288.35474, 1483.97412, 0.90629667, 0, 0.422642082, 0, 1, 0, -0.422642082, 0, 0.90629667)
+         }
+         if locations[selectedIsland] then
+            player.Character.HumanoidRootPart.CFrame = locations[selectedIsland]
+         elseif selectedIsland ~= "Select Island..." then
+         end
+      end,
+   })
+   local NPCDropdown = TeleportTab:CreateDropdown({
+      Name = "Teleport NPC",
+      Options = {
+         "Select NPC...",
+         "Alex - Sell Fish",
+         "Billy Bob - Rod Skin",
+         "Boat Expert - Boat Shop",
+         "Joe - Rod Shop",
+         "Scientist - Lucky Potion",
+         "Scoot - Boat Shop",
+         "Seth - Bait Shop",
+         "Silly Fisherman"
+      },
+      CurrentOption = {"Select NPC..."},
+      MultipleOptions = false,
+      Flag = "telnpc",
+      Callback = function(Options)
+         local selectedNPC = Options[1]
+         local player = game.Players.LocalPlayer
+         
+         if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+            return
+         end
+         
+         local npcLocations = {
+            ["Alex - Sell Fish"] = CFrame.new(-31.029264, 4.500001, 2890.095947, -0.997203, 0.000000, 0.074746, 0.000000, 1.000000, -0.000000, -0.074746, -0.000000, -0.997203),
+            ["Billy Bob - Rod Skin"] = CFrame.new(64.524055, 29.000002, 2950.265869, 0.012369, -0.000000, -0.999923, -0.000000, 1.000000, -0.000000, 0.999923, 0.000000, 0.012369),
+            ["Boat Expert - Boat Shop"] = CFrame.new(22.869276, 4.045772, 2810.912354, 0.999303, -0.000000, 0.037339, 0.000000, 1.000000, 0.000000, -0.037339, -0.000000, 0.999303),
+            ["Joe - Rod Shop"] = CFrame.new(114.716515, 4.750001, 2876.207275, -0.999499, -0.000000, 0.031645, -0.000000, 1.000000, 0.000000, -0.031645, 0.000000, -0.999499),
+            ["Scientist - Lucky Potion"] = CFrame.new(-7.974049, 4.500001, 2844.862305, -0.999788, -0.000000, -0.020568, -0.000000, 1.000000, 0.000000, 0.020568, 0.000000, -0.999788),
+            ["Scoot - Boat Shop"] = CFrame.new(-75.6783218, 4.74903107, 2867.15674, 0.305231869, -2.02933879e-05, 0.952278197, 0.000808718964, 0.999999642, -0.000237909742, -0.952277839, 0.000842742971, 0.30523181),
+            ["Seth - Bait Shop"] = CFrame.new(71.385483, 4.561694, 2888.099121, -0.996477, -0.000000, -0.083868, -0.000000, 1.000000, -0.000000, 0.083868, -0.000000, -0.996477),
+            ["Silly Fisherman"] = CFrame.new(90.683128, 27.244699, 3005.096436, -0.739958, 0.000000, -0.672653, 0.000000, 1.000000, 0.000000, 0.672653, 0.000000, -0.739958)
+         }
+         
+         if npcLocations[selectedNPC] then
+            player.Character.HumanoidRootPart.CFrame = npcLocations[selectedNPC]
+         elseif selectedNPC ~= "Select Npc..." then
+         end
+      end,
+   })
+   -- Tambahkan kode ini setelah NPCDropdown di TeleportTab
 
-    -- Island Teleport Section
-    teleportTab:AddSection("Islands")
-    
-    local islandTeleportDropdown = teleportTab:AddDropdown("TeleportIsland", {
-        Title = "Teleport To Island",
-        Description = "Select an island to teleport to",
-        Values = {
-            "Select Island...",
-            "Kohana",
-            "Kohana Volcano",
-            "Tropical Grove",
-            "Sisyphus Statue",
-            "Weather Machine",
-            "Treasure Room",
-            "Esoteric Island",
-            "Crater Island",
-            "Coral Reefs",
-            "Stingray Shores",
-            "Ocean",
-            "Esoteric Depths"
-        },
-        Multi = false,
-        Default = 1,
-        Searchable = true,
-        Callback = function(Value)
-            if Value == "Select Island..." then
-                return
-            end
-            
-            local player = game.Players.LocalPlayer
-            if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
-                return
-            end
-            local locations = {
-                ["Kohana"] = CFrame.new(-666.27771, 0.946365654, 719.934326, 0, 0, -1, 0, 1, 0, 1, 0, 0),
-                ["Kohana Volcano"] = CFrame.new(-484.600891, 20.750059, 227.483047, -0.750139, -0.000000, -0.661280, -0.000000, 1.000000, -0.000000, 0.661280, 0.000000, -0.750139),
-                ["Tropical Grove"] = CFrame.new(-2063.47021, 3.99908447, 3643.12622, -0.0675487518, 0, 0.99771595, 0, 1, 0, -0.99771595, 0, -0.0675487518),
-                ["Sisyphus Statue"] = CFrame.new(-3729.36743, -100.94648, -948.056519, 0.881157279, -0.202546716, 0.427243084, 9.03755426e-06, 0.90360719, 0.428362042, -0.472823232, -0.377450496, 0.796221912),
-                ["Weather Machine"] = CFrame.new(-1492.293091, 3.500000, 1903.266235, 0.037160, -0.000000, -0.999309, -0.000000, 1.000000, -0.000000, 0.999309, 0.000000, 0.037160),
-                ["Treasure Room"] = CFrame.new(-3599.518799, -315.629181, -1418.691650, 0.999777, -0.000000, -0.021134, 0.000000, 1.000000, -0.000000, 0.021134, 0.000000, 0.999777),
-                ["Esoteric Island"] = CFrame.new(2061.76196, 35.6500702, 1380.32703, 1, 0, 0, 0, 1, 0, 0, 0, 1),
-                ["Crater Island"] = CFrame.new(976.711548, -5.2534189, 4886.73242, 0.173624337, -0, -0.984811902, 0, 1, -0, 0.984811902, 0, 0.173624337),
-                ["Coral Reefs"] = CFrame.new(-3120.34644, 16.9453125, 2181.97144, 0.707134247, -0, -0.707079291, 0, 1, -0, 0.707079291, 0, 0.707134247),
-                ["Stingray Shores"] = CFrame.new(32.029018, 9.784778, 2813.289551, 0.980407, -0.000000, 0.196984, 0.000000, 1.000000, -0.000000, -0.196984, 0.000000, 0.980407),
-                ["Ocean"] = CFrame.new(1609.45593, 7.993308318, 3279.21533, 0.499959469, 0, 0.866048813, 0, 1, 0, -0.866048813, 0, 0.499959469),
-                ["Esoteric Depths"] = CFrame.new(3054.9707, -1288.35474, 1483.97412, 0.90629667, 0, 0.422642082, 0, 1, 0, -0.422642082, 0, 0.90629667)
-            }
-            if locations[Value] then
-                player.Character.HumanoidRootPart.CFrame = locations[Value]
-                spawn(function()
-                    wait(0.1)
-                    Options.TeleportIsland:SetValue("Select Island...")
-                end)
-            end
-        end
-    })
+local detectedEvents = {}
+local selectedEvent = nil
+local EventDropdown = nil
+local eventCoordinates = {
+    ["Shark Hunt"] = {
+        Vector3.new(1.64999, 5, 2095.72),
+        Vector3.new(1369.94, 5, 930.125),
+        Vector3.new(-1585.5, 5, 1242.87),
+        Vector3.new(-1896.8, 5, 2634.37)
+    },
+    ["Ghost Shark Hunt"] = {
+        Vector3.new(489.558, 5, 25.4060),
+        Vector3.new(1976.51, 5, 2915.93),
+        Vector3.new(-1358.2, 5, 4100.55),
+        Vector3.new(627.859, 5, 3798.08)
+    },
+    ["Sparkling Cove"] = {
+        Vector3.new(195.378, 5, 2976.27)
+    },
+    ["Worm Hunt"] = {
+        Vector3.new(1591.55, 5, -105.92),
+        Vector3.new(-2450.6, 5, 139.731),
+        Vector3.new(-267.47, 5, 5188.53)
+    },
+    ["Admin - Shocked"] = {
+        Vector3.new(383, 5, 2452)
+    },
+    ["Admin - Black Hole"] = {
+        Vector3.new(883, 5, 2542)
+    },
+    ["Admin - Ghost Worm"] = {
+        Vector3.new(-327, 5, 2422)
+    },
+    ["Admin - Meteor Rain"] = {
+        Vector3.new(383, 5, 2452)
+    },
+    ["Storm"] = {Vector3.new(-1492.293091, 3.500000, 1903.266235)},
+    ["Snow"] = {Vector3.new(-1492.293091, 3.500000, 1903.266235)},
+    ["Wind"] = {Vector3.new(-1492.293091, 3.500000, 1903.266235)},
+    ["Cloudy"] = {Vector3.new(-1492.293091, 3.500000, 1903.266235)}
+}
 
-    -- NPC Teleport Section  
-    teleportTab:AddSection("NPCs")
+local function detectActiveEvents()
+    local activeEvents = {}
     
-    local npcTeleportDropdown = teleportTab:AddDropdown("TeleportNPC", {
-        Title = "Teleport To NPC",
-        Description = "Select an NPC to teleport to",
-        Values = {
-            "Select NPC...",
-            "Alex - Sell Fish",
-            "Billy Bob - Rod Skin",
-            "Boat Expert - Boat Shop",
-            "Joe - Rod Shop",
-            "Scientist - Lucky Potion",
-            "Scoot - Boat Shop",
-            "Seth - Bait Shop",
-            "Silly Fisherman"
-        },
-        Multi = false,
-        Default = 1,
-        Searchable = true,
-        Callback = function(Value)
-            if Value == "Select NPC..." then
-                return
-            end
-            
-            local player = game.Players.LocalPlayer
-            if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
-                return
-            end
-            
-            local npcLocations = {
-                ["Alex - Sell Fish"] = CFrame.new(48.656158, 17.071970, 2868.007812, -0.997883, 0.000000, 0.065036, 0.000000, 1.000000, -0.000000, -0.065036, -0.000000, -0.997883),
-                ["Billy Bob - Rod Skin"] = CFrame.new(80.990456, 17.071970, 2869.381348, -0.958304, 0.000000, 0.285750, 0.000000, 1.000000, -0.000000, -0.285750, -0.000000, -0.958304),
-                ["Boat Expert - Boat Shop"] = CFrame.new(22.869276, 4.045772, 2810.912354, 0.999303, -0.000000, 0.037339, 0.000000, 1.000000, 0.000000, -0.037339, -0.000000, 0.999303),
-                ["Joe - Rod Shop"] = CFrame.new(142.136551, 20.459019, 2855.692871, -0.993222, 0.000000, -0.116233, 0.000000, 1.000000, -0.000000, 0.116233, -0.000000, -0.993222),
-                ["Scientist - Lucky Potion"] = CFrame.new(-7.974049, 4.500001, 2844.862305, -0.999788, -0.000000, -0.020568, -0.000000, 1.000000, 0.000000, 0.020568, 0.000000, -0.999788),
-                ["Scoot - Boat Shop"] = CFrame.new(-75.6783218, 4.74903107, 2867.15674, 0.305231869, -2.02933879e-05, 0.952278197, 0.000808718964, 0.999999642, -0.000237909742, -0.952277839, 0.000842742971, 0.30523181),
-                ["Seth - Bait Shop"] = CFrame.new(112.343651, 17.071970, 2869.337402, -0.953610, 0.000000, 0.301044, -0.000000, 1.000000, -0.000000, -0.301044, -0.000000, -0.953610),
-                ["Silly Fisherman"] = CFrame.new(90.683128, 27.244699, 3005.096436, -0.739958, 0.000000, -0.672653, 0.000000, 1.000000, 0.000000, 0.672653, 0.000000, -0.739958)
-            }
-            
-            if npcLocations[Value] then
-                player.Character.HumanoidRootPart.CFrame = npcLocations[Value]
-                spawn(function()
-                    wait(0.1)
-                    Options.TeleportNPC:SetValue("Select NPC...")
-                end)
-            end
-        end
-    })
- teleportTab:AddSection("Events")
-    
-    local detectedEvents = {}
-    local selectedEvent = nil
-    local eventCoordinates = {
-        ["Shark Hunt"] = {
-            Vector3.new(1.64999, 5, 2095.72),
-            Vector3.new(1369.94, 5, 930.125),
-            Vector3.new(-1585.5, 5, 1242.87),
-            Vector3.new(-1896.8, 5, 2634.37)
-        },
-        ["Ghost Shark Hunt"] = {
-            Vector3.new(489.558, 5, 25.4060),
-            Vector3.new(1976.51, 5, 2915.93),
-            Vector3.new(-1358.2, 5, 4100.55),
-            Vector3.new(627.859, 5, 3798.08)
-        },
-        ["Sparkling Cove"] = {
-            Vector3.new(195.378, 5, 2976.27)
-        },
-        ["Worm Hunt"] = {
-            Vector3.new(1591.55, 5, -105.92),
-            Vector3.new(-2450.6, 5, 139.731),
-            Vector3.new(-267.47, 5, 5188.53)
-        },
-        ["Admin - Shocked"] = {
-            Vector3.new(383, 5, 2452)
-        },
-        ["Admin - Black Hole"] = {
-            Vector3.new(883, 5, 2542)
-        },
-        ["Admin - Ghost Worm"] = {
-            Vector3.new(-327, 5, 2422)
-        },
-        ["Admin - Meteor Rain"] = {
-            Vector3.new(383, 5, 2452)
-        },
-        ["Storm"] = {Vector3.new(-1492.293091, 3.500000, 1903.266235)},
-        ["Snow"] = {Vector3.new(-1492.293091, 3.500000, 1903.266235)},
-        ["Wind"] = {Vector3.new(-1492.293091, 3.500000, 1903.266235)},
-        ["Cloudy"] = {Vector3.new(-1492.293091, 3.500000, 1903.266235)}
-    }
-
-    local function detectActiveEvents()
-        local activeEvents = {}
+    local success, error = pcall(function()
+        local ReplicatedStorage = game:GetService("ReplicatedStorage")
+        local eventsFolder = ReplicatedStorage:FindFirstChild("Events")
         
-        local success, error = pcall(function()
-            local ReplicatedStorage = game:GetService("ReplicatedStorage")
-            local workspaceProps = workspace:FindFirstChild("Props")
-            
-            if workspaceProps and workspaceProps:FindFirstChild("Shark Hunt") then
-                table.insert(activeEvents, "Shark Hunt 🟢")
-            end
-            if workspaceProps and workspaceProps:FindFirstChild("Ghost Shark Hunt") then
-                table.insert(activeEvents, "Ghost Shark Hunt 🟢")
-            end
-            
-            local lighting = game:GetService("Lighting")
-            if lighting:FindFirstChild("SparklingCoveEffect") or 
-               (lighting.Brightness > 1.5 and lighting.ColorShift_Top.R > 0.8 and lighting.ColorShift_Top.G > 0.8) then
-                table.insert(activeEvents, "Sparkling Cove 🟢")
-            end
-            
-            local PlayerGui = game.Players.LocalPlayer:FindFirstChild("PlayerGui")
-            local wormHuntActive = false
-            if PlayerGui then
-                for _, gui in pairs(PlayerGui:GetDescendants()) do
-                    if gui:IsA("TextLabel") and gui.Text then
-                        if string.match(gui.Text, "Worm Hunt") and 
-                           (string.match(gui.Text, "%d+:%d+") or string.match(gui.Text, "ACTIVE")) then
-                            wormHuntActive = true
-                            break
-                        end
+        if not eventsFolder then
+            return
+        end
+        local workspaceProps = workspace:FindFirstChild("Props")
+        if workspaceProps and workspaceProps:FindFirstChild("Shark Hunt") then
+            table.insert(activeEvents, "Shark Hunt ðŸŸ¢")
+        end
+        if workspaceProps and workspaceProps:FindFirstChild("Ghost Shark Hunt") then
+            table.insert(activeEvents, "Ghost Shark Hunt ðŸŸ¢")
+        end
+        local lighting = game:GetService("Lighting")
+        if lighting:FindFirstChild("SparklingCoveEffect") or 
+           (lighting.Brightness > 1.5 and lighting.ColorShift_Top.R > 0.8 and lighting.ColorShift_Top.G > 0.8) then
+            table.insert(activeEvents, "Sparkling Cove ðŸŸ¢")
+        end
+        local PlayerGui = game.Players.LocalPlayer:FindFirstChild("PlayerGui")
+        local wormHuntActive = false
+        if PlayerGui then
+            for _, gui in pairs(PlayerGui:GetDescendants()) do
+                if gui:IsA("TextLabel") and gui.Text then
+                    if string.match(gui.Text, "Worm Hunt") and 
+                       (string.match(gui.Text, "%d+:%d+") or string.match(gui.Text, "ACTIVE")) then
+                        wormHuntActive = true
+                        break
                     end
                 end
             end
-            
-            if wormHuntActive or (workspaceProps and workspaceProps:FindFirstChild("Worm Hunt")) then
-                table.insert(activeEvents, "Worm Hunt 🟢")
-            end
-            
-            local adminAreas = workspace:FindFirstChild("AdminAreas") or workspace:FindFirstChild("AdminEvents")
-            if adminAreas then
-                if adminAreas:FindFirstChild("Shocked") or adminAreas:FindFirstChild("ShockedArea") then
-                    table.insert(activeEvents, "Admin - Shocked 🟢")
-                end
-                if adminAreas:FindFirstChild("BlackHole") or adminAreas:FindFirstChild("Black Hole") then
-                    table.insert(activeEvents, "Admin - Black Hole 🟢")
-                end
-                if adminAreas:FindFirstChild("GhostWorm") or adminAreas:FindFirstChild("Ghost Worm") then
-                    table.insert(activeEvents, "Admin - Ghost Worm 🟢")
-                end
-                if adminAreas:FindFirstChild("MeteorRain") or adminAreas:FindFirstChild("Meteor Rain") then
-                    table.insert(activeEvents, "Admin - Meteor Rain 🟢")
-                end
-            end
-            
-            if lighting.Brightness >= 3.5 and lighting.Ambient.B >= 0.6 and lighting.Ambient.R < 0.4 then
-                table.insert(activeEvents, "Storm 🟢")
-            end
-            if lighting.ColorShift_Top.R <= 0.03 and lighting.ColorShift_Top.G <= 0.03 and lighting.ColorShift_Top.B <= 0.03 and
-               lighting.Brightness < 1 then
-                table.insert(activeEvents, "Snow 🟢")
-            end
-            local atmosphere = lighting:FindFirstChild("Atmosphere")
-            if atmosphere and atmosphere.Density >= 1.0 and lighting.Brightness > 1.2 then
-                table.insert(activeEvents, "Wind 🟢")
-            end
-            if lighting.Brightness <= 0.4 and 
-               lighting.ColorShift_Top.R >= 0.8 and lighting.ColorShift_Top.G >= 0.8 and lighting.ColorShift_Top.B >= 0.8 then
-                table.insert(activeEvents, "Cloudy 🟢")
-            end
-        end)
+        end
         
-        if success then
-            detectedEvents = activeEvents
-            if #detectedEvents == 0 then
-                detectedEvents = {"No active events"}
+        if wormHuntActive or (workspaceProps and workspaceProps:FindFirstChild("Worm Hunt")) then
+            table.insert(activeEvents, "Worm Hunt ðŸŸ¢")
+        end
+        local adminAreas = workspace:FindFirstChild("AdminAreas") or workspace:FindFirstChild("AdminEvents")
+        if adminAreas then
+            if adminAreas:FindFirstChild("Shocked") or adminAreas:FindFirstChild("ShockedArea") then
+                table.insert(activeEvents, "Admin - Shocked ðŸŸ¢")
             end
+            if adminAreas:FindFirstChild("BlackHole") or adminAreas:FindFirstChild("Black Hole") then
+                table.insert(activeEvents, "Admin - Black Hole ðŸŸ¢")
+            end
+            if adminAreas:FindFirstChild("GhostWorm") or adminAreas:FindFirstChild("Ghost Worm") then
+                table.insert(activeEvents, "Admin - Ghost Worm ðŸŸ¢")
+            end
+            if adminAreas:FindFirstChild("MeteorRain") or adminAreas:FindFirstChild("Meteor Rain") then
+                table.insert(activeEvents, "Admin - Meteor Rain ðŸŸ¢")
+            end
+        end
+        if lighting.Brightness >= 3.5 and lighting.Ambient.B >= 0.6 and lighting.Ambient.R < 0.4 then
+            table.insert(activeEvents, "Storm ðŸŸ¢")
+        end
+        if lighting.ColorShift_Top.R <= 0.03 and lighting.ColorShift_Top.G <= 0.03 and lighting.ColorShift_Top.B <= 0.03 and
+           lighting.Brightness < 1 then
+            table.insert(activeEvents, "Snow ðŸŸ¢")
+        end
+        local atmosphere = lighting:FindFirstChild("Atmosphere")
+        if atmosphere and atmosphere.Density >= 1.0 and lighting.Brightness > 1.2 then
+            table.insert(activeEvents, "Wind ðŸŸ¢")
+        end
+        if lighting.Brightness <= 0.4 and 
+           lighting.ColorShift_Top.R >= 0.8 and lighting.ColorShift_Top.G >= 0.8 and lighting.ColorShift_Top.B >= 0.8 then
+            table.insert(activeEvents, "Cloudy ðŸŸ¢")
+        end
+        
+    end)
+    
+    if success then
+        detectedEvents = activeEvents
+        if #detectedEvents == 0 then
+            detectedEvents = {"Nothing"}
+        end
+    else
+        warn("Error events: " .. tostring(error))
+        detectedEvents = {"Error events"}
+    end
+    
+    return detectedEvents
+end
+
+local function getEventCoordinates(selection)
+    local cleanName = string.gsub(selection, " ðŸŸ¢", "")
+    cleanName = string.gsub(cleanName, "^%s*(.-)%s*$", "%1") 
+    if eventCoordinates[cleanName] then
+        local coords = eventCoordinates[cleanName]
+        
+        if #coords > 1 then
+            local selectedCoord = coords[math.random(1, #coords)]
+            return selectedCoord
         else
-            warn("Error detecting events: " .. tostring(error))
-            detectedEvents = {"Error detecting events"}
+            return coords[1]
         end
-        
-        return detectedEvents
-    end
-
-    local function getEventCoordinates(selection)
-        local cleanName = string.gsub(selection, " 🟢", "")
-        cleanName = string.gsub(cleanName, "^%s*(.-)%s*$", "%1") 
-        if eventCoordinates[cleanName] then
-            local coords = eventCoordinates[cleanName]
-            
-            if #coords > 1 then
-                local selectedCoord = coords[math.random(1, #coords)]
-                return selectedCoord
-            else
-                return coords[1]
+    else
+        for eventName, coords in pairs(eventCoordinates) do
+            if string.find(string.lower(eventName), string.lower(cleanName)) or 
+               string.find(string.lower(cleanName), string.lower(eventName)) then
+                if #coords > 1 then
+                    return coords[math.random(1, #coords)]
+                else
+                    return coords[1]
+                end
             end
         end
-        return nil
     end
-
-    detectActiveEvents()
-    local eventDropdown = teleportTab:AddDropdown("EventTeleport", {
-        Title = "Active Events",
-        Description = "Select an active event to teleport to",
-        Values = #detectedEvents > 0 and (function()
-            local options = {"Select Event..."}
+    
+    return nil
+end
+detectActiveEvents() -- Initial detection
+EventDropdown = TeleportTab:CreateDropdown({
+    Name = "Active Events & Locations",
+    Options = #detectedEvents > 0 and (function()
+        local options = {"Select Event/Location..."}
+        for _, event in ipairs(detectedEvents) do
+            table.insert(options, event)
+        end
+        return options
+    end)() or {"Select Event/Location...", "No events detected"},
+    CurrentOption = {"Select Event/Location..."},
+    MultipleOptions = false,
+    Flag = "eventselect",
+    Callback = function(Options)
+        if Options and Options[1] and Options[1] ~= "Select Event/Location..." then
+            selectedEvent = Options[1]
+        else
+            selectedEvent = nil
+        end
+    end,
+})
+local RefreshEventsButton = TeleportTab:CreateButton({
+    Name = "Refresh Events",
+    Callback = function()
+        detectActiveEvents()
+        if EventDropdown then
+            local options = {"Select Event/Location..."}
             for _, event in ipairs(detectedEvents) do
                 table.insert(options, event)
             end
-            return options
-        end)() or {"Select Event...", "No events detected"},
-        Multi = false,
-        Default = 1,
-        Searchable = true,
-        Callback = function(Value)
-            if Value == "Select Event..." or Value == "No events detected" then
-                return
-            end
-            
-            selectedEvent = Value
-            
-            -- Auto teleport when selected
-            local player = game.Players.LocalPlayer
-            if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
-                return
-            end
-            
-            local targetPos = getEventCoordinates(selectedEvent)
-            if targetPos then
-                local offsetPos = targetPos + Vector3.new(
-                    math.random(-5, 5),
-                    0,
-                    math.random(-5, 5)
-                )
-                player.Character.HumanoidRootPart.CFrame = CFrame.new(offsetPos)
-                
-                if Options.FlyToggle then
-                    Options.FlyToggle:SetValue(true)
-                end
-                spawn(function()
-                    wait(0.1)
-                    Options.EventTeleport:SetValue("Select Event...")
-                end)
+            EventDropdown:Refresh(options)
+            EventDropdown:Set({"Select Event/Location..."})
+            selectedEvent = nil
+        end
+        local activeCount = 0
+        for _, event in ipairs(detectedEvents) do
+            if string.find(event, "ðŸŸ¢") then
+                activeCount = activeCount + 1
             end
         end
-    })
-    local refreshEventsButton = teleportTab:AddButton({
-        Title = "Refresh Events",
-        Description = "Scan for currently active events",
-        Callback = function()
-            detectActiveEvents()
-            if Options.EventTeleport then
-                local options = {}
-                for _, event in ipairs(detectedEvents) do
-                    table.insert(options, event)
-                end
-                Options.EventTeleport:SetValues(options)
-                selectedEvent = nil
-                
-                local activeCount = 0
-                for _, event in ipairs(detectedEvents) do
-                    if string.find(event, "🟢") then
-                        activeCount = activeCount + 1
-                    end
-                end
-            end
+    end,
+})
+local TeleportEventButton = TeleportTab:CreateButton({
+    Name = "ðŸ“ Teleport to Selected Event",
+    Callback = function()
+        if not selectedEvent or selectedEvent == "Select Event/Location..." or selectedEvent == "Nothing" or selectedEvent == "Error events" then
+            return
         end
-    })
-
-    local teleportEventButton = teleportTab:AddButton({
-        Title = "Teleport To Event",
-        Description = "Teleport to the selected event location",
-        Callback = function()
-            if not selectedEvent or selectedEvent == "No active events" or selectedEvent == "Error detecting events" then
-                return
-            end
-            
-            local player = game.Players.LocalPlayer
-            if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
-                return
-            end
-            
-            local targetPos = getEventCoordinates(selectedEvent)
-            if targetPos then
-                local offsetPos = targetPos + Vector3.new(
-                    math.random(-5, 5),
-                    0,
-                    math.random(-5, 5)
-                )
-                player.Character.HumanoidRootPart.CFrame = CFrame.new(offsetPos)
-                
-                if Options.FlyToggle then
-                    Options.FlyToggle:SetValue(true)
-                end
-            end
+        local player = game.Players.LocalPlayer
+        if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+            return
         end
-    })
-    -- local copycords = teleportTab:AddButton({
-    --     Title = "Copy Coords",
-    --     Description = "copy coords",
-    --     Callback = function()
-    --                 local player = game.Players.LocalPlayer
-    --     if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-    --         local pos = player.Character.HumanoidRootPart.CFrame
-    --         -- Format ke string
-    --         local coordsString = string.format(
-    --             "CFrame.new(%.6f, %.6f, %.6f, %.6f, %.6f, %.6f, %.6f, %.6f, %.6f, %.6f, %.6f, %.6f)",
-    --             pos:GetComponents()
-    --         )
-    --         setclipboard(coordsString)
-    --     end
-    --     end
-    -- })
-end
-
-do
-    local buyTab = Tabs.Buy
-    
-    -- Buy Weather Section
-    local weatherDropdown = buyTab:AddDropdown("BuyWeather", {
-        Title = "Buy Weather",
-        Description = "Purchase weather events with coins",
-        Values = {
-            "Select Weather...",
-            "Cloudy (20,000)",
-            "Wind (10,000)",
-            "Snow (15,000)",
-            "Storm (35,000)",
-            "Shark Hunt (300,000)"
-        },
-        Multi = false,
-        Default = 1,
-        Searchable = true,
-        Callback = function(Value)
-            if Value == "Select Weather..." then
-                return
-            end
-            
-            local weatherName
-            if Value:find("Cloudy") then
-                weatherName = "Cloudy"
-            elseif Value:find("Wind") then
-                weatherName = "Wind"
-            elseif Value:find("Snow") then
-                weatherName = "Snow"
-            elseif Value:find("Storm") then
-                weatherName = "Storm"
-            elseif Value:find("Shark Hunt") then
-                weatherName = "Shark Hunt"
-            end
-            
-            if weatherName then
-                local success, error = pcall(function()
-                    local ReplicatedStorage = game:GetService("ReplicatedStorage")
-                    local netFolder = ReplicatedStorage.Packages._Index:FindFirstChild("sleitnick_net@0.2.0")
-                    if netFolder and netFolder:FindFirstChild("net") then
-                        local net = netFolder.net
-                        local buyWeather = net:FindFirstChild("RF/PurchaseWeatherEvent")
-                        if buyWeather then
-                            buyWeather:InvokeServer(weatherName)
-                        else
-                            warn("PurchaseWeatherEvent not found!")
-                        end
-                    end
-                end)
-                
-                if not success then
-                    warn("Weather purchase error: " .. tostring(error))
-                end
-                
-                -- Reset to default after purchase
-                spawn(function()
-                    wait(0.1)
-                    Options.BuyWeather:SetValue("Select Weather...")
-                end)
-            end
-        end
-    })
-    
-    -- Buy Rod Section
-    buyTab:AddSection("Fishing Equipment")
-    
-    local rodDropdown = buyTab:AddDropdown("BuyRod", {
-        Title = "Buy Fishing Rod",
-        Description = "Purchase fishing rods to improve your fishing",
-        Values = {
-            "Select Rod...",
-            "Lucky Rod - 350",
-            "Carbon Rod - 900",
-            "Grass Rod - 1,500",
-            "Damascus Rod - 3,000",
-            "Ice Rod - 5,000",
-            "Lucky Rod Pro - 15,000",
-            "Midnight Rod - 50,000",
-            "Steampunk Rod - 215,000",
-            "Chrome Rod - 437,000",
-            "Astral Rod - 1,000,000"
-        },
-        Multi = false,
-        Default = 1,
-        Searchable = true,
-        Callback = function(Value)
-            if Value == "Select Rod..." then
-                return
-            end
-            
-            local rodId
-            local rodName = Value
-            
-            if Value:find("Lucky Rod - 350") then
-                rodId = 79
-            elseif Value:find("Carbon Rod") then
-                rodId = 76
-            elseif Value:find("Grass Rod") then
-                rodId = 85
-            elseif Value:find("Damascus Rod") then
-                rodId = 77
-            elseif Value:find("Ice Rod") then
-                rodId = 78
-            elseif Value:find("Lucky Rod Pro") then
-                rodId = 4
-            elseif Value:find("Midnight Rod") then
-                rodId = 80
-            elseif Value:find("Steampunk Rod") then
-                rodId = 6
-            elseif Value:find("Chrome Rod") then
-                rodId = 7
-            elseif Value:find("Astral Rod") then
-                rodId = 5
-            end
-            
-            if rodId then
-                local success, error = pcall(function()
-                    local ReplicatedStorage = game:GetService("ReplicatedStorage")
-                    local netFolder = ReplicatedStorage.Packages._Index:FindFirstChild("sleitnick_net@0.2.0")
-                    if netFolder and netFolder:FindFirstChild("net") then
-                        local net = netFolder.net
-                        local buyRod = net:FindFirstChild("RF/PurchaseFishingRod")
-                        if buyRod then
-                            buyRod:InvokeServer(rodId)
-                        else
-                            warn("PurchaseFishingRod not found!")
-                        end
-                    end
-                end)
-                
-                if not success then
-                    warn("Rod purchase error: " .. tostring(error))
-                end
-                
-                -- Reset to default after purchase
-                spawn(function()
-                    wait(0.1)
-                    Options.BuyRod:SetValue("Select Rod...")
-                end)
-            end
-        end
-    })
-    
-    -- Buy Bait Section
-    local baitDropdown = buyTab:AddDropdown("BuyBait", {
-        Title = "Buy Bait",
-        Description = "Purchase different types of bait for better catches",
-        Values = {
-            "Select Bait...",
-            "Topwater Bait - 100",
-            "Lucky Bait - 1,000",
-            "Midnight Bait - 3,000",
-            "Chroma Bait - 290,000",
-            "Dark Matter Bait - 630,000",
-            "Corrupt Bait - 1,150,000"
-        },
-        Multi = false,
-        Default = 1,
-        Searchable = true,
-        Callback = function(Value)
-            if Value == "Select Bait..." then
-                return
-            end
-            
-            local baitId
-            local baitName = Value
-            
-            if Value:find("Topwater Bait") then
-                baitId = 10
-            elseif Value:find("Lucky Bait") then
-                baitId = 2
-            elseif Value:find("Midnight Bait") then
-                baitId = 3
-            elseif Value:find("Chroma Bait") then
-                baitId = 6
-            elseif Value:find("Dark Matter Bait") then
-                baitId = 8
-            elseif Value:find("Corrupt Bait") then
-                baitId = 15
-            end
-            
-            if baitId then
-                local success, error = pcall(function()
-                    local ReplicatedStorage = game:GetService("ReplicatedStorage")
-                    local netFolder = ReplicatedStorage.Packages._Index:FindFirstChild("sleitnick_net@0.2.0")
-                    if netFolder and netFolder:FindFirstChild("net") then
-                        local net = netFolder.net
-                        local buyBait = net:FindFirstChild("RF/PurchaseBait")
-                        if buyBait then
-                            buyBait:InvokeServer(baitId)
-                        else
-                            warn("PurchaseBait not found!")
-                        end
-                    end
-                end)
-                
-                if not success then
-                    warn("Bait purchase error: " .. tostring(error))
-                end
-                
-                -- Reset to default after purchase
-                spawn(function()
-                    wait(0.1)
-                    Options.BuyBait:SetValue("Select Bait...")
-                end)
-            end
-        end
-    })
-    
-end
-do
-    local settingTab = Tabs.Settings
-    
-    -- FPS Boost Section
-    settingTab:AddSection("Performance")
-    
-    local fpsBoostButton = settingTab:AddButton({
-        Title = "FPS Boost",
-        Description = "Boost performance by disabling graphics effects",
-        Callback = function()
-            local success, error = pcall(function()
-                game.Lighting.GlobalShadows = false
-                settings().Rendering.QualityLevel = Enum.QualityLevel.Level03
-                
-                for _, v in pairs(workspace:GetDescendants()) do
-                    if v:IsA("ParticleEmitter") or v:IsA("Trail") then
-                        v.Enabled = false
-                    end
-                end
-                
-                for _, effect in pairs(game.Lighting:GetChildren()) do
-                    if effect:IsA("BloomEffect") or effect:IsA("SunRaysEffect") 
-                    or effect:IsA("DepthOfFieldEffect") or effect:IsA("ColorCorrectionEffect") then
-                        effect.Enabled = false
-                    end
-                end
-            end)
-            
-            if not success then
-                warn("FPS Boost error: " .. tostring(error))
-            end
-        end
-    })
-    
-    local resetFpsButton = settingTab:AddButton({
-        Title = "Reset FPS Boost",
-        Description = "Restore original graphics settings",
-        Callback = function()
-            local success, error = pcall(function()
-                game.Lighting.GlobalShadows = true
-                settings().Rendering.QualityLevel = Enum.QualityLevel.Automatic
-                
-                for _, v in pairs(workspace:GetDescendants()) do
-                    if v:IsA("ParticleEmitter") or v:IsA("Trail") then
-                        v.Enabled = true
-                    end
-                end
-                
-                for _, effect in pairs(game.Lighting:GetChildren()) do
-                    if effect:IsA("BloomEffect") or effect:IsA("SunRaysEffect") 
-                    or effect:IsA("DepthOfFieldEffect") or effect:IsA("ColorCorrectionEffect") then
-                        effect.Enabled = true
-                    end
-                end
-            end)
-            if not success then
-                warn("Reset FPS Boost error: " .. tostring(error))
-            end
-        end
-    })
-        local clearConfigButton = settingTab:AddButton({
-        Title = "Clear Config",
-        Description = "Remove Settings",
-        Callback = function()
-            local filePath = AutoConfig:GetFilePath()
-            if isfile(filePath) then
-                local success, err = pcall(function()
-                    delfile(filePath)
-                end)
-                if success then
-                    Fluent:Notify({
-                        Title = "Settings",
-                        Content = "Success.",
-                        Duration = 5
-                    })
-                else
-                    Fluent:Notify({
-                        Title = "Settings",
-                        Content = "Error",
-                        Duration = 5
-                    })
-                end
-            else
-                Fluent:Notify({
-                    Title = "Settings",
-                    Content = "No configuration found.",
-                    Duration = 5
-                })
-            end
-        end
-    })
-    settingTab:AddSection("Server Management")
-    local rejoinButton = settingTab:AddButton({
-        Title = "Rejoin Server",
-        Description = "Rejoin the current server",
-        Callback = function()
-            local player = game.Players.LocalPlayer
-            local TeleportService = game:GetService("TeleportService")
-            
-            local success, err = pcall(function()
-                TeleportService:Teleport(game.PlaceId, player)
-            end)
-            
-            if not success then
-                warn("Rejoin failed: " .. tostring(err))
-            end
-        end
-    })
-    local isAutoReconnectActive = false
-    local reconnectAttempts = 0
-    local maxReconnectAttempts = 3
-    local reconnectData = {
-        PlaceId = game.PlaceId,
-        JobId = game.JobId or "",
-        ServerInfo = game.JobId and game.JobId ~= "" and "Same Server" or "Random Server"
-    }
-    local function attemptReconnect()
-        if not isAutoReconnectActive then return end
-        reconnectAttempts = reconnectAttempts + 1
-        local TeleportService = game:GetService("TeleportService")
         
-        if reconnectAttempts <= 2 and reconnectData.JobId ~= "" then
-            local success = pcall(function()
-                TeleportService:TeleportToPlaceInstance(
-                    reconnectData.PlaceId,
-                    reconnectData.JobId,
-                    game.Players.LocalPlayer
-                )
-            end)
-            if success then
-                return true
-            end
-        end
-        if reconnectAttempts >= 2 or reconnectData.JobId == "" then
-            local success = pcall(function()
-                TeleportService:Teleport(reconnectData.PlaceId, game.Players.LocalPlayer)
-            end)
-            if success then
-                return true
-            end
-        end
-        if reconnectAttempts >= maxReconnectAttempts then
-            reconnectAttempts = 0
-            wait(10) 
-        end
-        return false
-    end
-    local autoReconnectToggle = settingTab:AddToggle("AutoReconnect", {
-        Title = "Auto Reconnect",
-        Description = "Automatically reconnect when disconnected",
-        Default = false,
-        Callback = function(Value)
-            isAutoReconnectActive = Value
-            reconnectAttempts = 0
-            
-            if Value then
-                local serverType = reconnectData.JobId ~= "" and "Same Server First" or "Random Server"
-            end
-        end
-    })
-    spawn(function()
-        local failCount = 0
-        while wait(2) do
-            if isAutoReconnectActive then
-                local success = pcall(function()
-                    local _ = game.Players.LocalPlayer.Character
-                    local _ = game.Players.LocalPlayer.UserId
-                    local _ = game:GetService("Stats").Network.ServerStatsItem["Data Ping"]:GetValue()
-                end)
-                if not success then
-                    failCount = failCount + 1
-                    if failCount >= 3 then
-                        for i = 1, 3 do
-                            wait(3)
-                            if attemptReconnect() then
-                                break
-                            end
-                            wait(2)
-                        end
-                        failCount = 0
-                    end
-                else
-                    failCount = 0
-                end
-            end
-        end
-    end)
-    local function onErrorMessage()
-        if not isAutoReconnectActive then return end
-        wait(2) 
-        spawn(function()
-            for i = 1, 3 do
-                if attemptReconnect() then
-                    break
-                end
-                wait(3)
-            end
-        end)
-    end
-    pcall(function()
-        game:GetService("GuiService").ErrorMessageChanged:Connect(function(msg)
-            if isAutoReconnectActive and msg and msg ~= "" then
-                if string.find(string.lower(msg), "disconnected") or 
-                   string.find(string.lower(msg), "connection") or
-                   string.find(string.lower(msg), "lost") or
-                   string.find(string.lower(msg), "kick") then
-                    onErrorMessage()
-                end
-            end
-        end)
-    end)
-    pcall(function()
-        game:GetService("CoreGui").RobloxPromptGui.promptOverlay.ChildAdded:Connect(function(child)
-            if not isAutoReconnectActive then return end
-            wait(0.5)
-            if child.Name == "ErrorPrompt" then
-                local reconnectButton = nil
-                for _, desc in ipairs(child:GetDescendants()) do
-                    if desc:IsA("TextButton") or desc:IsA("ImageButton") then
-                        local text = desc.Text or ""
-                        if string.find(string.lower(text), "reconnect") or 
-                           string.find(string.lower(text), "retry") or
-                           string.find(string.lower(text), "join") then
-                            reconnectButton = desc
-                            break
-                        end
-                    end
-                end
-                if reconnectButton then
-                    pcall(function()
-                        for i = 1, 3 do
-                            firesignal(reconnectButton.MouseButton1Click)
-                            firesignal(reconnectButton.Activated)
-                            wait(0.5)
-                        end
-                    end)
-                else
-                    wait(2)
-                    attemptReconnect()
-                end
-            end
-        end)
-    end)
-    game.Players.LocalPlayer.OnTeleport:Connect(function(state)
-        if not isAutoReconnectActive then return end
-        if state == Enum.TeleportState.Failed then
-            wait(3)
-            attemptReconnect()
-        end
-    end)
-    game.Players.PlayerRemoving:Connect(function(player)
-        if player == game.Players.LocalPlayer and isAutoReconnectActive then
-            attemptReconnect()
-        end
-    end)
-    spawn(function()
-        local RunService = game:GetService("RunService")
-        local lastHeartbeat = tick()
-        local timeout = 15 
-        RunService.Heartbeat:Connect(function()
-            lastHeartbeat = tick()
-        end)
-        while wait(5) do
-            if isAutoReconnectActive then
-                local timeSinceHeartbeat = tick() - lastHeartbeat
-                if timeSinceHeartbeat > timeout then
-                    lastHeartbeat = tick()
-                    spawn(function()
-                        attemptReconnect()
-                    end)
-                    wait(20) 
-                end
-            end
-        end
-    end)
-    _G.ReconnectSameServer = function()
-        if reconnectData.JobId ~= "" then
-            game:GetService("TeleportService"):TeleportToPlaceInstance(
-                reconnectData.PlaceId,
-                reconnectData.JobId,
-                game.Players.LocalPlayer
+        local targetPos = getEventCoordinates(selectedEvent)
+        if targetPos then
+            local offsetPos = targetPos + Vector3.new(
+                math.random(-5, 5),
+                0,
+                math.random(-5, 5)
             )
+            player.Character.HumanoidRootPart.CFrame = CFrame.new(offsetPos)
+            flyToggle:Set(true)
         end
-    end
-    _G.ReconnectRandomServer = function()
-        game:GetService("TeleportService"):Teleport(
-            reconnectData.PlaceId,
-            game.Players.LocalPlayer
-        )
-    end
-    settingTab:AddSection("Server Information")
-    local serverType = reconnectData.JobId ~= "" and "Private/VIP Server" or "Public Server"
-    local playerCount = #game.Players:GetPlayers()
-    local serverInfoParagraph = settingTab:AddParagraph({
-        Title = "Current Server Details",
-        Content = string.format("Server Type: %s\nPlayers Online: %d\nPlace ID: %d\nJob ID: %s", 
-            serverType, 
-            playerCount, 
-            game.PlaceId,
-            reconnectData.JobId ~= "" and reconnectData.JobId or "N/A"
-        )
-    })
-    spawn(function()
-        while wait(5) do
-            local currentPlayers = #game.Players:GetPlayers()
-            if currentPlayers ~= playerCount then
-                playerCount = currentPlayers
-                serverInfoParagraph:Set({
-                    Title = "Server Details",
-                    Content = string.format("Server Type: %s\nPlayers Online: %d\nPlace ID: %d\nJob ID: %s", 
-                        serverType, 
-                        playerCount, 
-                        game.PlaceId,
-                        reconnectData.JobId ~= "" and reconnectData.JobId or "N/A"
-                    )
-                })
-            end
-        end
-    end)
-end
-do
-    local WebhookTab = Window:CreateTab("Webhook", "bell-ring")
+    end,
+})
+-- local CopyCoordsButton = TeleportTab:CreateButton({
+--     Name = "Copy Coords",
+--     Callback = function()
+--         local player = game.Players.LocalPlayer
+--         if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+--             local pos = player.Character.HumanoidRootPart.CFrame
+--             -- Format ke string
+--             local coordsString = string.format(
+--                 "CFrame.new(%.6f, %.6f, %.6f, %.6f, %.6f, %.6f, %.6f, %.6f, %.6f, %.6f, %.6f, %.6f)",
+--                 pos:GetComponents()
+--             )
+--             -- Copy ke clipboard
+--             setclipboard(coordsString)
+--          Rayfield:Notify({
+--          Title = "Copied to clipboard",
+--          Content = "",
+--          Duration = 5,
+--          Image = "bell-ring",
+--       })
+--         end
+--     end,
+-- })
 
--- Database Gambar Ikan
-local fishImages = {
-    -- Ikan Uncommon
-    [139] = "rbxassetid://84055400571306",    -- Silver Tuna
-    [186] = "rbxassetid://101895900955177",   -- Parrot Fish
-    [182] = "rbxassetid://95659897738388",    -- Blackcap Basslet
-    [140] = "rbxassetid://114269547366510",   -- Pilot Fish
-    
-    -- Ikan Secret
-    [156] = "rbxassetid://135470649745250",   -- Giant Squid
-    [136] = "rbxassetid://125463067542850",   -- Frostborn Shark
-    
-    -- Ikan Mythic
-    [75] = "rbxassetid://132465838670740",    -- Dotted Stingray
-    [15] = "rbxassetid://140212951494890",    -- Abyss Seahorse
-    [21] = "rbxassetid://129453304232199",    -- Hawks Turtle
-    [52] = "rbxassetid://91373020648344",     -- Hammerhead Shark
-    [54] = "rbxassetid://88385941559907",     -- Manta Ray
-    [35] = "rbxassetid://105300029672501",    -- Prismy Seahorse
-    [34] = "rbxassetid://91953712080535",     -- Loggerhead Turtle
-    [47] = "rbxassetid://113303332536600",    -- Blueflame Ray
-    
-    -- Ikan Legendary
-    [73] = "rbxassetid://86565235696991",     -- Yellowfin Tuna
-    [53] = "rbxassetid://103021560011734",    -- Chrome Tuna
-    [36] = "rbxassetid://106973499045957",    -- Lobster
-    [37] = "rbxassetid://138718017852833",    -- Bumblebee Grouper
-    [48] = "rbxassetid://96111934641941",     -- Lavafin Tuna
-    [22] = "rbxassetid://79569787883962",     -- Blue Lobster
-    [25] = "rbxassetid://79015880866732",     -- Greenbee Grouper
-    [24] = "rbxassetid://129447526017878",    -- Starjam Tang
-    [16] = "rbxassetid://88573644059627",     -- Magic Tang
-    [14] = "rbxassetid://108347802265821",    -- Enchanted Angelfish
+   local BuyTab = Window:CreateTab("Buy", "badge-dollar-sign")
+
+local WeatherDropdown = BuyTab:CreateDropdown({
+   Name = "Buy Weather",
+   Options = {
+      "Select Weather...",
+      "Cloudy (20,000)",
+      "Wind (10,000)",
+      "Snow (15,000)",
+      "Storm (35,000)",
+      "Shark Hunt (300,000)"
+   },
+   CurrentOption = {"Select Weather..."},
+   MultipleOptions = false,
+   Flag = "cuaca",
+   Callback = function(Options)
+      local selected = Options[1]
+      if selected == "Select Weather..." then
+         return 
+      end
+      local weatherName
+      if selected:find("Cloudy") then
+         weatherName = "Cloudy"
+      elseif selected:find("Wind") then
+         weatherName = "Wind"
+      elseif selected:find("Snow") then
+         weatherName = "Snow"
+      elseif selected:find("Storm") then
+         weatherName = "Storm"
+      elseif selected:find("Shark Hunt") then
+         weatherName = "Shark Hunt"
+      end
+      if weatherName then
+         local ReplicatedStorage = game:GetService("ReplicatedStorage")
+         local netFolder = ReplicatedStorage.Packages._Index:FindFirstChild("sleitnick_net@0.2.0")
+         if netFolder and netFolder:FindFirstChild("net") then
+            local net = netFolder.net
+            local buyWeather = net:FindFirstChild("RF/PurchaseWeatherEvent")
+            if buyWeather then
+               buyWeather:InvokeServer(weatherName)
+            else
+               warn("PurchaseWeatherEvent not found!")
+            end
+         end
+      end
+   end,
+})
+local RodDropdown = BuyTab:CreateDropdown({
+   Name = "Buy Rod",
+   Options = {
+      "Select Rod...",
+      "Lucky Rod - 350",
+      "Carbon Rod - 900",
+      "Grass Rod - 1,500",
+      "Damascus Rod - 3,000",
+      "Ice Rod - 5,000",
+      "Lucky Rod Pro - 15,000",
+      "Midnight Rod - 50,000",
+      "Steampunk Rod - 215,000",
+      "Chrome Rod - 437,000",
+      "Astral Rod - 1,000,000"
+   },
+   CurrentOption = {"Select Rod..."},
+   MultipleOptions = false,
+   Flag = "rod",
+   Callback = function(Options)
+      local selected = Options[1]
+      if selected == "Select Rod..." then
+         return 
+      end
+      local rodId
+      local rodName
+      if selected:find("Lucky Rod - 350") then
+         rodId = 79
+         rodName = "Lucky Rod (350)"
+      elseif selected:find("Carbon Rod") then
+         rodId = 76
+         rodName = "Carbon Rod"
+      elseif selected:find("Grass Rod") then
+         rodId = 85
+         rodName = "Grass Rod"
+      elseif selected:find("Damascus Rod") then
+         rodId = 77
+         rodName = "Damascus Rod"
+      elseif selected:find("Ice Rod") then
+         rodId = 78
+         rodName = "Ice Rod"
+      elseif selected:find("Lucky Rod Pro") then
+         rodId = 4
+         rodName = "Lucky Rod Pro"
+      elseif selected:find("Midnight Rod") then
+         rodId = 80
+         rodName = "Midnight Rod"
+      elseif selected:find("Steampunk Rod") then
+         rodId = 6
+         rodName = "Steampunk Rod"
+      elseif selected:find("Chrome Rod") then
+         rodId = 7
+         rodName = "Chrome Rod"
+      elseif selected:find("Astral Rod") then
+         rodId = 5
+         rodName = "Astral Rod"
+      end
+      if rodId then
+         local success, error = pcall(function()
+            local ReplicatedStorage = game:GetService("ReplicatedStorage")
+            local netFolder = ReplicatedStorage.Packages._Index:FindFirstChild("sleitnick_net@0.2.0")
+            if netFolder and netFolder:FindFirstChild("net") then
+               local net = netFolder.net
+               local buyRod = net:FindFirstChild("RF/PurchaseFishingRod")
+               if buyRod then
+                  buyRod:InvokeServer(rodId)
+               else
+                  warn("PurchaseFishingRod not found!")
+               end
+            end
+         end)
+      end
+   end,
+})
+local BaitDropdown = BuyTab:CreateDropdown({
+   Name = "Buy Bait",
+   Options = {
+      "Select Bait...",
+      "Topwater Bait - 100",
+      "Lucky Bait - 1,000",
+      "Midnight Bait - 3,000",
+      "Chroma Bait - 290,000",
+      "Dark Matter Bait - 630,000",
+      "Corrupt Bait - 1,150,000"
+   },
+   CurrentOption = {"Select Bait..."},
+   MultipleOptions = false,
+   Flag = "bait",
+   Callback = function(Options)
+      local selected = Options[1]
+      if selected == "Select Bait..." then
+         return 
+      end
+
+      local baitId
+      local baitName
+      if selected:find("Topwater Bait") then
+         baitId = 10
+         baitName = "Topwater Bait"
+      elseif selected:find("Lucky Bait") then
+         baitId = 2
+         baitName = "Lucky Bait"
+      elseif selected:find("Midnight Bait") then
+         baitId = 3
+         baitName = "Midnight Bait"
+      elseif selected:find("Chroma Bait") then
+         baitId = 6
+         baitName = "Chroma Bait"
+      elseif selected:find("Dark Matter Bait") then
+         baitId = 8
+         baitName = "Dark Matter Bait"
+      elseif selected:find("Corrupt Bait") then
+         baitId = 15
+         baitName = "Corrupt Bait"
+      end
+
+      if baitId then
+         local success, error = pcall(function()
+            local ReplicatedStorage = game:GetService("ReplicatedStorage")
+            local netFolder = ReplicatedStorage.Packages._Index:FindFirstChild("sleitnick_net@0.2.0")
+            if netFolder and netFolder:FindFirstChild("net") then
+               local net = netFolder.net
+               local buyBait = net:FindFirstChild("RF/PurchaseBait")
+               if buyBait then
+                  buyBait:InvokeServer(baitId)
+               else
+                  warn("PurchaseBait not found!")
+               end
+            end
+         end)
+      end
+   end,
+})
+
+   local settingTab = Window:CreateTab("Settings", "settings") -- Title, Image
+local Button = settingTab:CreateButton({
+   Name = "FPS Boost",
+   Callback = function()
+      game.Lighting.GlobalShadows = false
+      settings().Rendering.QualityLevel = Enum.QualityLevel.Level03
+      for _, v in pairs(workspace:GetDescendants()) do
+         if v:IsA("ParticleEmitter") or v:IsA("Trail") then
+            v.Enabled = false
+         end
+      end
+      for _, effect in pairs(game.Lighting:GetChildren()) do
+         if effect:IsA("BloomEffect") or effect:IsA("SunRaysEffect") 
+         or effect:IsA("DepthOfFieldEffect") or effect:IsA("ColorCorrectionEffect") then
+            effect.Enabled = false
+         end
+      end
+   end,
+})
+
+local Button = settingTab:CreateButton({
+   Name = "Reset Fps Boost",
+   Callback = function()
+      game.Lighting.GlobalShadows = true
+      settings().Rendering.QualityLevel = Enum.QualityLevel.Automatic
+      for _, v in pairs(workspace:GetDescendants()) do
+         if v:IsA("ParticleEmitter") or v:IsA("Trail") then
+            v.Enabled = true
+         end
+      end
+      for _, effect in pairs(game.Lighting:GetChildren()) do
+         if effect:IsA("BloomEffect") or effect:IsA("SunRaysEffect") 
+         or effect:IsA("DepthOfFieldEffect") or effect:IsA("ColorCorrectionEffect") then
+            effect.Enabled = true
+         end
+      end
+   end,
+})
+local Button = settingTab:CreateButton({
+   Name = "Rejoin Server",
+Callback = function()
+      local player = game.Players.LocalPlayer
+      local TeleportService = game:GetService("TeleportService")
+
+      -- Coba teleport ulang ke server yang sama
+      local success, err = pcall(function()
+         TeleportService:Teleport(game.PlaceId, player)
+      end)
+
+      if not success then
+         warn("Rejoin failed: " .. tostring(err))
+      end
+   end,
+})
+-- AUTO RECONNECT (FIXED - Try same server first, then random)
+local isAutoReconnectActive = false
+local reconnectAttempts = 0
+local maxReconnectAttempts = 3
+
+-- Store server info immediately when script loads
+local reconnectData = {
+   PlaceId = game.PlaceId,
+   JobId = game.JobId or "",
+   ServerInfo = game.JobId and game.JobId ~= "" and "Same Server" or "Random Server"
 }
 
--- Variabel Webhook
+-- Function to attempt reconnection
+local function attemptReconnect()
+   if not isAutoReconnectActive then return end
+   reconnectAttempts = reconnectAttempts + 1
+   local TeleportService = game:GetService("TeleportService")
+   if reconnectAttempts <= 2 and reconnectData.JobId ~= "" then
+      local success = pcall(function()
+         TeleportService:TeleportToPlaceInstance(
+            reconnectData.PlaceId,
+            reconnectData.JobId,
+            game.Players.LocalPlayer
+         )
+      end)
+      if success then
+         return true
+      end
+   end
+   if reconnectAttempts >= 2 or reconnectData.JobId == "" then
+      local success = pcall(function()
+         TeleportService:Teleport(reconnectData.PlaceId, game.Players.LocalPlayer)
+      end)
+      if success then
+         return true
+      end
+   end
+   if reconnectAttempts >= maxReconnectAttempts then
+      reconnectAttempts = 0
+      wait(10) 
+   end
+   return false
+end
+local Togglerecon = settingTab:CreateToggle({
+   Name = "Auto Reconnect",
+   CurrentValue = false,
+   Flag = "reconnct",
+   Callback = function(Value)
+      isAutoReconnectActive = Value
+      reconnectAttempts = 0 -- Reset attempts
+      if Value then
+         local serverType = reconnectData.JobId ~= "" and "Same Server First" or "Random Server"
+      end
+   end,
+})
+spawn(function()
+   local failCount = 0
+   while wait(2) do
+      if isAutoReconnectActive then
+         local success = pcall(function()
+            local _ = game.Players.LocalPlayer.Character
+            local _ = game.Players.LocalPlayer.UserId
+            local _ = game:GetService("Stats").Network.ServerStatsItem["Data Ping"]:GetValue()
+         end)
+         if not success then
+            failCount = failCount + 1
+            if failCount >= 3 then
+               for i = 1, 3 do
+                  wait(3)
+                  if attemptReconnect() then
+                     break
+                  end
+                  wait(2)
+               end
+               failCount = 0
+            end
+         else
+            failCount = 0
+         end
+      end
+   end
+end)
+local function onErrorMessage()
+   if not isAutoReconnectActive then return end
+   wait(2) 
+   spawn(function()
+      for i = 1, 3 do
+         if attemptReconnect() then
+            break
+         end
+         wait(3)
+      end
+   end)
+end
+pcall(function()
+   game:GetService("GuiService").ErrorMessageChanged:Connect(function(msg)
+      if isAutoReconnectActive and msg and msg ~= "" then
+         if string.find(string.lower(msg), "disconnected") or 
+            string.find(string.lower(msg), "connection") or
+            string.find(string.lower(msg), "lost") or
+            string.find(string.lower(msg), "kick") then
+            onErrorMessage()
+         end
+      end
+   end)
+end)
+pcall(function()
+   game:GetService("CoreGui").RobloxPromptGui.promptOverlay.ChildAdded:Connect(function(child)
+      if not isAutoReconnectActive then return end
+      wait(0.5)
+      if child.Name == "ErrorPrompt" then
+         local reconnectButton = nil
+         for _, desc in ipairs(child:GetDescendants()) do
+            if desc:IsA("TextButton") or desc:IsA("ImageButton") then
+               local text = desc.Text or ""
+               if string.find(string.lower(text), "reconnect") or 
+                  string.find(string.lower(text), "retry") or
+                  string.find(string.lower(text), "join") then
+                  reconnectButton = desc
+                  break
+               end
+            end
+         end
+         if reconnectButton then
+            pcall(function()
+               for i = 1, 3 do
+                  firesignal(reconnectButton.MouseButton1Click)
+                  firesignal(reconnectButton.Activated)
+                  wait(0.5)
+               end
+            end)
+         else
+            wait(2)
+            attemptReconnect()
+         end
+      end
+   end)
+end)
+game.Players.LocalPlayer.OnTeleport:Connect(function(state)
+   if not isAutoReconnectActive then return end
+   if state == Enum.TeleportState.Failed then
+      wait(3)
+      attemptReconnect()
+   end
+end)
+game.Players.PlayerRemoving:Connect(function(player)
+   if player == game.Players.LocalPlayer and isAutoReconnectActive then
+      attemptReconnect()
+   end
+end)
+spawn(function()
+   local RunService = game:GetService("RunService")
+   local lastHeartbeat = tick()
+   local timeout = 15 
+   RunService.Heartbeat:Connect(function()
+      lastHeartbeat = tick()
+   end)
+   while wait(5) do
+      if isAutoReconnectActive then
+         local timeSinceHeartbeat = tick() - lastHeartbeat
+         if timeSinceHeartbeat > timeout then
+            lastHeartbeat = tick()
+            spawn(function()
+               attemptReconnect()
+            end)
+            wait(20) 
+         end
+      end
+   end
+end)
+_G.ReconnectSameServer = function()
+   if reconnectData.JobId ~= "" then
+      game:GetService("TeleportService"):TeleportToPlaceInstance(
+         reconnectData.PlaceId,
+         reconnectData.JobId,
+         game.Players.LocalPlayer
+      )
+   
+   end
+end
+_G.ReconnectRandomServer = function()
+   game:GetService("TeleportService"):Teleport(
+      reconnectData.PlaceId,
+      game.Players.LocalPlayer
+   )
+end
+-- FINAL WEBHOOK FIX - COMPLETE SOLUTION
+local WebhookTab = Window:CreateTab("Webhook", "bell-ring")
+
+-- Webhook Variables
 local webhookURL = ""
+local isWebhookActive = false  -- Set to false by default when script loads
+local lastInventoryState = {}
+local inventoryConnection = nil
+local httpRetryCount = 0
+local maxHttpRetries = 3
+
+-- Filter Variables
 local isWebhookActive = false
 local lastInventoryState = {}
 local inventoryConnection = nil
 local httpRetryCount = 0
 local maxHttpRetries = 3
 
--- Ikan yang Diaktifkan (Hanya ikan ini yang akan dilacak)
+-- Specific Fish Enabled (Only these will be tracked)
 local specificFishEnabled = {
-    -- Ikan Secret
+    -- Secret Fish
     [156] = false, -- Giant Squid
     [136] = false, -- Frostborn Shark
-    -- Ikan Mythic  
+    -- Mythic Fish  
     [75] = false,  -- Dotted Stingray
     [15] = false,  -- Abyss Seahorse
     [21] = false,  -- Hawks Turtle
@@ -2426,7 +1598,7 @@ local specificFishEnabled = {
     [35] = false,  -- Prismy Seahorse
     [34] = false,  -- Loggerhead Turtle
     [47] = false,  -- Blueflame Ray
-    -- Ikan Legendary
+    -- Legendary Fish
     [73] = false,  -- Yellowfin Tuna
     [53] = false,  -- Chrome Tuna
     [36] = false,  -- Lobster
@@ -2437,25 +1609,25 @@ local specificFishEnabled = {
     [24] = false,  -- Starjam Tang
     [16] = false,  -- Magic Tang
     [14] = false,  -- Enchanted Angelfish
-    -- Ikan Uncommon
+    -- Uncommon Fish
     [140] = false, -- Pilot Fish
     [182] = false, -- Blackcap Basslet
     [139] = false, -- Silver Tuna
     [186] = false, -- Parrot Fish
 }
 
--- Input URL Webhook
+-- Webhook URL Input
 local WebhookInput = WebhookTab:CreateInput({
-    Name = "URL Webhook Discord",
+    Name = "Discord Webhook URL",
     PlaceholderText = "https://discord.com/api/webhooks/...",
     RemoveTextAfterFocusLost = false,
     Callback = function(Text)
         webhookURL = Text
-        httpRetryCount = 0
+        httpRetryCount = 0 -- Reset retry count when URL changes
         if Text ~= "" then
             Rayfield:Notify({
-                Title = "URL Webhook Diatur",
-                Content = "Siap melacak ikan!",
+                Title = "Webhook URL Set",
+                Content = "Ready to track items!",
                 Duration = 3,
                 Image = "bell-ring",
             })
@@ -2463,7 +1635,7 @@ local WebhookInput = WebhookTab:CreateInput({
     end,
 })
 
--- Fungsi untuk mendapatkan data ikan dari ReplicatedStorage
+-- Function to get item data from ReplicatedStorage
 local function getItemData(itemId)
     local success, itemData = pcall(function()
         local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -2473,6 +1645,7 @@ local function getItemData(itemId)
             return nil
         end
         
+        -- Search for item by ID
         for _, itemModule in pairs(itemsFolder:GetChildren()) do
             if itemModule:IsA("ModuleScript") then
                 local success2, data = pcall(function()
@@ -2481,7 +1654,6 @@ local function getItemData(itemId)
                 
                 if success2 and data and data.Data and data.Data.Id == itemId then
                     return {
-                        Id = data.Data.Id,
                         Name = data.Data.Name,
                         Type = data.Data.Type,
                         Tier = data.Data.Tier,
@@ -2505,52 +1677,46 @@ local function getItemData(itemId)
     end
 end
 
--- Fungsi untuk format berat ikan
+-- Function to format weight for display
 local function formatWeight(weight, actualWeight)
     if not actualWeight then
-        return "Tidak Diketahui"
+        return "Unknown"
     end
     
     local weightText = string.format("%.1f kg", actualWeight)
     
     if weight and weight.Big and actualWeight >= weight.Big.Min then
-        weightText = weightText .. " (BESAR)"
+        weightText = weightText .. " (BIG)"
     end
     
     return weightText
 end
 
--- Fungsi untuk mendapatkan URL gambar ikan
-local function getFishImageURL(fishId)
-    local assetId = fishImages[fishId]
-    if assetId then
-        local imageId = string.match(assetId, "rbxassetid://(%d+)")
-        if imageId then
-            return "https://www.roblox.com/asset-thumbnail/image?assetId=" .. imageId .. "&width=420&height=420&format=png"
-        end
-    end
-    return nil
-end
-
--- Fungsi untuk cek apakah ikan harus dikirim ke webhook
+-- Function to check if fish should be sent to webhook (FIXED)
 local function shouldSendFish(itemData)
     local fishId = itemData.Id
     
-    print("🐟 Mengecek ikan:", itemData.Name, "ID:", fishId)
-    print("📊 Status ikan aktif:", specificFishEnabled[fishId])
+    -- Debug logging
+    print("ðŸ” Checking fish:", itemData.Name, "ID:", fishId)
+    print("ðŸ“Š Fish enabled status:", specificFishEnabled[fishId])
+    print("ðŸ“‹ All enabled fish:")
+    for id, enabled in pairs(specificFishEnabled) do
+        if enabled then
+            print("  âœ… ID", id, "enabled")
+        end
+    end
     
+    -- Only send if this specific fish is enabled
     local shouldSend = specificFishEnabled[fishId] == true
     
     if shouldSend then
-        print("✅ Ikan AKAN dikirim:", itemData.Name, "ID:", fishId)
+        print("âœ… Fish WILL be sent:", itemData.Name, "ID:", fishId)
     else
-        print("❌ Ikan DIBLOKIR:", itemData.Name, "ID:", fishId, "- Status toggle:", specificFishEnabled[fishId])
+        print("âŒ Fish BLOCKED:", itemData.Name, "ID:", fishId, "- Toggle status:", specificFishEnabled[fishId])
     end
     
     return shouldSend
 end
-
--- Fungsi untuk mendapatkan info tier
 local function getTierInfo(tier)
     local tierColors = {
         [1] = {name = "Common", color = 0x808080},
@@ -2566,13 +1732,16 @@ local function getTierInfo(tier)
     return tierColors[tier] or {name = "Unknown", color = 0x808080}
 end
 
--- Fungsi untuk mengirim webhook dengan gambar ikan
+-- Function to send webhook with proper error handling and retries
 local function sendWebhook(itemName, itemData, weight, isVariant, variantName)
     if webhookURL == "" then
         return
     end
     
+    -- Use RunService to ensure main thread execution
     local RunService = game:GetService("RunService")
+    
+    -- Wait for next heartbeat to ensure we're in main thread
     RunService.Heartbeat:Wait()
     
     spawn(function()
@@ -2587,69 +1756,50 @@ local function sendWebhook(itemName, itemData, weight, isVariant, variantName)
                 local player = game.Players.LocalPlayer
                 local tierInfo = getTierInfo(itemData.Tier or 1)
                 
-                local rarityText = "Tidak Diketahui"
+                -- Calculate rarity text
+                local rarityText = "Unknown"
                 if itemData.Probability and itemData.Probability.Chance then
                     local chance = itemData.Probability.Chance
-                    rarityText = string.format("1 dari %.0f", 1/chance)
+                    rarityText = string.format("1 in %.0f", 1/chance)
                 end
                 
+                -- Item title with variant
                 local fullItemName = itemName
                 if isVariant and variantName then
                     fullItemName = variantName .. " " .. itemName
                 end
                 
-                -- Dapatkan URL gambar ikan
-                local fishImageURL = getFishImageURL(itemData.Id)
-                
-                local embedData = {
-                    ["title"] = "🎣 Ikan Baru Tertangkap!",
-                    ["color"] = tierInfo.color,
-                    ["fields"] = {
-                       {
-                            ["name"] = "👤 Pemain",
-                            ["value"] = player.Name,
-                            ["inline"] = true
-                        },
-                        {
-                            ["name"] = "📍 Server",
-                            ["value"] = "JobId: " .. string.sub(game.JobId, 1, 8) .. "...",
-                            ["inline"] = true
-                        },
-                        {
-                            ["name"] = "🐟 " .. fullItemName,
-                            ["value"] = "⚖️ **Berat:** "..formatWeight(itemData.Weight, weight).."\n💰 **Harga Jual:** ".. (itemData.SellPrice or 0) .." 💎\n⭐ **Tier:** "..tierInfo.name .. " (T" .. (itemData.Tier or 1) .. ")\n🎯 **Kelangkaan:** " .. rarityText,
-                            ["inline"] = false
-                        }
-                    },
-                    ["footer"] = {
-                        ["text"] = "Fish It Tracker • " .. os.date("%Y-%m-%d %H:%M:%S"),
-                        ["icon_url"] = "https://www.roblox.com/headshot-thumbnail/image?userId=" .. player.UserId .. "&width=32&height=32&format=png"
-                    }
-                }
-                
-                -- Tambahkan gambar ikan sebagai thumbnail (pojok kanan atas) dan gambar besar
-                if fishImageURL then
-                    embedData["thumbnail"] = {
-                        ["url"] = fishImageURL
-                    }
-                    embedData["image"] = {
-                        ["url"] = fishImageURL
-                    }
-                else
-                    -- Jika tidak ada gambar ikan, gunakan avatar player sebagai thumbnail
-                    embedData["thumbnail"] = {
-                        ["url"] = "https://www.roblox.com/headshot-thumbnail/image?userId=" .. player.UserId .. "&width=150&height=150&format=png"
-                    }
-                end
-                
                 local data = {
                     ["username"] = "Fish It Tracker",
-                    ["embeds"] = {embedData}
+                    ["embeds"] = {{
+                        ["title"] = "ðŸŽ£ New Fish Caught!",
+                        ["color"] = tierInfo.color,
+                        ["fields"] = {
+                           {
+                                ["name"] = "ðŸ‘¤ Player",
+                                ["value"] = player.Name,
+                                ["inline"] = false
+                            },
+                            {
+                                ["name"] = "ðŸŸ Fish Name",
+                                ["value"] = "**" .. fullItemName .. "**\nâš–ï¸ Weight: "..formatWeight(itemData.Weight, weight).."\nðŸ’° Sell Price: ".. (itemData.SellPrice or 0) .."\nâ­ Tier: "..tierInfo.name .. " (T" .. (itemData.Tier or 1) .. ")",
+                                ["inline"] = false
+                            }
+                            
+                        },
+                        ["footer"] = {
+                            ["text"] = "Fish It Tracker â€¢ " .. os.date("%Y-%m-%d %H:%M:%S")
+                        },
+                        ["thumbnail"] = {
+                            ["url"] = "https://www.roblox.com/headshot-thumbnail/image?userId=" .. player.UserId .. "&width=150&height=150&format=png"
+                        }
+                    }}
                 }
                 
                 local headers = {["Content-Type"] = "application/json"}
                 local body = game:GetService("HttpService"):JSONEncode(data)
                 
+                -- Try different HTTP request methods
                 local req = http_request or request or syn.request
                 if fluxus and fluxus.request then
                     req = fluxus.request
@@ -2663,39 +1813,43 @@ local function sendWebhook(itemName, itemData, weight, isVariant, variantName)
                         Body = body
                     })
                     
+                    -- Check if request was successful
                     if response and (response.StatusCode == 200 or response.StatusCode == 204) then
                         success = true
-                        print("Webhook berhasil dikirim dengan gambar ikan!")
+                        print("Webhook sent successfully!")
                     else
                         error("HTTP Error: " .. (response and response.StatusCode or "Unknown"))
                     end
                 else
-                    error("Tidak ada fungsi HTTP request yang tersedia")
+                    error("No HTTP request function available")
                 end
             end)
             
             if sendSuccess then
                 success = true
-                httpRetryCount = 0
+                httpRetryCount = 0 -- Reset global retry count on success
             else
-                warn("Percobaan webhook " .. retryAttempt .. " gagal:", sendError)
+                warn("Webhook attempt " .. retryAttempt .. " failed:", sendError)
                 
                 if retryAttempt < maxRetries then
+                    -- Wait before retrying (exponential backoff)
                     wait(retryAttempt * 2)
                 else
                     httpRetryCount = httpRetryCount + 1
                     
+                    -- If too many global failures, temporarily disable webhook
                     if httpRetryCount >= maxHttpRetries then
-                        warn("Terlalu banyak kegagalan webhook, menonaktifkan sementara...")
+                        warn("Too many webhook failures, temporarily disabling...")
                         isWebhookActive = false
                         
                         Rayfield:Notify({
-                            Title = "Webhook Dinonaktifkan Sementara",
-                            Content = "Terlalu banyak percobaan gagal. Periksa URL webhook Anda.",
+                            Title = "Webhook Temporarily Disabled",
+                            Content = "Too many failed attempts. Check your webhook URL.",
                             Duration = 10,
                             Image = "bell-ring",
                         })
                         
+                        -- Reset after 30 seconds
                         spawn(function()
                             wait(30)
                             httpRetryCount = 0
@@ -2707,11 +1861,12 @@ local function sendWebhook(itemName, itemData, weight, isVariant, variantName)
     end)
 end
 
--- Fungsi monitoring Replion
+-- CRITICAL FIX: Alternative method 1 - Replion monitoring with FIXED filter check
 local function startReplionMonitoring()
     local success, error = pcall(function()
         local ReplicatedStorage = game:GetService("ReplicatedStorage")
         
+        -- Check if Replion exists
         local replionPackage = ReplicatedStorage:FindFirstChild("Packages")
         if replionPackage then
             replionPackage = replionPackage:FindFirstChild("_Index")
@@ -2723,27 +1878,33 @@ local function startReplionMonitoring()
                             local Replion = require(replionModule)
                             local Client = Replion.Client
                             
+                            -- Wait for data replion
                             local dataReplion = Client:WaitReplion("Data")
                             
+                            -- Anti-spam variables
                             local lastProcessTime = 0
-                            local processingCooldown = 2
+                            local processingCooldown = 2 -- 2 second cooldown
                             
+                            -- Monitor inventory changes with proper thread handling
                             dataReplion:OnChange("Inventory", function(newInventory, oldInventory)
                                 if not isWebhookActive or not newInventory then
                                     return
                                 end
                                 
+                                -- Anti-spam check
                                 local currentTime = tick()
                                 if currentTime - lastProcessTime < processingCooldown then
-                                    print("Melewati perubahan inventory - terlalu cepat (anti-spam)")
+                                    print("Skipping inventory change - too soon (anti-spam)")
                                     return
                                 end
                                 lastProcessTime = currentTime
                                 
+                                -- CRITICAL: Use task.defer instead of RunService for better stability
                                 task.defer(function()
                                     local processSuccess, processError = pcall(function()
-                                        print("Memproses perubahan inventory...")
+                                        print("Processing inventory change...")
                                         
+                                        -- Check for new items
                                         for category, items in pairs(newInventory) do
                                             if type(items) == "table" then
                                                 for uuid, itemInfo in pairs(items) do
@@ -2761,13 +1922,16 @@ local function startReplionMonitoring()
                                                         local itemData = getItemData(itemInfo.Id)
                                                         
                                                         if itemData and itemData.Type == "Fishes" then
-                                                            print("🐟 Ikan terdeteksi:", itemData.Name, "ID:", itemInfo.Id, "itemData.Id:", itemData.Id)
+                                                            print("ðŸŸ Fish detected:", itemData.Name, "ID:", itemInfo.Id, "itemData.Id:", itemData.Id)
                                                             
+                                                            -- CRITICAL FIX: Use itemInfo.Id instead of itemData.Id
                                                             local fishId = itemInfo.Id
                                                             
+                                                            -- Check if this fish should be sent
                                                             if specificFishEnabled[fishId] == true then
-                                                                print("✅ Ikan lolos filter:", itemData.Name, "ID:", fishId)
+                                                                print("âœ… Fish passed filter:", itemData.Name, "ID:", fishId)
                                                                 
+                                                                -- Check for variants
                                                                 local isVariant = false
                                                                 local variantName = nil
                                                                 
@@ -2783,21 +1947,24 @@ local function startReplionMonitoring()
                                                                     end
                                                                 end
                                                                 
+                                                                -- Get weight from metadata
                                                                 local weight = nil
                                                                 if itemInfo.Metadata and itemInfo.Metadata.Weight then
                                                                     weight = itemInfo.Metadata.Weight
                                                                 end
                                                                 
+                                                                -- Send webhook
                                                                 sendWebhook(itemData.Name, itemData, weight, isVariant, variantName)
                                                                 
+                                                                -- Show notification
                                                                 Rayfield:Notify({
-                                                                    Title = "Ikan Terdeteksi!",
-                                                                    Content = (variantName and (variantName .. " ") or "") .. itemData.Name .. " dikirim ke webhook",
+                                                                    Title = "Fish Detected!",
+                                                                    Content = (variantName and (variantName .. " ") or "") .. itemData.Name .. " sent to webhook",
                                                                     Duration = 5,
                                                                     Image = "bell-ring",
                                                                 })
                                                             else
-                                                                print("❌ Ikan difilter:", itemData.Name, "ID:", fishId, "Status toggle:", specificFishEnabled[fishId])
+                                                                print("âŒ Fish filtered out:", itemData.Name, "ID:", fishId, "Toggle status:", specificFishEnabled[fishId])
                                                             end
                                                         end
                                                     end
@@ -2807,7 +1974,7 @@ local function startReplionMonitoring()
                                     end)
                                     
                                     if not processSuccess then
-                                        warn("Error memproses perubahan inventory:", processError)
+                                        warn("Error processing inventory change:", processError)
                                     end
                                 end)
                             end)
@@ -2823,32 +1990,202 @@ local function startReplionMonitoring()
     end)
     
     if success then
-        print("Monitoring Replion dimulai dengan sukses")
+        print("Replion monitoring started successfully")
         return true
     else
-        warn("Gagal memulai monitoring Replion:", error)
+        warn("Failed to start Replion monitoring:", error)
         return false
     end
 end
 
--- Fungsi untuk memulai monitoring inventory
-local function startInventoryMonitoring()
-    print("Memulai monitoring inventory...")
+-- Alternative method 2: Monitor fishing events directly
+local function startEventMonitoring()
+    local success, error = pcall(function()
+        local ReplicatedStorage = game:GetService("ReplicatedStorage")
+        local netFolder = ReplicatedStorage.Packages._Index:FindFirstChild("sleitnick_net@0.2.0")
+        
+        if netFolder and netFolder:FindFirstChild("net") then
+            local net = netFolder.net
+            local fishingCompleted = net:FindFirstChild("RE/FishingCompleted")
+            
+            if fishingCompleted then
+                -- Hook into fishing completed event
+                local originalFire = fishingCompleted.FireServer
+                fishingCompleted.FireServer = function(...)
+                    local result = originalFire(...)
+                    
+                    if isWebhookActive then
+                        -- Wait a bit for inventory to update, then check in main thread
+                        spawn(function()
+                            wait(2)
+                            print("Fishing completed, checking for new fish...")
+                            checkForNewFish()
+                        end)
+                    end
+                    
+                    return result
+                end
+                
+                print("Event monitoring started successfully")
+                return true
+            end
+        end
+        
+        return false
+    end)
     
-    httpRetryCount = 0
-    
-    if startReplionMonitoring() then
-        print("Menggunakan metode monitoring Replion")
-        return
-    end
-    
-    print("Menggunakan metode pengecekan berkala")
-    if inventoryConnection then
-        inventoryConnection:Disconnect()
+    if success then
+        return true
+    else
+        warn("Failed to start event monitoring:", error)
+        return false
     end
 end
 
--- Fungsi untuk menghentikan monitoring
+-- Alternative method 3: Periodic inventory checking (with proper thread handling)
+local function checkForNewFish()
+    if not isWebhookActive then return end
+    
+    -- Ensure we're in main thread
+    local RunService = game:GetService("RunService")
+    RunService.Heartbeat:Wait()
+    
+    local success, error = pcall(function()
+        local ReplicatedStorage = game:GetService("ReplicatedStorage")
+        local Client = require(ReplicatedStorage.Packages.Replion).Client
+        local dataReplion = Client:WaitReplion("Data")
+        
+        local currentInventory = dataReplion:Get("Inventory")
+        
+        if currentInventory then
+            -- Compare with last known state
+            for category, items in pairs(currentInventory) do
+                if type(items) == "table" then
+                    for uuid, itemInfo in pairs(items) do
+                        -- Check if this is a new item or increased quantity
+                        local isNewItem = false
+                        
+                        if not lastInventoryState[category] or not lastInventoryState[category][uuid] then
+                            isNewItem = true
+                        elseif lastInventoryState[category][uuid].Quantity and itemInfo.Quantity then
+                            if itemInfo.Quantity > lastInventoryState[category][uuid].Quantity then
+                                isNewItem = true
+                            end
+                        end
+                        
+                        if isNewItem and itemInfo.Id then
+                            local itemData = getItemData(itemInfo.Id)
+                            
+                            if itemData and itemData.Type == "Fishes" then
+                                print("New fish detected:", itemData.Name)
+                                
+                                -- CRITICAL FIX: Use itemInfo.Id directly for filter check
+                                local fishId = itemInfo.Id
+                                
+                                if specificFishEnabled[fishId] == true then
+                                    print("âœ… Fish passed filter:", itemData.Name, "ID:", fishId)
+                                    
+                                    -- Process the fish
+                                    local isVariant = false
+                                    local variantName = nil
+                                    
+                                    if itemInfo.Metadata and itemInfo.Metadata.VariantId then
+                                        local variantSuccess, variantData = pcall(function()
+                                            local ItemUtility = require(ReplicatedStorage.Shared.ItemUtility)
+                                            return ItemUtility:GetVariantData(itemInfo.Metadata.VariantId)
+                                        end)
+                                        
+                                        if variantSuccess and variantData and variantData.Data then
+                                            isVariant = true
+                                            variantName = variantData.Data.Name
+                                        end
+                                    end
+                                    
+                                    local weight = nil
+                                    if itemInfo.Metadata and itemInfo.Metadata.Weight then
+                                        weight = itemInfo.Metadata.Weight
+                                    end
+                                    
+                                    sendWebhook(itemData.Name, itemData, weight, isVariant, variantName)
+                                    
+                                    Rayfield:Notify({
+                                        Title = "Fish Detected!",
+                                        Content = (variantName and (variantName .. " ") or "") .. itemData.Name .. " sent to webhook",
+                                        Duration = 5,
+                                        Image = "bell-ring",
+                                    })
+                                else
+                                    print("âŒ Fish filtered out:", itemData.Name, "ID:", fishId, "Toggle status:", specificFishEnabled[fishId])
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+            
+            -- Update last known state
+            lastInventoryState = {}
+            for category, items in pairs(currentInventory) do
+                lastInventoryState[category] = {}
+                if type(items) == "table" then
+                    for uuid, itemInfo in pairs(items) do
+                        lastInventoryState[category][uuid] = {
+                            Id = itemInfo.Id,
+                            Quantity = itemInfo.Quantity
+                        }
+                    end
+                end
+            end
+        end
+    end)
+    
+    if not success then
+        warn("Error checking for new fish:", error)
+    end
+end
+
+-- Start monitoring function
+local function startInventoryMonitoring()
+    print("Starting inventory monitoring...")
+    
+    -- Reset retry count when starting
+    httpRetryCount = 0
+    
+    -- Try method 1: Replion monitoring
+    if startReplionMonitoring() then
+        print("Using Replion monitoring method")
+        return
+    end
+    
+    -- Try method 2: Event monitoring
+    if startEventMonitoring() then
+        print("Using event monitoring method")
+    end
+    
+    -- Method 3: Periodic checking as fallback
+    print("Using periodic checking method")
+    if inventoryConnection then
+        inventoryConnection:Disconnect()
+    end
+    
+    -- Initialize last inventory state
+    spawn(function()
+        wait(1)
+        checkForNewFish() -- This will initialize lastInventoryState
+    end)
+    
+    -- Start periodic checking (reduced frequency to avoid spam)
+    inventoryConnection = game:GetService("RunService").Heartbeat:Connect(function()
+        if isWebhookActive then
+            -- Check every 10 seconds instead of 5 to reduce spam
+            if tick() % 10 < 0.1 then
+                checkForNewFish()
+            end
+        end
+    end)
+end
+
+-- Stop monitoring function
 local function stopInventoryMonitoring()
     if inventoryConnection then
         inventoryConnection:Disconnect()
@@ -2856,13 +2193,13 @@ local function stopInventoryMonitoring()
     end
     lastInventoryState = {}
     httpRetryCount = 0
-    print("Monitoring inventory dihentikan")
+    print("Inventory monitoring stopped")
 end
 
--- Toggle Webhook
+-- Webhook Toggle (DEFAULT OFF)
 local WebhookToggle = WebhookTab:CreateToggle({
-    Name = "Aktifkan Pelacakan Webhook",
-    CurrentValue = false,
+    Name = "Enable Webhook Tracking",
+    CurrentValue = false,  -- Always start as OFF
     Flag = "webhooktracking",
     Callback = function(Value)
         isWebhookActive = Value
@@ -2870,8 +2207,8 @@ local WebhookToggle = WebhookTab:CreateToggle({
         if Value then
             if webhookURL == "" then
                 Rayfield:Notify({
-                    Title = "Tidak Ada URL Webhook",
-                    Content = "Silakan masukkan URL webhook terlebih dahulu",
+                    Title = "No Webhook URL",
+                    Content = "Please enter webhook URL first",
                     Duration = 5,
                     Image = "bell-ring",
                 })
@@ -2882,8 +2219,8 @@ local WebhookToggle = WebhookTab:CreateToggle({
             startInventoryMonitoring()
             
             Rayfield:Notify({
-                Title = "Pelacakan Webhook Dimulai",
-                Content = "Hanya ikan yang dipilih yang akan dilacak",
+                Title = "Webhook Tracking Started",
+                Content = "Only selected fish will be tracked",
                 Duration = 5,
                 Image = "bell-ring",
             })
@@ -2891,7 +2228,7 @@ local WebhookToggle = WebhookTab:CreateToggle({
             stopInventoryMonitoring()
             
             Rayfield:Notify({
-                Title = "Pelacakan Webhook Dihentikan",
+                Title = "Webhook Tracking Stopped",
                 Content = "",
                 Duration = 3,
                 Image = "bell-ring",
@@ -2900,10 +2237,12 @@ local WebhookToggle = WebhookTab:CreateToggle({
     end,
 })
 
--- BAGIAN IKAN SECRET
+-- Fish Info Paragraphs and Toggles (Organized by tier)
+
+-- SECRET FISH SECTION
 local SecretParagraph = WebhookTab:CreateParagraph({
     Title = "---===Secret===---",
-    Content = "Ikan Tier 7+ - Sangat Langka"
+    Content = "Tier 7+ Fish - Extremely Rare"
 })
 
 local GiantSquidToggle = WebhookTab:CreateToggle({
@@ -2915,8 +2254,8 @@ local GiantSquidToggle = WebhookTab:CreateToggle({
         
         if Value then
             Rayfield:Notify({
-                Title = "Giant Squid Diaktifkan",
-                Content = "Akan mengirim Giant Squid ke webhook",
+                Title = "Giant Squid Enabled",
+                Content = "Will send Giant Squid to webhook",
                 Duration = 3,
                 Image = "bell-ring",
             })
@@ -2933,8 +2272,8 @@ local FrostbornSharkToggle = WebhookTab:CreateToggle({
         
         if Value then
             Rayfield:Notify({
-                Title = "Frostborn Shark Diaktifkan",
-                Content = "Akan mengirim Frostborn Shark ke webhook",
+                Title = "Frostborn Shark Enabled",
+                Content = "Will send Frostborn Shark to webhook",
                 Duration = 3,
                 Image = "bell-ring",
             })
@@ -2942,10 +2281,10 @@ local FrostbornSharkToggle = WebhookTab:CreateToggle({
     end,
 })
 
--- BAGIAN IKAN MYTHIC
+-- MYTHIC FISH SECTION
 local MythicParagraph = WebhookTab:CreateParagraph({
     Title = "---===Mythic===---", 
-    Content = "Ikan Tier 6 - Sangat Langka"
+    Content = "Tier 6 Fish - Very Rare"
 })
 
 local DottedStingrayToggle = WebhookTab:CreateToggle({
@@ -3020,10 +2359,10 @@ local BlueflameRayToggle = WebhookTab:CreateToggle({
     end,
 })
 
--- BAGIAN IKAN LEGENDARY
+-- LEGENDARY FISH SECTION
 local LegendaryParagraph = WebhookTab:CreateParagraph({
     Title = "---===Legendary===---",
-    Content = "Ikan Tier 5 - Langka"
+    Content = "Tier 5 Fish - Rare"
 })
 
 local YellowfinTunaToggle = WebhookTab:CreateToggle({
@@ -3116,10 +2455,10 @@ local EnchantedAngelfishToggle = WebhookTab:CreateToggle({
     end,
 })
 
--- BAGIAN IKAN UNCOMMON
+-- UNCOMMON FISH SECTION
 local UncommonParagraph = WebhookTab:CreateParagraph({
     Title = "---===Uncommon===---",
-    Content = "Ikan Tier 2 - Biasa tapi bisa dilacak"
+    Content = "Tier 2 Fish - Common but trackable"
 })
 
 local PilotFishToggle = WebhookTab:CreateToggle({
@@ -3128,12 +2467,12 @@ local PilotFishToggle = WebhookTab:CreateToggle({
     Flag = "pilotfish",
     Callback = function(Value)
         specificFishEnabled[140] = Value
-        print("🐟 Pilot Fish toggle diatur ke:", Value, "untuk ID 140")
+        print("ðŸŸ Pilot Fish toggle set to:", Value, "for ID 140")
         
         if Value then
             Rayfield:Notify({
-                Title = "Pilot Fish Diaktifkan",
-                Content = "Akan mengirim Pilot Fish ke webhook",
+                Title = "Pilot Fish Enabled",
+                Content = "Will send Pilot Fish to webhook",
                 Duration = 3,
                 Image = "bell-ring",
             })
@@ -3147,7 +2486,7 @@ local BlackcapBassletToggle = WebhookTab:CreateToggle({
     Flag = "blackcapbasslet",
     Callback = function(Value)
         specificFishEnabled[182] = Value
-        print("🐟 Blackcap Basslet toggle diatur ke:", Value, "untuk ID 182")
+        print("ðŸŸ Blackcap Basslet toggle set to:", Value, "for ID 182")
     end,
 })
 
@@ -3157,12 +2496,12 @@ local SilverTunaToggle = WebhookTab:CreateToggle({
     Flag = "silvertuna",
     Callback = function(Value)
         specificFishEnabled[139] = Value
-        print("🐟 Silver Tuna toggle diatur ke:", Value, "untuk ID 139")
+        print("ðŸŸ Silver Tuna toggle set to:", Value, "for ID 139")
         
         if Value then
             Rayfield:Notify({
-                Title = "Silver Tuna Diaktifkan",
-                Content = "Akan mengirim Silver Tuna ke webhook",
+                Title = "Silver Tuna Enabled",
+                Content = "Will send Silver Tuna to webhook",
                 Duration = 3,
                 Image = "bell-ring",
             })
@@ -3176,14 +2515,15 @@ local ParrotFishToggle = WebhookTab:CreateToggle({
     Flag = "parrotfish",
     Callback = function(Value)
         specificFishEnabled[186] = Value
-        print("🐟 Parrot Fish toggle diatur ke:", Value, "untuk ID 186")
+        print("ðŸŸ Parrot Fish toggle set to:", Value, "for ID 186")
     end,
 })
 
--- Tombol Aksi Cepat
+-- Quick Action Buttons
 local DeselectAllButton = WebhookTab:CreateButton({
-    Name = "Nonaktifkan Semua Ikan",
+    Name = "Deselect All Fish",
     Callback = function()
+        -- Disable all specific fish
         -- Secret
         GiantSquidToggle:Set(false)
         FrostbornSharkToggle:Set(false)
@@ -3214,48 +2554,22 @@ local DeselectAllButton = WebhookTab:CreateButton({
         ParrotFishToggle:Set(false)
         
         Rayfield:Notify({
-            Title = "Semua Ikan Dinonaktifkan",
-            Content = "Tidak ada ikan yang akan dikirim ke webhook",
+            Title = "All Fish Deselected",
+            Content = "No fish will be sent to webhook",
             Duration = 3,
             Image = "bell-ring",
         })
     end,
 })
 
--- Tombol Aktifkan Ikan Langka
-local SelectRareButton = WebhookTab:CreateButton({
-    Name = "Aktifkan Ikan Langka (Mythic+)",
-    Callback = function()
-        -- Secret
-        GiantSquidToggle:Set(true)
-        FrostbornSharkToggle:Set(true)
-        -- Mythic
-        DottedStingrayToggle:Set(true)
-        AbyssSeahorseToggle:Set(true)
-        HawksTurtleToggle:Set(true)
-        HammerheadSharkToggle:Set(true)
-        MantaRayToggle:Set(true)
-        PrismySeahorseToggle:Set(true)
-        LoggerheadTurtleToggle:Set(true)
-        BlueflameRayToggle:Set(true)
-        
-        Rayfield:Notify({
-            Title = "Ikan Langka Diaktifkan",
-            Content = "Secret & Mythic fish akan dikirim ke webhook",
-            Duration = 3,
-            Image = "bell-ring",
-        })
-    end,
-})
-
--- Tombol Test Webhook dengan gambar
+-- Test Webhook Button
 local TestWebhookButton = WebhookTab:CreateButton({
-    Name = "🧪 Test Webhook",
+    Name = "ðŸ§ª Test Webhook",
     Callback = function()
         if webhookURL == "" then
             Rayfield:Notify({
-                Title = "Tidak Ada URL Webhook",
-                Content = "Silakan masukkan URL webhook terlebih dahulu",
+                Title = "No Webhook URL",
+                Content = "Please enter webhook URL first",
                 Duration = 5,
                 Image = "bell-ring",
             })
@@ -3263,32 +2577,31 @@ local TestWebhookButton = WebhookTab:CreateButton({
         end
         
         local testData = {
-            Id = 139, -- Silver Tuna ID untuk testing
-            Name = "Test Fish (Silver Tuna)",
+            Name = "Test Fish",
             Type = "Fishes",
-            Tier = 2,
+            Tier = 3,
             SellPrice = 150,
             Weight = {Default = {Min = 2, Max = 5}},
             Probability = {Chance = 0.05}
         }
         
-        sendWebhook("Test Fish (Silver Tuna)", testData, 3.5, false, nil)
+        sendWebhook("Test Fish", testData, 3.5, false, nil)
         
         Rayfield:Notify({
-            Title = "Test Webhook Dikirim",
-            Content = "Cek channel Discord untuk melihat gambar ikan",
+            Title = "Test Webhook Sent",
+            Content = "Check your Discord channel",
             Duration = 5,
             Image = "bell-ring",
         })
     end,
 })
 
--- Tombol Debug Filter Ikan
+-- Debug Button (Enhanced)
 local DebugButton = WebhookTab:CreateButton({
-    Name = "🔍 Debug Filter Ikan",
+    Name = "ðŸ” Debug Fish Filter",
     Callback = function()
-        print("=== DEBUG FILTER IKAN ===")
-        print("Toggle yang aktif:")
+        print("=== FISH FILTER DEBUG ===")
+        print("Active toggles:")
         
         local activeCount = 0
         for fishId, enabled in pairs(specificFishEnabled) do
@@ -3296,94 +2609,146 @@ local DebugButton = WebhookTab:CreateButton({
                 activeCount = activeCount + 1
                 local itemData = getItemData(fishId)
                 if itemData then
-                    print("  ✅", itemData.Name, "(ID:", fishId .. ")")
+                    print("  âœ…", itemData.Name, "(ID:", fishId .. ")")
                 else
-                    print("  ❓ Ikan ID tidak dikenal:", fishId)
+                    print("  â“ Unknown fish ID:", fishId)
                 end
             end
         end
         
         if activeCount == 0 then
-            print("  ❌ TIDAK ADA IKAN YANG AKTIF - Webhook tidak akan mengirim apapun!")
+            print("  âŒ NO FISH ENABLED - Webhook will not send anything!")
         else
-            print("  Total ikan yang aktif:", activeCount)
+            print("  Total enabled fish:", activeCount)
         end
         
-        print("=== AKHIR DEBUG ===")
+        print("=== END DEBUG ===")
         
         Rayfield:Notify({
-            Title = "Debug Filter Selesai",
-            Content = activeCount .. " ikan aktif. Cek console (F9)",
+            Title = "Filter Debug Complete",
+            Content = activeCount .. " fish enabled. Check console (F9)",
             Duration = 5,
             Image = "bell-ring",
         })
     end,
 })
 
--- Tombol Debug Gambar Ikan
-local DebugImagesButton = WebhookTab:CreateButton({
-    Name = "🖼️ Debug Gambar Ikan",
+-- Force Toggle Sync Button (CRITICAL FIX)
+local ForceSyncButton = WebhookTab:CreateButton({
+    Name = "ðŸ”„ Force Toggle Sync",
     Callback = function()
-        print("=== DEBUG GAMBAR IKAN ===")
+        print("=== FORCING TOGGLE SYNC ===")
         
-        local imageCount = 0
-        for fishId, imageUrl in pairs(fishImages) do
-            imageCount = imageCount + 1
-            local itemData = getItemData(fishId)
-            local fishName = itemData and itemData.Name or "Tidak Dikenal"
-            local convertedUrl = getFishImageURL(fishId)
+        -- Force sync all toggles to their UI state
+        local togglePairs = {
+            {140, PilotFishToggle, "Pilot Fish"},
+            {139, SilverTunaToggle, "Silver Tuna"}, 
+            {186, ParrotFishToggle, "Parrot Fish"},
+            {182, BlackcapBassletToggle, "Blackcap Basslet"}
+        }
+        
+        for _, pair in pairs(togglePairs) do
+            local fishId = pair[1]
+            local toggle = pair[2]
+            local fishName = pair[3]
             
-            print("🐟", fishName, "(ID:", fishId .. ")")
-            print("   Asset ID:", imageUrl)
-            print("   URL Gambar:", convertedUrl or "Gagal konversi")
+            if toggle then
+                local toggleValue = toggle.CurrentValue or false
+                specificFishEnabled[fishId] = toggleValue
+                print("ðŸ”„ Synced", fishName, "ID:", fishId, "to:", toggleValue)
+            end
+        end
+        
+        print("=== SYNC COMPLETE ===")
+        
+        -- Test after sync
+        print("=== TESTING AFTER SYNC ===")
+        for _, pair in pairs(togglePairs) do
+            local fishId = pair[1]
+            local fishName = pair[3]
+            print("ðŸ“Š", fishName, "ID:", fishId, "enabled:", specificFishEnabled[fishId])
+        end
+        
+        Rayfield:Notify({
+            Title = "Toggle Sync Complete",
+            Content = "All toggles synchronized",
+            Duration = 5,
+            Image = "bell-ring",
+        })
+    end,
+})
+local TestFishIDsButton = WebhookTab:CreateButton({
+    Name = "ðŸ” Test Fish IDs",
+    Callback = function()
+        print("=== TESTING FISH IDs ===")
+        
+        -- Test specific fish IDs that user reported
+        local testFishIds = {140, 139, 186, 182} -- Pilot Fish, Silver Tuna, Parrot Fish, Blackcap Basslet
+        
+        for _, fishId in pairs(testFishIds) do
+            local itemData = getItemData(fishId)
+            if itemData then
+                print("âœ… Found fish ID", fishId .. ":", itemData.Name)
+                print("   Type:", itemData.Type)
+                print("   Tier:", itemData.Tier)
+                print("   Toggle status:", specificFishEnabled[fishId])
+                print("   Would send:", shouldSendFish(itemData))
+            else
+                print("âŒ Fish ID", fishId, "not found!")
+            end
             print("---")
         end
         
-        print("Total ikan dengan gambar:", imageCount)
-        print("=== AKHIR DEBUG ===")
+        print("=== END TEST ===")
         
         Rayfield:Notify({
-            Title = "Debug Gambar Selesai",
-            Content = imageCount .. " ikan punya gambar. Cek console (F9)",
+            Title = "Fish ID Test Complete",
+            Content = "Check console (F9) for results",
             Duration = 5,
             Image = "bell-ring",
         })
     end,
 })
 
--- Tombol Reset Webhook
+-- Reset Webhook Button (New)
 local ResetWebhookButton = WebhookTab:CreateButton({
-    Name = "🔄 Reset Sistem Webhook",
+    Name = "ðŸ”„ Reset Webhook System",
     Callback = function()
-        -- Hentikan monitoring
+        -- Stop monitoring
         if isWebhookActive then
             WebhookToggle:Set(false)
         end
         
-        -- Reset semua variabel
+        -- Reset all variables
         httpRetryCount = 0
         lastInventoryState = {}
         
-        -- Tunggu sebentar
+        -- Wait a moment
         wait(1)
         
-        -- Restart jika URL webhook sudah diatur
+        -- Restart if webhook URL is set
         if webhookURL ~= "" then
             WebhookToggle:Set(true)
         end
         
         Rayfield:Notify({
-            Title = "Sistem Webhook Direset",
-            Content = "Semua counter dan state telah direset",
+            Title = "Webhook System Reset",
+            Content = "All counters and states have been reset",
             Duration = 5,
             Image = "bell-ring",
         })
     end,
 })
 
--- Tombol Hapus URL Webhook
+-- Webhook Info
+local WebhookParagraph = WebhookTab:CreateParagraph({
+    Title = "Webhook Information",
+    Content = "ðŸŽ£ This webhook will only track fish you select\n\nðŸ“Š How it works:\nâ€¢ Toggle ON = Fish will be sent to webhook\nâ€¢ Toggle OFF = Fish will be ignored\nâ€¢ No toggles active = No webhooks sent\n\nâš ï¸ Features:\nâ€¢ Auto-retry on failed requests\nâ€¢ Thread safety protection\nâ€¢ Selective fish tracking\nâ€¢ Only sends what you choose"
+})
+
+-- Clear Webhook Button
 local ClearWebhookButton = WebhookTab:CreateButton({
-    Name = "🗑️ Hapus URL Webhook",
+    Name = "ðŸ—‘ï¸ Clear Webhook URL",
     Callback = function()
         webhookURL = ""
         WebhookInput:Set("")
@@ -3393,20 +2758,18 @@ local ClearWebhookButton = WebhookTab:CreateButton({
         httpRetryCount = 0
         
         Rayfield:Notify({
-            Title = "URL Webhook Dihapus",
+            Title = "Webhook URL Cleared",
             Content = "",
             Duration = 3,
             Image = "bell-ring",
         })
     end,
 })
-
--- Informasi Webhook
-local WebhookParagraph = WebhookTab:CreateParagraph({
-    Title = "Informasi Webhook",
-    Content = "🎣 Webhook ini hanya akan melacak ikan yang Anda pilih\n\n📊 Cara kerja:\n• Toggle ON = Ikan akan dikirim ke webhook\n• Toggle OFF = Ikan akan diabaikan\n• Tidak ada toggle aktif = Tidak ada webhook yang dikirim\n\n⚡ Fitur:\n• Auto-retry jika gagal kirim\n• Proteksi thread safety\n• Pelacakan ikan selektif\n• Gambar ikan di pojok kanan atas dan besar\n• Hanya mengirim apa yang Anda pilih"
-})
+Rayfield:LoadConfiguration()
+if isAutoFarmActive then
+   print('zzz')
+   startAutoFarm()
+else
+   print('ga')
 end
 end
-Window:SelectTab(1)
-AutoConfig:Initialize(Fluent)

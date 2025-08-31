@@ -2659,8 +2659,7 @@ local function sendWebhook(itemName, itemData, weight, isVariant, variantName)
                         }
                     },
                     ["footer"] = {
-                        ["text"] = os.date("%Y-%m-%d %H:%M:%S").."https://discord.gg/uwXYuxj6cF",
-                        ["icon_url"] = "https://i.imgur.com/0mURszZ.png"
+                        ["text"] = os.date("%Y-%m-%d %H:%M:%S").."https://discord.gg/uwXYuxj6cF"
                     }
                 }
                 if fishImageURL then

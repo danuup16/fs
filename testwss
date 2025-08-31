@@ -2371,38 +2371,38 @@ do
 -- Database Gambar Ikan (sementara menggunakan placeholder)
 local fishImages = {
     -- Secret Fish
-    [156] = "https://imgur.com/a/XzkE17o", -- Giant Squid
-    [136] = "https://imgur.com/a/XzkE17o", -- Frostborn Shark
-    [99] = "https://imgur.com/a/XzkE17o",  -- Great Christmas Whale
-    [141] = "https://imgur.com/a/XzkE17o", -- Great Whale
-    [159] = "https://imgur.com/a/XzkE17o", -- Robot Kraken
-    [145] = "https://imgur.com/a/XzkE17o", -- Worm Fish
-    [176] = "https://imgur.com/a/XzkE17o", -- Ghost Worm Fish
-    [83] = "https://imgur.com/a/XzkE17o",  -- Ghost Shark
+    [156] = "https://i.imgur.com/0mURszZ.png", -- Giant Squid
+    [136] = "https://i.imgur.com/0mURszZ.png", -- Frostborn Shark
+    [99] = "https://i.imgur.com/0mURszZ.png",  -- Great Christmas Whale
+    [141] = "https://i.imgur.com/0mURszZ.png", -- Great Whale
+    [159] = "https://i.imgur.com/0mURszZ.png", -- Robot Kraken
+    [145] = "https://i.imgur.com/0mURszZ.png", -- Worm Fish
+    [176] = "https://i.imgur.com/0mURszZ.png", -- Ghost Worm Fish
+    [83] = "https://i.imgur.com/0mURszZ.png",  -- Ghost Shark
     
     -- Mythic Fish
-    [110] = "https://imgur.com/a/XzkE17o", -- Lined Cardinal Fish
-    [97] = "https://imgur.com/a/XzkE17o",  -- Gingerbread Turtle
-    [34] = "https://imgur.com/a/XzkE17o",  -- Loggerhead Turtle
-    [21] = "https://imgur.com/a/XzkE17o",  -- Hawks Turtle
-    [150] = "https://imgur.com/a/XzkE17o", -- Blob Fish
-    [15] = "https://imgur.com/a/XzkE17o",  -- Abyss Seahorse
-    [35] = "https://imgur.com/a/XzkE17o",  -- Prismy Seahorse
-    [146] = "https://imgur.com/a/XzkE17o", -- Strippled Seahorse
-    [47] = "https://imgur.com/a/XzkE17o",  -- Blueflame Ray
-    [75] = "https://imgur.com/a/XzkE17o",  -- Dotted Stingray
-    [54] = "https://imgur.com/a/XzkE17o",  -- Manta Ray
-    [52] = "https://imgur.com/a/XzkE17o",  -- Hammerhead Shark
-    [98] = "https://imgur.com/a/XzkE17o",  -- Gingerbread Shark
-    [122] = "https://imgur.com/a/XzkE17o", -- Loving Shark
-    [137] = "https://imgur.com/a/XzkE17o", -- Plasma Shark
-    [147] = "https://imgur.com/a/XzkE17o", -- Thresher Shark
+    [110] = "https://i.imgur.com/0mURszZ.png", -- Lined Cardinal Fish
+    [97] = "https://i.imgur.com/0mURszZ.png",  -- Gingerbread Turtle
+    [34] = "https://i.imgur.com/0mURszZ.png",  -- Loggerhead Turtle
+    [21] = "https://i.imgur.com/0mURszZ.png",  -- Hawks Turtle
+    [150] = "https://i.imgur.com/0mURszZ.png", -- Blob Fish
+    [15] = "https://i.imgur.com/0mURszZ.png",  -- Abyss Seahorse
+    [35] = "https://i.imgur.com/0mURszZ.png",  -- Prismy Seahorse
+    [146] = "https://i.imgur.com/0mURszZ.png", -- Strippled Seahorse
+    [47] = "https://i.imgur.com/0mURszZ.png",  -- Blueflame Ray
+    [75] = "https://i.imgur.com/0mURszZ.png",  -- Dotted Stingray
+    [54] = "https://i.imgur.com/0mURszZ.png",  -- Manta Ray
+    [52] = "https://i.imgur.com/0mURszZ.png",  -- Hammerhead Shark
+    [98] = "https://i.imgur.com/0mURszZ.png",  -- Gingerbread Shark
+    [122] = "https://i.imgur.com/0mURszZ.png", -- Loving Shark
+    [137] = "https://i.imgur.com/0mURszZ.png", -- Plasma Shark
+    [147] = "https://i.imgur.com/0mURszZ.png", -- Thresher Shark
     
     -- Uncommon Fish
-    [139] = "https://imgur.com/a/XzkE17o", -- Silver Tuna
-    [186] = "https://imgur.com/a/XzkE17o", -- Parrot Fish
-    [182] = "https://imgur.com/a/XzkE17o", -- Blackcap Basslet
-    [140] = "https://imgur.com/a/XzkE17o", -- Pilot Fish
+    [139] = "https://i.imgur.com/0mURszZ.png", -- Silver Tuna
+    [186] = "https://i.imgur.com/0mURszZ.png", -- Parrot Fish
+    [182] = "https://i.imgur.com/0mURszZ.png", -- Blackcap Basslet
+    [140] = "https://i.imgur.com/0mURszZ.png", -- Pilot Fish
 }
 
 -- Variabel Webhook

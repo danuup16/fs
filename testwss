@@ -1044,6 +1044,58 @@ local autoClickV2Toggle = Tabs.Fishing:AddToggle("AutoClickV2", {
         end
     end
 })
+local isInstantReelActive = false
+local instantReelConnection = nil
+
+local function startInstantReel()
+    if instantReelConnection then
+        instantReelConnection:Disconnect()
+    end
+    
+    local RunService = game:GetService("RunService")
+    instantReelConnection = RunService.Heartbeat:Connect(function()
+        if not isInstantReelActive then
+            instantReelConnection:Disconnect()
+            return
+        end
+        
+        local success, error = pcall(function()
+            local ReplicatedStorage = game:GetService("ReplicatedStorage")
+            local netFolder = ReplicatedStorage.Packages._Index:FindFirstChild("sleitnick_net@0.2.0")
+            if netFolder and netFolder:FindFirstChild("net") then
+                local net = netFolder.net
+                local fishingCompleted = net:FindFirstChild("RE/FishingCompleted")
+                if fishingCompleted then
+                    fishingCompleted:FireServer()
+                end
+            end
+        end)
+        
+        if not success then
+            warn("Instant reel error: " .. tostring(error))
+        end
+    end)
+end
+
+local function stopInstantReel()
+    if instantReelConnection then
+        instantReelConnection:Disconnect()
+        instantReelConnection = nil
+    end
+end
+local instantReelToggle = fishTab:CreateToggle({
+    Name = "Instant Rail",
+    CurrentValue = false,
+    Flag = "instrail",
+    Callback = function(Value)
+        isInstantReelActive = Value
+        if Value then
+            startInstantReel()
+        else
+            stopInstantReel()
+        end
+    end,
+})
 Tabs.Fishing:AddSection("Auto Farm V1")
 local selectedFarmLocation = nil
 local isAutoFarmActive = false

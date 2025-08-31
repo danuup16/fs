@@ -803,7 +803,7 @@ local FishingDelaySlider = Tabs.Fishing:AddSlider("FishingDelay", {
     Title = "Fishing Delay V1",
     Description = "Adjust delay between fishing cycles, Default 2.3",
     Default = 2.3,
-    Min = 0.5,
+    Min = 2,
     Max = 10,
     Rounding = 1,
     Callback = function(Value)
@@ -1006,7 +1006,7 @@ local fishingV2DelaySlider = Tabs.Fishing:AddSlider("FishingV2Delay", {
     Title = "Fishing Delay V2",
     Description = "Delay between fishing cycles (seconds)",
     Default = 3,
-    Min = 1,
+    Min = 2,
     Max = 10,
     Rounding = 1,
     Callback = function(Value)
@@ -1047,6 +1047,7 @@ local autoClickV2Toggle = Tabs.Fishing:AddToggle("AutoClickV2", {
 Tabs.Fishing:AddSection("Auto Farm V1")
 local selectedFarmLocation = nil
 local isAutoFarmActive = false
+local selectedFarmMethodV1 = "V1"
 local farmLocations = {
    ["Kohana"] = CFrame.new(-686.516663, 3.035492, 799.652039, -0.999842, 0.000000, 0.017792, 0.000000, 1.000000, -0.000000, -0.017792, -0.000000, -0.999842),
    ["Kohana Volcano"] = CFrame.new(-634.442505, 56.306618, 203.509964, 0.649667, -0.000000, 0.760219, -0.000000, 1.000000, 0.000000, -0.760219, -0.000000, 0.649667),
@@ -1077,18 +1078,22 @@ FarmLocationDropdown:OnChanged(function(Value)
    selectedFarmLocation = Value
 end)
 local function startAutoFarm()
-   if not selectedFarmLocation then
-      return false
-   end
+   if not selectedFarmLocation then return false end
    local player = game.Players.LocalPlayer
-   if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
-      return false
-   end
+   if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then return false end
+
    local targetCFrame = farmLocations[selectedFarmLocation]
    if targetCFrame then
       player.Character.HumanoidRootPart.CFrame = targetCFrame
       wait(2)
-      Options.AutoFishing:SetValue(true)
+
+      -- aktifkan method sesuai dropdown
+      if selectedFarmMethodV1 == "V1" then
+         Options.AutoFishing:SetValue(true)
+      else
+         Options.AutoFishingV2:SetValue(true)
+      end
+
       spawn(function()
          while isAutoFarmActive do
             wait(5)
@@ -1098,10 +1103,16 @@ local function startAutoFarm()
                local distance = (currentPos - targetPos).Magnitude
                if distance > 50 then
                   player.Character.HumanoidRootPart.CFrame = targetCFrame
-                  Options.AutoFishing:SetValue(false)
-                    Wait(1)
-                    Options.AutoFishing:SetValue(true)
-                  wait(1)
+                  -- refresh toggle
+                  if selectedFarmMethodV1 == "V1" then
+                     Options.AutoFishing:SetValue(false)
+                     wait(1)
+                     Options.AutoFishing:SetValue(true)
+                  else
+                     Options.AutoFishingV2:SetValue(false)
+                     wait(1)
+                     Options.AutoFishingV2:SetValue(true)
+                  end
                end
             end
          end
@@ -1114,6 +1125,16 @@ local function stopAutoFarm()
    isAutoFarmActive = false
    Options.AutoFishing:SetValue(false) 
 end
+local FarmMethodV1Dropdown = Tabs.Fishing:AddDropdown("FarmMethodV1", {
+    Title = "Auto Farm V1 - Select Method",
+    Description = "Choose fishing method for Auto Farm V1",
+    Values = {"V1", "V2"},
+    Multi = false,
+    Default = 1,
+})
+FarmMethodV1Dropdown:OnChanged(function(Value)
+    selectedFarmMethodV1 = Value
+end)
 local AutoFarmV1Toggle = Tabs.Fishing:AddToggle("AutoFarmV1", {
    Title = "Start Auto Farm V1",
    Description = "Start farming at selected location",
@@ -1135,6 +1156,7 @@ local AutoFarmV1Toggle = Tabs.Fishing:AddToggle("AutoFarmV1", {
    end,
 })
 Tabs.Fishing:AddSection("Auto Farm V2")
+local selectedFarmMethodV2 = "V1"
 local CheckpointInput = Tabs.Fishing:AddInput("CheckpointInput", {
     Title = "Dont' touch this!",
     Description = "Checkpoint Status",
@@ -1191,15 +1213,18 @@ local ClearCheckpointButton = Tabs.Fishing:AddButton({
 })
 local function startAutoFarmV2()
     local player = game.Players.LocalPlayer
-    if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
-        return false
-    end
-    
+    if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then return false end
+
     player.Character.HumanoidRootPart.CFrame = checkpointPosition
     wait(2)
-    
-    Options.AutoFishing:SetValue(true)
-    
+
+    -- aktifkan method sesuai dropdown
+    if selectedFarmMethodV2 == "V1" then
+        Options.AutoFishing:SetValue(true)
+    else
+        Options.AutoFishingV2:SetValue(true)
+    end
+
     spawn(function()
         while isAutoFarmV2Active do
             wait(5)
@@ -1207,22 +1232,35 @@ local function startAutoFarmV2()
                 local currentPos = player.Character.HumanoidRootPart.Position
                 local checkpointPos = checkpointPosition.Position
                 local distance = (currentPos - checkpointPos).Magnitude
-                
                 if distance > 50 then
-                    
                     player.Character.HumanoidRootPart.CFrame = checkpointPosition
-                    Options.AutoFishing:SetValue(false)
-                    Wait(1)
-                    Options.AutoFishing:SetValue(true)
-                    wait(1)
+                    -- refresh toggle
+                    if selectedFarmMethodV2 == "V1" then
+                        Options.AutoFishing:SetValue(false)
+                        wait(1)
+                        Options.AutoFishing:SetValue(true)
+                    else
+                        Options.AutoFishingV2:SetValue(false)
+                        wait(1)
+                        Options.AutoFishingV2:SetValue(true)
+                    end
                 end
             end
         end
     end)
-    
     return true
 end
 
+local FarmMethodV2Dropdown = Tabs.Fishing:AddDropdown("FarmMethodV2", {
+    Title = "Auto Farm V2 - Select Method",
+    Description = "Choose fishing method for Auto Farm V2",
+    Values = {"V1", "V2"},
+    Multi = false,
+    Default = 1,
+})
+FarmMethodV2Dropdown:OnChanged(function(Value)
+    selectedFarmMethodV2 = Value
+end)
 local function stopAutoFarmV2()
     isAutoFarmV2Active = false
     Options.AutoFishing:SetValue(false)
@@ -2280,159 +2318,127 @@ do
     local webhookTab = Tabs.Webhook
     local webhookURL = ""
     local isWebhookActive = false
-    local httpRetryCount = 0
-    local maxHttpRetries = 3
+    local debugMode = true -- Enable debug by default for testing
     
-    -- Updated fish list with all Secret, Mythic, and Test fish
-    local specificFishEnabled = {
-        -- Secret Fish (Tier 7)
-        [156] = false, -- Giant Squid
-        [136] = false, -- Frostborn Shark
-        [99] = false,  -- Great Christmas Whale
-        [141] = false, -- Great Whale
-        [159] = false, -- Robot Kraken
-        [145] = false, -- Worm Fish
-        [176] = false, -- Ghost Worm Fish
-        [83] = false,  -- Ghost Shark
-        
-        -- Mythic Fish (Tier 5 & 6)
-        [110] = false, -- Lined Cardinal Fish
-        [97] = false,  -- Gingerbread Turtle
-        [34] = false,  -- Loggerhead Turtle
-        [21] = false,  -- Hawks Turtle
-        [150] = false, -- Blob Fish
-        [15] = false,  -- Abyss Seahorse
-        [35] = false,  -- Prismy Seahorse
-        [146] = false, -- Strippled Seahorse
-        [47] = false,  -- Blueflame Ray
-        [75] = false,  -- Dotted Stingray
-        [54] = false,  -- Manta Ray
-        [52] = false,  -- Hammerhead Shark
-        [98] = false,  -- Gingerbread Shark
-        [122] = false, -- Loving Shark
-        [137] = false, -- Plasma Shark
-        [147] = false, -- Thresher Shark
-        
-        -- Test Fish (Tier 2) - Easy to catch for testing
-        [197] = false, -- Gar Fish
-        [69] = false,  -- Yello Damselfish
-    }
-
-    local webhookInput = webhookTab:AddInput("WebhookURL", {
-        Title = "Discord Webhook URL",
-        Description = "Paste your Discord webhook URL here",
-        Default = "",
-        Placeholder = "https://discord.com/api/webhooks/...",
-        Numeric = false,
-        Finished = false,
+    webhookTab:AddSection("Debug Tools")
+    
+    -- Debug toggle
+    local debugToggle = webhookTab:AddToggle("DebugMode", {
+        Title = "Debug Mode",
+        Description = "Show detailed inventory information in console",
+        Default = true,
         Callback = function(Value)
-            webhookURL = Value
-            httpRetryCount = 0
-        end
-    })
-    
-    webhookTab:AddSection("Fish Selection")
-    
-    local selectedTiers = {
-        secret = false,
-        mythic = false,
-        test = false
-    }
-    
-    local function updateFishSelection()
-        -- Reset all fish to false first
-        for fishId, _ in pairs(specificFishEnabled) do
-            specificFishEnabled[fishId] = false
-        end
-        
-        local totalEnabled = 0
-        local activeTiers = {}
-        
-        if selectedTiers.secret then
-            -- Enable all secret fish (Tier 7)
-            local secretIds = {156, 136, 99, 141, 159, 145, 176, 83}
-            for _, id in pairs(secretIds) do
-                specificFishEnabled[id] = true
-                totalEnabled = totalEnabled + 1
+            debugMode = Value
+            if Value then
+                print("[DEBUG] Debug mode ENABLED - Check console for inventory updates")
+            else
+                print("[DEBUG] Debug mode DISABLED")
             end
-            table.insert(activeTiers, "Secret Fish")
-            print("[DEBUG] Enabled 8 secret fish")
         end
-        
-        if selectedTiers.mythic then
-            -- Enable all mythic fish (Tier 5 & 6) 
-            local mythicIds = {110, 97, 34, 21, 150, 15, 35, 146, 47, 75, 54, 52, 98, 122, 137, 147}
-            for _, id in pairs(mythicIds) do
-                specificFishEnabled[id] = true
-                totalEnabled = totalEnabled + 1
+    })
+    
+    -- Manual inventory check button
+    local checkInventoryButton = webhookTab:AddButton({
+        Title = "Check Inventory Now",
+        Description = "Manually check current inventory structure",
+        Callback = function()
+            print("\n[DEBUG] ========== MANUAL INVENTORY CHECK ==========")
+            
+            local success, result = pcall(function()
+                local ReplicatedStorage = game:GetService("ReplicatedStorage")
+                local Client = require(ReplicatedStorage.Packages.Replion).Client
+                local dataReplion = Client:WaitReplion("Data")
+                
+                if not dataReplion then
+                    print("[DEBUG] ERROR: Could not get Data replion")
+                    return
+                end
+                
+                -- Try to get inventory data
+                local inventory = dataReplion:Get("Inventory")
+                
+                if not inventory then
+                    print("[DEBUG] ERROR: Inventory is nil")
+                    return
+                end
+                
+                print("[DEBUG] Inventory type:", type(inventory))
+                
+                -- Check all possible data paths
+                print("\n[DEBUG] === CHECKING ALL DATA PATHS ===")
+                
+                -- Method 1: Direct inventory access
+                if inventory then
+                    print("[DEBUG] Direct Inventory found!")
+                    for key, value in pairs(inventory) do
+                        print("[DEBUG]   Key:", key, "| Type:", type(value))
+                        if type(value) == "table" then
+                            local count = 0
+                            for _ in pairs(value) do count = count + 1 end
+                            print("[DEBUG]     -> Contains", count, "items")
+                        end
+                    end
+                end
+                
+                -- Method 2: Check all data keys
+                local allData = dataReplion.Data
+                if allData then
+                    print("\n[DEBUG] === ALL DATA KEYS ===")
+                    for key, value in pairs(allData) do
+                        print("[DEBUG] Data Key:", key, "| Type:", type(value))
+                        if key:lower():find("fish") or key:lower():find("inventory") or key:lower():find("item") then
+                            print("[DEBUG]   ^^ This might contain fish data!")
+                        end
+                    end
+                end
+                
+                -- Method 3: Look for fish specifically
+                print("\n[DEBUG] === SEARCHING FOR FISH ===")
+                local possiblePaths = {
+                    {"Inventory"},
+                    {"Inventory", "Fishes"},
+                    {"Inventory", "Fish"},
+                    {"Inventory", "Items"},
+                    {"Items"},
+                    {"Fishes"},
+                    {"Fish"}
+                }
+                
+                for _, path in ipairs(possiblePaths) do
+                    local current = dataReplion:Get(unpack(path))
+                    if current then
+                        print("[DEBUG] Found data at path:", table.concat(path, "."))
+                        if type(current) == "table" then
+                            local fishCount = 0
+                            for uuid, item in pairs(current) do
+                                if item and item.Id then
+                                    fishCount = fishCount + 1
+                                    if fishCount <= 3 then -- Show first 3 items
+                                        print("[DEBUG]   Sample Item - ID:", item.Id, "| UUID:", uuid:sub(1, 8) .. "...")
+                                        
+                                        -- Try to identify if it's a fish
+                                        local itemInfo = getItemData(item.Id)
+                                        if itemInfo then
+                                            print("[DEBUG]     -> Name:", itemInfo.Name, "| Type:", itemInfo.Type)
+                                        end
+                                    end
+                                end
+                            end
+                            print("[DEBUG]   Total items in this path:", fishCount)
+                        end
+                    end
+                end
+            end)
+            
+            if not success then
+                print("[DEBUG] ERROR during inventory check:", result)
             end
-            table.insert(activeTiers, "Mythic Fish")
-            print("[DEBUG] Enabled 16 mythic fish")
-        end
-        
-        if selectedTiers.test then
-            -- Enable test fish (Tier 2) - Easy to catch for testing
-            local testIds = {197, 69}
-            for _, id in pairs(testIds) do
-                specificFishEnabled[id] = true
-                totalEnabled = totalEnabled + 1
-            end
-            table.insert(activeTiers, "Test Fish")
-            print("[DEBUG] Enabled 2 test fish")
-        end
-        
-        print("[DEBUG] Total fish enabled:", totalEnabled)
-        
-        -- Show feedback
-        if totalEnabled > 0 then
-            local selectedText = table.concat(activeTiers, " + ")
-            Fluent:Notify({
-                Title = "Fish Selection Updated",
-                Content = "Now tracking: " .. selectedText .. " (" .. totalEnabled .. " fish)",
-                Duration = 3
-            })
-        else
-            Fluent:Notify({
-                Title = "Fish Selection Cleared", 
-                Content = "No fish will be tracked",
-                Duration = 2
-            })
-        end
-    end
-    
-    local secretToggle = webhookTab:AddToggle("SecretFishToggle", {
-        Title = "Secret Fish",
-        Description = "Track all Secret tier fish (8 types)",
-        Default = false,
-        Callback = function(Value)
-            print("[DEBUG] Secret fish toggle:", Value)
-            selectedTiers.secret = Value
-            updateFishSelection()
+            
+            print("[DEBUG] ========== END INVENTORY CHECK ==========\n")
         end
     })
     
-    local mythicToggle = webhookTab:AddToggle("MythicFishToggle", {
-        Title = "Mythic Fish", 
-        Description = "Track all Mythic tier fish (16 types)",
-        Default = false,
-        Callback = function(Value)
-            print("[DEBUG] Mythic fish toggle:", Value)
-            selectedTiers.mythic = Value
-            updateFishSelection()
-        end
-    })
-    
-    local testToggle = webhookTab:AddToggle("TestFishToggle", {
-        Title = "Test Fish", 
-        Description = "Track common test fish - Gar Fish & Yello Damselfish (2 types)",
-        Default = false,
-        Callback = function(Value)
-            print("[DEBUG] Test fish toggle:", Value)
-            selectedTiers.test = Value
-            updateFishSelection()
-        end
-    })
-
+    -- Function to get item data
     local function getItemData(itemId)
         local success, itemData = pcall(function()
             local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -2451,10 +2457,7 @@ do
                             Name = data.Data.Name,
                             Type = data.Data.Type,
                             Tier = data.Data.Tier,
-                            SellPrice = data.SellPrice,
-                            Weight = data.Weight,
-                            Icon = data.Data.Icon,
-                            Probability = data.Probability
+                            SellPrice = data.SellPrice
                         }
                     end
                 end
@@ -2462,559 +2465,145 @@ do
             return nil
         end)
         
-        if success then
-            return itemData
-        else
-            warn("Error getting item data:", itemData)
-            return nil
-        end
+        return success and itemData or nil
     end
     
-    local function formatWeight(weight, actualWeight)
-        if not actualWeight then
-            return "Unknown"
-        end
-        local weightText = string.format("%.1f kg", actualWeight)
-        if weight and weight.Big and actualWeight >= weight.Big.Min then
-            weightText = weightText .. " (BIG)"
-        end
-        return weightText
-    end
-    
-    local function getTierInfo(tier)
-        local tierColors = {
-            [1] = {name = "Common", color = 0x808080},
-            [2] = {name = "Uncommon", color = 0x00FF00},
-            [3] = {name = "Rare", color = 0x0080FF},
-            [4] = {name = "Epic", color = 0x8000FF},
-            [5] = {name = "Legendary", color = 0xFF8000},
-            [6] = {name = "Mythic", color = 0xFF0080},
-            [7] = {name = "Secret", color = 0xFFD700},
-            [8] = {name = "Exotic", color = 0xFF69B4}
-        }
-        return tierColors[tier] or {name = "Unknown", color = 0x808080}
-    end
-    
-    local function sendWebhook(itemName, itemData, weight, isVariant, variantName)
-        if webhookURL == "" then
-            return
-        end
-        local RunService = game:GetService("RunService")
-        RunService.Heartbeat:Wait()
-        spawn(function()
-            local retryAttempt = 0
-            local maxRetries = 3
-            local success = false
-            
-            while retryAttempt < maxRetries and not success do
-                retryAttempt = retryAttempt + 1
-                
-                local sendSuccess, sendError = pcall(function()
-                    local player = game.Players.LocalPlayer
-                    local tierInfo = getTierInfo(itemData.Tier or 1)
-                    local rarityText = "Unknown"
-                    if itemData.Probability and itemData.Probability.Chance then
-                        local chance = itemData.Probability.Chance
-                        rarityText = string.format("1 in %.0f", 1/chance)
-                    end
-                    local fullItemName = itemName
-                    if isVariant and variantName then
-                        fullItemName = variantName .. " " .. itemName
-                    end
-                    local data = {
-                        ["username"] = "#DJSTEST",
-                        ["embeds"] = {{
-                            ["title"] = "#DJSTEST - Fish It",
-                            ["color"] = tierInfo.color,
-                            ["fields"] = {
-                               {
-                                    ["name"] = "**-> Profile**",
-                                    ["value"] = "**Username:** "..player.Name,
-                                    ["inline"] = false
-                                },
-                                {
-                                    ["name"] = "**-> Info**",
-                                    ["value"] = "**🟢 Fish:** " .. fullItemName .. "\n**⚖️ Weight:** "..formatWeight(itemData.Weight, weight).."\n**💰 Price:** ".. (itemData.SellPrice or 0) .."\n**⭐ Tier:** "..tierInfo.name .. " (T" .. (itemData.Tier or 1) .. ")",
-                                    ["inline"] = false
-                                }
-                            },
-                            ["footer"] = {
-                                ["text"] = "https://discord.gg/uwXYuxj6cF • " .. os.date("%Y-%m-%d %H:%M:%S")
-                            },
-                            ["thumbnail"] = {
-                                ["url"] = "https://www.roblox.com/headshot-thumbnail/image?userId=" .. player.UserId .. "&width=150&height=150&format=png"
-                            }
-                        }}
-                    }
-                    local headers = {["Content-Type"] = "application/json"}
-                    local body = game:GetService("HttpService"):JSONEncode(data)
-                    local req = http_request or request or syn.request
-                    if fluxus and fluxus.request then
-                        req = fluxus.request
-                    end
-                    if req then
-                        local response = req({
-                            Url = webhookURL,
-                            Method = "POST",
-                            Headers = headers,
-                            Body = body
-                        })
-                        if response and (response.StatusCode == 200 or response.StatusCode == 204) then
-                            success = true
-                        else
-                            error("HTTP Error: " .. (response and response.StatusCode or "Unknown"))
-                        end
-                    else
-                        error("No HTTP request function available")
-                    end
-                end)
-                
-                if sendSuccess then
-                    success = true
-                    httpRetryCount = 0
-                    print("[DEBUG] Webhook sent successfully for:", itemName)
-                else
-                    warn("Webhook attempt " .. retryAttempt .. " failed:", sendError)
-                    
-                    if retryAttempt < maxRetries then
-                        wait(retryAttempt * 2)
-                    else
-                        httpRetryCount = httpRetryCount + 1
-                        
-                        if httpRetryCount >= maxHttpRetries then
-                            warn("Too many webhook failures, temporarily disabling...")
-                            isWebhookActive = false
-                            Options.WebhookToggle:SetValue(false)
-                            spawn(function()
-                                wait(30)
-                                httpRetryCount = 0
-                            end)
-                        end
-                    end
-                end
-            end
-        end)
-    end
-    
-    -- Debug monitoring that runs independently - always active for debugging
+    -- Monitor inventory changes
     local inventoryConnection = nil
-    local debugConnection = nil
     
-    -- Start debug monitoring immediately when script loads
-    local function startDebugMonitoring()
-        local success, error = pcall(function()
-            local ReplicatedStorage = game:GetService("ReplicatedStorage")
-            local Client = require(ReplicatedStorage.Packages.Replion).Client
-            print("[DEBUG] Starting independent debug monitoring...")
-            
-            local dataReplion = Client:WaitReplion("Data")
-            print("[DEBUG] Debug monitor connected to Data Replion")
-            
-            if not dataReplion then
-                error("Failed to get Data replion for debug monitoring")
-            end
-            
-            -- Debug connection that always runs - separate from webhook functionality
-            debugConnection = dataReplion:OnChange("Inventory", function(newInventory, oldInventory)
-                print("[DEBUG] ========== INVENTORY CHANGE DETECTED ==========")
-                
-                -- Safety check
-                if not newInventory then
-                    print("[DEBUG] newInventory is nil")
-                    return
-                end
-                
-                if type(newInventory) ~= "table" then
-                    print("[DEBUG] newInventory is not a table, type:", type(newInventory))
-                    return
-                end
-                
-                -- Debug: Show the complete structure of newInventory
-                print("[DEBUG] === COMPLETE INVENTORY STRUCTURE ===")
-                for category, data in pairs(newInventory) do
-                    if type(data) == "table" then
-                        local itemCount = 0
-                        for _ in pairs(data) do
-                            itemCount = itemCount + 1
-                        end
-                        print("[DEBUG] Category:", category, "| Items:", itemCount)
-                        
-                        -- If this category has items, show first few
-                        if itemCount > 0 and itemCount <= 10 then
-                            for uuid, itemData in pairs(data) do
-                                if itemData and type(itemData) == "table" then
-                                    print("[DEBUG]   Item UUID:", uuid:sub(1, 8).."...")
-                                    if itemData.Id then
-                                        print("[DEBUG]     ID:", itemData.Id)
-                                    end
-                                    if itemData.Quantity then
-                                        print("[DEBUG]     Quantity:", itemData.Quantity)
-                                    end
-                                    -- Show all properties of this item
-                                    print("[DEBUG]     All properties:")
-                                    for key, value in pairs(itemData) do
-                                        print("[DEBUG]       ", key, ":", type(value) == "table" and "table" or tostring(value))
-                                    end
-                                    break -- Only show first item details
-                                end
-                            end
-                        end
-                    else
-                        print("[DEBUG] Category:", category, "| Type:", type(data), "| Value:", tostring(data))
-                    end
-                end
-                print("[DEBUG] === END INVENTORY STRUCTURE ===")
-                
-                -- Now try to find fish data with different possible names
-                local possibleFishCategories = {"Fishes", "Fish", "fishes", "fish", "Items"}
-                local fishData = nil
-                local foundCategory = nil
-                
-                for _, categoryName in pairs(possibleFishCategories) do
-                    if newInventory[categoryName] and type(newInventory[categoryName]) == "table" then
-                        -- Check if this category contains fish by looking at item IDs or types
-                        for uuid, itemData in pairs(newInventory[categoryName]) do
-                            if itemData and itemData.Id then
-                                -- Try to get item data to see if it's a fish
-                                local testItemData = getItemData(itemData.Id)
-                                if testItemData and testItemData.Type == "Fishes" then
-                                    fishData = newInventory[categoryName]
-                                    foundCategory = categoryName
-                                    print("[DEBUG] Found fish data in category:", categoryName)
-                                    break
-                                end
-                            end
-                        end
-                        if fishData then break end
-                    end
-                end
-                
-                if not fishData then
-                    print("[DEBUG] No fish data found in any category")
-                    print("[DEBUG] Available categories:", table.concat(possibleFishCategories, ", "))
-                    return
-                end
-                
-                -- Count fish
-                local fishCount = 0
-                for _ in pairs(fishData) do
-                    fishCount = fishCount + 1
-                end
-                
-                print("[DEBUG] Fish data found in category '" .. foundCategory .. "'! Total fish items:", fishCount)
-                
-                -- Debug: Show all current fish in inventory
-                print("[DEBUG] === ALL FISH IN INVENTORY ===")
-                for uuid, itemData in pairs(fishData) do
-                    if itemData and itemData.Id then
-                        local fishItemData = getItemData(itemData.Id)
-                        if fishItemData and fishItemData.Type == "Fishes" then
-                            local fishName = fishItemData.Name
-                            local quantity = itemData.Quantity or 1
-                            local weight = itemData.Metadata and itemData.Metadata.Weight or "No weight"
-                            
-                            print(string.format("[DEBUG] Fish: %s (ID: %d) | Qty: %d | Weight: %s | UUID: %s", 
-                                fishName, itemData.Id, quantity, tostring(weight), uuid:sub(1, 8) .. "..."))
-                        end
-                    end
-                end
-                print("[DEBUG] === END FISH INVENTORY ===")
-                
-                -- Check for NEW or CHANGED fish (for debugging purposes)
-                print("[DEBUG] === ANALYZING FISH CHANGES ===")
-                local oldFishData = oldInventory and oldInventory[foundCategory]
-                
-                for uuid, itemData in pairs(fishData) do
-                    if itemData and itemData.Id then
-                        -- Verify this is actually a fish
-                        local fishItemData = getItemData(itemData.Id)
-                        if fishItemData and fishItemData.Type == "Fishes" then
-                            local fishId = itemData.Id
-                            local isNewFish = false
-                            local changeReason = ""
-                            
-                            -- Check if this is a completely new fish
-                            if not oldFishData or not oldFishData[uuid] then
-                                isNewFish = true
-                                changeReason = "NEW FISH ADDED"
-                            -- Check if quantity increased (multiple catches)
-                            elseif oldFishData[uuid].Quantity and itemData.Quantity then
-                                if itemData.Quantity > oldFishData[uuid].Quantity then
-                                    isNewFish = true
-                                    changeReason = "QUANTITY INCREASED"
-                                end
-                            end
-                            
-                            if isNewFish then
-                                local fishName = fishItemData.Name
-                                print(string.format("[DEBUG] CHANGE DETECTED: %s | Fish: %s (ID: %d)", changeReason, fishName, fishId))
-                                
-                                if changeReason == "QUANTITY INCREASED" then
-                                    print(string.format("[DEBUG] Quantity changed from %d to %d", oldFishData[uuid].Quantity or 0, itemData.Quantity or 0))
-                                end
-                            end
-                        end
-                    end
-                end
-                print("[DEBUG] === END FISH ANALYSIS ===")
-                print("[DEBUG] ========== INVENTORY ANALYSIS COMPLETE ==========")
-            end)
-            
-            print("[DEBUG] Debug monitoring successfully set up!")
-            return true
-        end)
+    local function startInventoryMonitoring()
+        print("\n[DEBUG] Starting inventory monitoring...")
         
-        if success then
-            print("[DEBUG] Independent debug monitoring started!")
-            return true
-        else
-            warn("[ERROR] Failed to start debug monitoring:", error)
-            return false
-        end
-    end
-    
-    -- Start debug monitoring immediately
-    startDebugMonitoring()
-    
-    local function startWebhookMonitoring()
-        local success, error = pcall(function()
+        local success = pcall(function()
             local ReplicatedStorage = game:GetService("ReplicatedStorage")
             local Client = require(ReplicatedStorage.Packages.Replion).Client
-            print("[DEBUG] Starting webhook monitoring...")
-            
             local dataReplion = Client:WaitReplion("Data")
-            print("[DEBUG] Webhook monitor connected to Data Replion")
             
-            if not dataReplion then
-                error("Failed to get Data replion for webhook monitoring")
-            end
-            
-            -- Webhook connection - only for sending webhooks
-            inventoryConnection = dataReplion:OnChange("Inventory", function(newInventory, oldInventory)
-                if not isWebhookActive then
-                    return -- Skip webhook processing if not active
-                end
-                
-                print("[DEBUG] === WEBHOOK PROCESSING STARTED ===")
-                
-                -- Safety check
-                if not newInventory or type(newInventory) ~= "table" then
-                    return
-                end
-                
-                local newFishes = newInventory.Fishes
-                local oldFishes = oldInventory and oldInventory.Fishes
-                
-                if not newFishes or type(newFishes) ~= "table" then
-                    return
-                end
-                
-                -- Process each fish item for webhook notifications
-                for uuid, fishData in pairs(newFishes) do
-                    if fishData and fishData.Id then
-                        local fishId = fishData.Id
-                        local isNewFish = false
+            -- Monitor ALL changes to see what's updating
+            dataReplion:OnChange(function(path, newValue, oldValue)
+                if debugMode then
+                    -- Filter out non-inventory related changes
+                    local pathStr = table.concat(path, ".")
+                    if pathStr:lower():find("inventory") or 
+                       pathStr:lower():find("fish") or 
+                       pathStr:lower():find("item") or
+                       #path == 1 then -- Also show root level changes
                         
-                        -- Check if this is a completely new fish
-                        if not oldFishes or not oldFishes[uuid] then
-                            isNewFish = true
-                        -- Check if quantity increased
-                        elseif oldFishes[uuid].Quantity and fishData.Quantity then
-                            if fishData.Quantity > oldFishes[uuid].Quantity then
-                                isNewFish = true
-                            end
-                        end
+                        print("[DEBUG] Data Changed - Path:", pathStr)
                         
-                        if isNewFish then
-                            print("[DEBUG] Checking fish ID", fishId, "for webhook eligibility")
+                        -- If it's inventory related, show more details
+                        if pathStr:lower():find("inventory") then
+                            print("[DEBUG]   Old value type:", type(oldValue))
+                            print("[DEBUG]   New value type:", type(newValue))
                             
-                            if specificFishEnabled[fishId] == true then
-                                print("[DEBUG] Fish ID", fishId, "is enabled - sending webhook!")
+                            if type(newValue) == "table" and type(oldValue) == "table" then
+                                -- Count changes
+                                local newCount = 0
+                                local oldCount = 0
+                                for _ in pairs(newValue) do newCount = newCount + 1 end
+                                for _ in pairs(oldValue or {}) do oldCount = oldCount + 1 end
                                 
-                                local itemData = getItemData(fishId)
-                                if itemData and itemData.Type == "Fishes" then
-                                    -- Check for variant
-                                    local isVariant = false
-                                    local variantName = nil
-                                    
-                                    if fishData.Metadata and fishData.Metadata.VariantId then
-                                        local variantSuccess, variantData = pcall(function()
-                                            local ItemUtility = require(ReplicatedStorage.Shared.ItemUtility)
-                                            return ItemUtility:GetVariantData(fishData.Metadata.VariantId)
-                                        end)
-                                        
-                                        if variantSuccess and variantData and variantData.Data then
-                                            isVariant = true
-                                            variantName = variantData.Data.Name
+                                print("[DEBUG]   Items changed from", oldCount, "to", newCount)
+                                
+                                -- Find new items
+                                for uuid, item in pairs(newValue) do
+                                    if not oldValue[uuid] then
+                                        print("[DEBUG]   NEW ITEM DETECTED!")
+                                        if item.Id then
+                                            local itemInfo = getItemData(item.Id)
+                                            if itemInfo then
+                                                print("[DEBUG]     -> Name:", itemInfo.Name)
+                                                print("[DEBUG]     -> Type:", itemInfo.Type)
+                                                print("[DEBUG]     -> Tier:", itemInfo.Tier)
+                                            end
                                         end
                                     end
-                                    
-                                    -- Get weight
-                                    local weight = nil
-                                    if fishData.Metadata and fishData.Metadata.Weight then
-                                        weight = fishData.Metadata.Weight
-                                    end
-                                    
-                                    -- Send the webhook
-                                    sendWebhook(itemData.Name, itemData, weight, isVariant, variantName)
                                 end
                             end
                         end
                     end
                 end
-                
-                print("[DEBUG] === WEBHOOK PROCESSING COMPLETE ===")
             end)
             
-            return true
+            print("[DEBUG] Inventory monitoring started successfully!")
         end)
         
-        if success then
-            print("[DEBUG] Webhook monitoring started!")
-            return true
-        else
-            warn("[ERROR] Failed to start webhook monitoring:", error)
-            return false
+        if not success then
+            print("[DEBUG] ERROR: Failed to start inventory monitoring")
         end
     end
     
-    local function stopWebhookMonitoring()
-        if inventoryConnection then
-            inventoryConnection:Disconnect()
-            inventoryConnection = nil
-            print("[DEBUG] Webhook monitoring stopped")
+    webhookTab:AddSection("Test Buttons")
+    
+    -- Start monitoring button
+    local startMonitorButton = webhookTab:AddButton({
+        Title = "Start Monitoring",
+        Description = "Begin monitoring inventory changes",
+        Callback = function()
+            startInventoryMonitoring()
+            Fluent:Notify({
+                Title = "Monitoring Started",
+                Content = "Check console (F9) for debug output",
+                Duration = 3
+            })
         end
-        httpRetryCount = 0
-    end
+    })
     
-    webhookTab:AddSection("Webhook Controls")
-    
-    local webhookToggle = webhookTab:AddToggle("WebhookToggle", {
-        Title = "Enable Webhook",
-        Description = "Start tracking selected fish",
-        Default = false,
-        Callback = function(Value)
-            if Value then
-                -- Check if webhook URL is valid
-                if webhookURL == "" or not string.find(webhookURL, "discord.com/api/webhooks") then
-                    Fluent:Notify({
-                        Title = "Webhook Error",
-                        Content = "Please enter a valid Discord webhook URL first!",
-                        Duration = 5
-                    })
-                    Options.WebhookToggle:SetValue(false)
-                    return
-                end
+    -- Test catch simulation
+    local testCatchButton = webhookTab:AddButton({
+        Title = "Simulate Fish Catch",
+        Description = "Try to trigger a fish catch event (may not work)",
+        Callback = function()
+            print("\n[DEBUG] Attempting to simulate fish catch...")
+            
+            -- Try to find and trigger fishing events
+            local success = pcall(function()
+                local ReplicatedStorage = game:GetService("ReplicatedStorage")
+                local netFolder = ReplicatedStorage.Packages._Index:FindFirstChild("sleitnick_net@0.2.0")
                 
-                -- Check if any fish are enabled
-                local enabledCount = 0
-                for fishId, enabled in pairs(specificFishEnabled) do
-                    if enabled then 
-                        enabledCount = enabledCount + 1 
+                if netFolder and netFolder:FindFirstChild("net") then
+                    local net = netFolder.net
+                    print("[DEBUG] Found net folder, looking for fishing events...")
+                    
+                    for _, obj in pairs(net:GetDescendants()) do
+                        if obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction") then
+                            local name = obj.Name:lower()
+                            if name:find("fish") or name:find("catch") or name:find("complete") then
+                                print("[DEBUG] Found fishing-related event:", obj.Name)
+                            end
+                        end
                     end
                 end
-                
-                if enabledCount == 0 then
-                    Fluent:Notify({
-                        Title = "Webhook Error", 
-                        Content = "Please select at least one fish type (Secret/Mythic/Test) first!",
-                        Duration = 5
-                    })
-                    Options.WebhookToggle:SetValue(false)
-                    return
-                end
-                
-                print("[DEBUG] Starting webhook with", enabledCount, "fish types enabled")
-                
-                -- Try to start webhook monitoring
-                if startWebhookMonitoring() then
-                    isWebhookActive = true
-                    Fluent:Notify({
-                        Title = "Webhook Active",
-                        Content = "Successfully started tracking " .. enabledCount .. " fish types!",
-                        Duration = 3
-                    })
-                else
-                    Fluent:Notify({
-                        Title = "Webhook Error",
-                        Content = "Failed to start webhook monitoring. Try rejoining the game.",
-                        Duration = 5
-                    })
-                    Options.WebhookToggle:SetValue(false)
-                    return
-                end
-            else
-                isWebhookActive = false
-                stopWebhookMonitoring()
-                Fluent:Notify({
-                    Title = "Webhook Disabled",
-                    Content = "Stopped tracking fish catches.",
-                    Duration = 3
-                })
+            end)
+            
+            if not success then
+                print("[DEBUG] Could not find fishing events")
             end
         end
     })
     
-    local testWebhookButton = webhookTab:AddButton({
-        Title = "Test Webhook",
-        Description = "Send a test message to verify webhook",
-        Callback = function()
-            if webhookURL == "" or not string.find(webhookURL, "discord.com/api/webhooks") then
-                Fluent:Notify({
-                    Title = "Test Failed",
-                    Content = "Please enter a valid webhook URL first!",
-                    Duration = 5
-                })
-                return
-            end
-            local testData = {
-                Name = "Test Fish",
-                Type = "Fishes",
-                Tier = 7,
-                SellPrice = 150000,
-                Weight = {Default = {Min = 2, Max = 5}},
-                Probability = {Chance = 0.000005}
-            }
-            sendWebhook("Test Fish", testData, 3.5, false, nil)
-            Fluent:Notify({
-                Title = "Test Sent",
-                Content = "Check your Discord channel for the test message!",
-                Duration = 3
-            })
-        end
+    webhookTab:AddSection("Instructions")
+    
+    webhookTab:AddParagraph({
+        Title = "Debug Steps",
+        Content = "1. Click 'Check Inventory Now' to see current inventory structure\n2. Click 'Start Monitoring' to watch for changes\n3. Go catch a fish in game\n4. Check console (F9) to see what data changes\n5. Share the console output to help fix the webhook"
     })
     
-    local resetSelectionButton = webhookTab:AddButton({
-        Title = "Reset Selection",
-        Description = "Clear all fish tier selections",
-        Callback = function()
-            selectedTiers.secret = false
-            selectedTiers.mythic = false
-            selectedTiers.test = false
-            Options.SecretFishToggle:SetValue(false)
-            Options.MythicFishToggle:SetValue(false)
-            Options.TestFishToggle:SetValue(false)
-            updateFishSelection()
-        end
+    webhookTab:AddParagraph({
+        Title = "What to Look For",
+        Content = "• Path where fish are stored (Inventory.Fishes, Inventory.Items, etc.)\n• Item ID numbers when fish are caught\n• Any 'NEW ITEM DETECTED' messages\n• Error messages that might explain the issue"
     })
     
-    local resetWebhookButton = webhookTab:AddButton({
-        Title = "Reset Webhook",
-        Description = "Clear webhook URL and stop tracking",
-        Callback = function()
-            if isWebhookActive then
-                Options.WebhookToggle:SetValue(false)
-            end
-            webhookURL = ""
-            Options.WebhookURL:SetValue("")
-            httpRetryCount = 0
-            Fluent:Notify({
-                Title = "Webhook Reset",
-                Content = "Webhook settings have been cleared.",
-                Duration = 3
-            })
-        end
-    })
+    -- Auto-start monitoring when script loads
+    spawn(function()
+        wait(2)
+        print("\n[DEBUG] ====== WEBHOOK DEBUG INITIALIZED ======")
+        print("[DEBUG] Auto-starting inventory monitoring...")
+        startInventoryMonitoring()
+        print("[DEBUG] Press F9 to see this console")
+        print("[DEBUG] Go catch a fish to see what happens!")
+        print("[DEBUG] ======================================\n")
+    end)
 end
 end
 Window:SelectTab(1)

@@ -2619,70 +2619,139 @@ do
                 print("[DEBUG] ========== INVENTORY CHANGE DETECTED ==========")
                 
                 -- Safety check
-                if not newInventory or type(newInventory) ~= "table" then
-                    print("[DEBUG] Invalid inventory data")
+                if not newInventory then
+                    print("[DEBUG] newInventory is nil")
                     return
                 end
                 
-                -- Look for Fishes category specifically
-                local newFishes = newInventory.Fishes
-                local oldFishes = oldInventory and oldInventory.Fishes
+                if type(newInventory) ~= "table" then
+                    print("[DEBUG] newInventory is not a table, type:", type(newInventory))
+                    return
+                end
                 
-                if not newFishes or type(newFishes) ~= "table" then
-                    print("[DEBUG] No fish data found in inventory")
+                -- Debug: Show the complete structure of newInventory
+                print("[DEBUG] === COMPLETE INVENTORY STRUCTURE ===")
+                for category, data in pairs(newInventory) do
+                    if type(data) == "table" then
+                        local itemCount = 0
+                        for _ in pairs(data) do
+                            itemCount = itemCount + 1
+                        end
+                        print("[DEBUG] Category:", category, "| Items:", itemCount)
+                        
+                        -- If this category has items, show first few
+                        if itemCount > 0 and itemCount <= 10 then
+                            for uuid, itemData in pairs(data) do
+                                if itemData and type(itemData) == "table" then
+                                    print("[DEBUG]   Item UUID:", uuid:sub(1, 8).."...")
+                                    if itemData.Id then
+                                        print("[DEBUG]     ID:", itemData.Id)
+                                    end
+                                    if itemData.Quantity then
+                                        print("[DEBUG]     Quantity:", itemData.Quantity)
+                                    end
+                                    -- Show all properties of this item
+                                    print("[DEBUG]     All properties:")
+                                    for key, value in pairs(itemData) do
+                                        print("[DEBUG]       ", key, ":", type(value) == "table" and "table" or tostring(value))
+                                    end
+                                    break -- Only show first item details
+                                end
+                            end
+                        end
+                    else
+                        print("[DEBUG] Category:", category, "| Type:", type(data), "| Value:", tostring(data))
+                    end
+                end
+                print("[DEBUG] === END INVENTORY STRUCTURE ===")
+                
+                -- Now try to find fish data with different possible names
+                local possibleFishCategories = {"Fishes", "Fish", "fishes", "fish", "Items"}
+                local fishData = nil
+                local foundCategory = nil
+                
+                for _, categoryName in pairs(possibleFishCategories) do
+                    if newInventory[categoryName] and type(newInventory[categoryName]) == "table" then
+                        -- Check if this category contains fish by looking at item IDs or types
+                        for uuid, itemData in pairs(newInventory[categoryName]) do
+                            if itemData and itemData.Id then
+                                -- Try to get item data to see if it's a fish
+                                local testItemData = getItemData(itemData.Id)
+                                if testItemData and testItemData.Type == "Fishes" then
+                                    fishData = newInventory[categoryName]
+                                    foundCategory = categoryName
+                                    print("[DEBUG] Found fish data in category:", categoryName)
+                                    break
+                                end
+                            end
+                        end
+                        if fishData then break end
+                    end
+                end
+                
+                if not fishData then
+                    print("[DEBUG] No fish data found in any category")
+                    print("[DEBUG] Available categories:", table.concat(possibleFishCategories, ", "))
                     return
                 end
                 
                 -- Count fish
                 local fishCount = 0
-                for _ in pairs(newFishes) do
+                for _ in pairs(fishData) do
                     fishCount = fishCount + 1
                 end
                 
-                print("[DEBUG] Fish inventory found! Total fish items:", fishCount)
+                print("[DEBUG] Fish data found in category '" .. foundCategory .. "'! Total fish items:", fishCount)
                 
                 -- Debug: Show all current fish in inventory
                 print("[DEBUG] === ALL FISH IN INVENTORY ===")
-                for uuid, fishData in pairs(newFishes) do
-                    if fishData and fishData.Id then
-                        local itemData = getItemData(fishData.Id)
-                        local fishName = itemData and itemData.Name or ("Unknown Fish ID: " .. fishData.Id)
-                        local quantity = fishData.Quantity or 1
-                        local weight = fishData.Metadata and fishData.Metadata.Weight or "No weight"
-                        
-                        print(string.format("[DEBUG] Fish: %s (ID: %d) | Qty: %d | Weight: %s | UUID: %s", 
-                            fishName, fishData.Id, quantity, tostring(weight), uuid:sub(1, 8) .. "..."))
+                for uuid, itemData in pairs(fishData) do
+                    if itemData and itemData.Id then
+                        local fishItemData = getItemData(itemData.Id)
+                        if fishItemData and fishItemData.Type == "Fishes" then
+                            local fishName = fishItemData.Name
+                            local quantity = itemData.Quantity or 1
+                            local weight = itemData.Metadata and itemData.Metadata.Weight or "No weight"
+                            
+                            print(string.format("[DEBUG] Fish: %s (ID: %d) | Qty: %d | Weight: %s | UUID: %s", 
+                                fishName, itemData.Id, quantity, tostring(weight), uuid:sub(1, 8) .. "..."))
+                        end
                     end
                 end
                 print("[DEBUG] === END FISH INVENTORY ===")
                 
                 -- Check for NEW or CHANGED fish (for debugging purposes)
                 print("[DEBUG] === ANALYZING FISH CHANGES ===")
-                for uuid, fishData in pairs(newFishes) do
-                    if fishData and fishData.Id then
-                        local fishId = fishData.Id
-                        local isNewFish = false
-                        local changeReason = ""
-                        
-                        -- Check if this is a completely new fish
-                        if not oldFishes or not oldFishes[uuid] then
-                            isNewFish = true
-                            changeReason = "NEW FISH ADDED"
-                        -- Check if quantity increased (multiple catches)
-                        elseif oldFishes[uuid].Quantity and fishData.Quantity then
-                            if fishData.Quantity > oldFishes[uuid].Quantity then
-                                isNewFish = true
-                                changeReason = "QUANTITY INCREASED"
-                            end
-                        end
-                        
-                        if isNewFish then
-                            local itemData = getItemData(fishId)
-                            local fishName = itemData and itemData.Name or ("Unknown ID: " .. fishId)
-                            print(string.format("[DEBUG] CHANGE DETECTED: %s | Fish: %s (ID: %d)", changeReason, fishName, fishId))
+                local oldFishData = oldInventory and oldInventory[foundCategory]
+                
+                for uuid, itemData in pairs(fishData) do
+                    if itemData and itemData.Id then
+                        -- Verify this is actually a fish
+                        local fishItemData = getItemData(itemData.Id)
+                        if fishItemData and fishItemData.Type == "Fishes" then
+                            local fishId = itemData.Id
+                            local isNewFish = false
+                            local changeReason = ""
                             
-                            if changeReason == "QUANTITY INCREASED" then
-                                print(string.format("[DEBUG] Quantity changed from %d to %d", oldFishes[uuid].Quantity or 0, fishData.Quantity or 0))
+                            -- Check if this is a completely new fish
+                            if not oldFishData or not oldFishData[uuid] then
+                                isNewFish = true
+                                changeReason = "NEW FISH ADDED"
+                            -- Check if quantity increased (multiple catches)
+                            elseif oldFishData[uuid].Quantity and itemData.Quantity then
+                                if itemData.Quantity > oldFishData[uuid].Quantity then
+                                    isNewFish = true
+                                    changeReason = "QUANTITY INCREASED"
+                                end
+                            end
+                            
+                            if isNewFish then
+                                local fishName = fishItemData.Name
+                                print(string.format("[DEBUG] CHANGE DETECTED: %s | Fish: %s (ID: %d)", changeReason, fishName, fishId))
+                                
+                                if changeReason == "QUANTITY INCREASED" then
+                                    print(string.format("[DEBUG] Quantity changed from %d to %d", oldFishData[uuid].Quantity or 0, itemData.Quantity or 0))
+                                end
                             end
                         end
                     end

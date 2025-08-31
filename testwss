@@ -2369,6 +2369,7 @@ do
 end
 do
         local WebhookTab = Tabs.Webhook
+-- Database Gambar Ikan (sementara menggunakan placeholder)
 local fishImages = {
     -- Secret Fish
     [156] = "https://i.imgur.com/VAUGUBf.png", -- Giant Squid
@@ -2509,6 +2510,8 @@ FishDropdown:OnChanged(function(selectedTiers)
     end
     print("📊 Total ikan aktif:", tierCounts.Secret + tierCounts.Mythic + tierCounts.Uncommon)
 end)
+
+-- Fungsi untuk mendapatkan data ikan dari ReplicatedStorage
 local function getItemData(itemId)
     local success, itemData = pcall(function()
         local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -2987,9 +2990,59 @@ WebhookTab:AddButton({
     })
 
 end
+-- Tambahkan variabel untuk auto favorite di bagian atas file (setelah variabel webhook)
+local isAutoFavoriteActive = false
+local autoFavoriteConnection = nil
+
+-- Variabel untuk filter ikan di tab Inventory (terpisah dari webhook)
+local inventoryFishEnabled = {}
+
+-- Daftar ikan yang tersedia dengan nama dan ID (pastikan fishList sudah ada di file utama)
+local fishList = {
+    -- Secret Fish (Tier 5 & 6)
+    {name = "Giant Squid", id = 156, tier = "Secret"},
+    {name = "Frostborn Shark", id = 136, tier = "Secret"},
+    {name = "Great Christmas Whale", id = 99, tier = "Secret"},
+    {name = "Great Whale", id = 141, tier = "Secret"},
+    {name = "Robot Kraken", id = 159, tier = "Secret"},
+    {name = "Worm Fish", id = 145, tier = "Secret"},
+    {name = "Ghost Worm Fish", id = 176, tier = "Secret"},
+    {name = "Ghost Shark", id = 83, tier = "Secret"},
+    
+    -- Mythic Fish (Tier 5 & 6)
+    {name = "Lined Cardinal Fish", id = 110, tier = "Mythic"},
+    {name = "Gingerbread Turtle", id = 97, tier = "Mythic"},
+    {name = "Loggerhead Turtle", id = 34, tier = "Mythic"},
+    {name = "Hawks Turtle", id = 21, tier = "Mythic"},
+    {name = "Blob Fish", id = 150, tier = "Mythic"},
+    {name = "Abyss Seahorse", id = 15, tier = "Mythic"},
+    {name = "Prismy Seahorse", id = 35, tier = "Mythic"},
+    {name = "Strippled Seahorse", id = 146, tier = "Mythic"},
+    {name = "Blueflame Ray", id = 47, tier = "Mythic"},
+    {name = "Dotted Stingray", id = 75, tier = "Mythic"},
+    {name = "Manta Ray", id = 54, tier = "Mythic"},
+    {name = "Hammerhead Shark", id = 52, tier = "Mythic"},
+    {name = "Gingerbread Shark", id = 98, tier = "Mythic"},
+    {name = "Loving Shark", id = 122, tier = "Mythic"},
+    {name = "Plasma Shark", id = 137, tier = "Mythic"},
+    {name = "Thresher Shark", id = 147, tier = "Mythic"},
+    
+    -- Uncommon Fish
+    {name = "Silver Tuna", id = 139, tier = "Uncommon"},
+    {name = "Parrot Fish", id = 186, tier = "Uncommon"},
+    {name = "Blackcap Basslet", id = 182, tier = "Uncommon"},
+    {name = "Pilot Fish", id = 140, tier = "Uncommon"}
+}
+
+-- Inisialisasi semua ikan sebagai false untuk inventory
+for _, fish in pairs(fishList) do
+    inventoryFishEnabled[fish.id] = false
+end
+
+-- Tab Inventory (letakkan setelah tab Webhook)
 do
     local inventoryTab = Tabs.Inventory
-
+    
     -- Section Auto Favorite
     inventoryTab:AddSection("Auto Favorite System")
     
@@ -3083,7 +3136,6 @@ do
             end
         end
     })
-
     
     -- Tombol untuk cek status filter ikan
     inventoryTab:AddButton({
@@ -3266,16 +3318,18 @@ do
                                                             spawn(function()
                                                                 wait(unfavoriteCount * 0.1) -- Delay bertahap
                                                                 
-                                                                local unfavoriteSuccess, unfavoriteError = pcall(function()
-                                                                    local Net = require(ReplicatedStorage.Packages.Net)
-                                                                    local FavoriteItemEvent = Net:RemoteEvent("FavoriteItem")
-                                                                    if FavoriteItemEvent then
-                                                                        FavoriteItemEvent:FireServer(uuid)
+                                                                local favoriteSuccess, favoriteError = pcall(function()
+                                                                    local netFolder = ReplicatedStorage.Packages._Index:FindFirstChild("sleitnick_net@0.2.0")
+                                                                    if netFolder and netFolder:FindFirstChild("net") then
+                                                                        local FavoriteItemEvent = netFolder.net:FindFirstChild("RE/FavoriteItem")
+                                                                        if FavoriteItemEvent then
+                                                                            FavoriteItemEvent:FireServer(uuid)
+                                                                        end
                                                                     end
                                                                 end)
                                                                 
-                                                                if not unfavoriteSuccess then
-                                                                    warn("❌ Gagal unfavorite:", unfavoriteError)
+                                                                if not favoriteSuccess then
+                                                                    warn("❌ Gagal unfavorite:", favoriteError)
                                                                 end
                                                             end)
                                                         end
@@ -3406,8 +3460,6 @@ end
 
 -- Fungsi untuk memulai monitoring auto favorite (taruh di luar do block)
 function startAutoFavoriteMonitoring()
--- Fungsi untuk memulai monitoring auto favorite (taruh di luar do block)
-function startAutoFavoriteMonitoring()
     local success, error = pcall(function()
         local ReplicatedStorage = game:GetService("ReplicatedStorage")
         
@@ -3527,7 +3579,6 @@ function stopAutoFavoriteMonitoring()
         autoFavoriteConnection = nil
         print("🔄 Auto Favorite monitoring dihentikan")
     end
-end
 end
 end
 Window:SelectTab(1)

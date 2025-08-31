@@ -2590,18 +2590,16 @@ do
 
         print("[DEBUG] Connected to InventoryController successfully")
 
-        -- Set monitoring start time BEFORE taking snapshot
+        -- Reset snapshot
+        lastInventorySnapshot = {}
         monitoringStartTime = tick()
         print("[DEBUG] Monitoring start time set:", monitoringStartTime)
-
-        -- Clear snapshot dulu
-        lastInventorySnapshot = {}
 
         -- Listener InventoryStateChanged
         inventoryConnection = InventoryController.InventoryStateChanged:Connect(function(category)
             print("[DEBUG] InventoryStateChanged fired:", category)
 
-            -- hanya proses kalau kategori ikan
+            -- Hanya proses ikan
             if category ~= "Fish" and category ~= "Fishes" then
                 print("[DEBUG] Category bukan ikan, skip:", category)
                 return
@@ -2613,11 +2611,11 @@ do
                 return
             end
 
-            local newItemsFound = 0
-            local fishFound = 0
+            local newItemsFound, fishFound = 0, 0
             local currentTime = tick()
 
             for uuid, itemData in pairs(inventory or {}) do
+                -- item baru + sudah lewat waktu aman
                 if not lastInventorySnapshot[uuid] and (currentTime - monitoringStartTime) > 2 then
                     newItemsFound += 1
                     print("[DEBUG] Fish item baru UUID:", uuid)
@@ -2669,19 +2667,18 @@ do
 
     return true
 end
-
-    
-    local function stopWebhookMonitoring()
-        print("[DEBUG] Stopping webhook monitoring...")
-        if inventoryConnection then
-            inventoryConnection:Disconnect()
-            inventoryConnection = nil
-            print("[DEBUG] Inventory connection disconnected")
-        end
-        lastInventorySnapshot = {}
-        monitoringStartTime = 0
-        print("[DEBUG] Inventory snapshot cleared")
+local function stopWebhookMonitoring()
+    print("[DEBUG] Stopping webhook monitoring...")
+    if inventoryConnection then
+        inventoryConnection:Disconnect()
+        inventoryConnection = nil
+        print("[DEBUG] Inventory connection disconnected")
     end
+    lastInventorySnapshot = {}
+    monitoringStartTime = 0
+    print("[DEBUG] Inventory snapshot cleared")
+end
+
     
     webhookTab:AddSection("Webhook Controls")
     

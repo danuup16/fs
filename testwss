@@ -2990,7 +2990,7 @@ WebhookTab:AddButton({
     })
 
 end
--- Tambahkan variabel untuk auto favorite di bagian atas file (setelah variabel webhook)
+-- Tambahkan variabel untuk auto favorite di bagian atas file
 local isAutoFavoriteActive = false
 local autoFavoriteConnection = nil
 
@@ -2999,7 +2999,7 @@ local inventoryFishEnabled = {}
 
 -- Daftar ikan yang tersedia dengan nama dan ID
 local fishList = {
-    -- Secret Fish (Tier 5 & 6)
+    -- Secret Fish
     {name = "Giant Squid", id = 156, tier = "Secret"},
     {name = "Frostborn Shark", id = 136, tier = "Secret"},
     {name = "Great Christmas Whale", id = 99, tier = "Secret"},
@@ -3009,7 +3009,7 @@ local fishList = {
     {name = "Ghost Worm Fish", id = 176, tier = "Secret"},
     {name = "Ghost Shark", id = 83, tier = "Secret"},
     
-    -- Mythic Fish (Tier 5 & 6)
+    -- Mythic Fish
     {name = "Lined Cardinal Fish", id = 110, tier = "Mythic"},
     {name = "Gingerbread Turtle", id = 97, tier = "Mythic"},
     {name = "Loggerhead Turtle", id = 34, tier = "Mythic"},
@@ -3034,7 +3034,7 @@ local fishList = {
     {name = "Pilot Fish", id = 140, tier = "Uncommon"}
 }
 
--- Inisialisasi semua ikan sebagai false untuk inventory
+-- Inisialisasi semua ikan sebagai false
 for _, fish in pairs(fishList) do
     inventoryFishEnabled[fish.id] = false
 end
@@ -3060,16 +3060,11 @@ local function getInventoryItemData(itemId)
                         Id = data.Data.Id,
                         Name = data.Data.Name,
                         Type = data.Data.Type,
-                        Tier = data.Data.Tier,
-                        SellPrice = data.SellPrice,
-                        Weight = data.Weight,
-                        Icon = data.Data.Icon,
-                        Probability = data.Probability
+                        Tier = data.Data.Tier
                     }
                 end
             end
         end
-        
         return nil
     end)
     
@@ -3091,29 +3086,7 @@ local function getInventoryItemData(itemId)
     end
 end
 
--- Fungsi untuk force refresh inventory UI
-local function forceRefreshInventory()
-    local success, error = pcall(function()
-        local GuiControl = require(game:GetService("ReplicatedStorage").Modules.GuiControl)
-        local PlayerGui = game:GetService("Players").LocalPlayer.PlayerGui
-        local InventoryGui = PlayerGui:FindFirstChild("Inventory")
-        
-        if InventoryGui and GuiControl then
-            if GuiControl:IsOpen("Inventory") then
-                GuiControl:Close()
-                wait(0.5)
-                GuiControl:Open("Inventory", false)
-                print("🔄 Inventory UI di-refresh")
-            end
-        end
-    end)
-    
-    if not success then
-        warn("❌ Gagal refresh inventory:", error)
-    end
-end
-
--- Tab Inventory (letakkan setelah tab Webhook)
+-- Tab Inventory lengkap
 do
     local inventoryTab = Tabs.Inventory
     
@@ -3126,7 +3099,7 @@ do
         Content = "Sistem ini akan otomatis mem-favorite ikan yang sesuai dengan kategori yang dipilih dibawah ini. Pilih kategori ikan yang ingin di-favorite secara otomatis."
     })
     
-    -- Multi-Dropdown untuk memilih tier ikan (khusus untuk inventory)
+    -- Multi-Dropdown untuk memilih tier ikan
     local InventoryFishDropdown = inventoryTab:AddDropdown("InventoryFishSelection", {
         Title = "Pilih Kategori Ikan untuk Auto Favorite",
         Description = "Pilih kategori ikan yang ingin di-favorite otomatis ketika tertangkap",
@@ -3226,7 +3199,6 @@ do
                     totalActive = totalActive + 1
                     local itemData = getInventoryItemData(fishId)
                     if itemData then
-                        -- Cari tier ikan dari fishList
                         for _, fish in pairs(fishList) do
                             if fish.id == fishId then
                                 tierCounts[fish.tier] = tierCounts[fish.tier] + 1
@@ -3235,7 +3207,6 @@ do
                             end
                         end
                     else
-                        -- Jika getInventoryItemData gagal, gunakan data dari fishList
                         for _, fish in pairs(fishList) do
                             if fish.id == fishId then
                                 tierCounts[fish.tier] = tierCounts[fish.tier] + 1
@@ -3249,7 +3220,6 @@ do
             
             if totalActive == 0 then
                 print("❌ TIDAK ADA IKAN YANG AKTIF!")
-                print("💡 Pilih kategori ikan di dropdown diatas terlebih dahulu")
             else
                 print("📊 Ringkasan per tier:")
                 for tier, count in pairs(tierCounts) do
@@ -3279,7 +3249,6 @@ do
             
             if activeCount == 0 then
                 print("❌ Tidak ada ikan yang dipilih di filter!")
-                print("💡 Pilih kategori ikan di dropdown diatas terlebih dahulu")
                 return
             end
             
@@ -3317,20 +3286,13 @@ do
                                                                 print("🌟 Favorite:", itemData.Name or "Unknown Fish")
                                                                 
                                                                 spawn(function()
-                                                                    wait(favoriteCount * 0.1) -- Delay bertahap
+                                                                    wait(favoriteCount * 0.2)
                                                                     
-                                                                    local favoriteSuccess, favoriteError = pcall(function()
-                                                                        local netFolder = ReplicatedStorage.Packages._Index:FindFirstChild("sleitnick_net@0.2.0")
-                                                                        if netFolder and netFolder:FindFirstChild("net") then
-                                                                            local FavoriteItemEvent = netFolder.net:FindFirstChild("RE/FavoriteItem")
-                                                                            if FavoriteItemEvent then
-                                                                                FavoriteItemEvent:FireServer(uuid)
-                                                                            end
-                                                                        end
-                                                                    end)
-                                                                    
-                                                                    if not favoriteSuccess then
-                                                                        warn("❌ Gagal favorite:", favoriteError)
+                                                                    -- Gunakan Net system yang sesuai InventoryController
+                                                                    local Net = require(ReplicatedStorage.Packages.Net)
+                                                                    local FavoriteItemEvent = Net:RemoteEvent("FavoriteItem")
+                                                                    if FavoriteItemEvent then
+                                                                        FavoriteItemEvent:FireServer(uuid)
                                                                     end
                                                                 end)
                                                             end
@@ -3399,20 +3361,12 @@ do
                                                             print("💔 Unfavorite:", itemData.Name or "Unknown Fish")
                                                             
                                                             spawn(function()
-                                                                wait(unfavoriteCount * 0.1) -- Delay bertahap
+                                                                wait(unfavoriteCount * 0.1)
                                                                 
-                                                                local favoriteSuccess, favoriteError = pcall(function()
-                                                                    local netFolder = ReplicatedStorage.Packages._Index:FindFirstChild("sleitnick_net@0.2.0")
-                                                                    if netFolder and netFolder:FindFirstChild("net") then
-                                                                        local FavoriteItemEvent = netFolder.net:FindFirstChild("RE/FavoriteItem")
-                                                                        if FavoriteItemEvent then
-                                                                            FavoriteItemEvent:FireServer(uuid)
-                                                                        end
-                                                                    end
-                                                                end)
-                                                                
-                                                                if not favoriteSuccess then
-                                                                    warn("❌ Gagal unfavorite:", favoriteError)
+                                                                local Net = require(ReplicatedStorage.Packages.Net)
+                                                                local FavoriteItemEvent = Net:RemoteEvent("FavoriteItem")
+                                                                if FavoriteItemEvent then
+                                                                    FavoriteItemEvent:FireServer(uuid)
                                                                 end
                                                             end)
                                                         end
@@ -3444,11 +3398,10 @@ do
     -- Tombol test auto favorite
     inventoryTab:AddButton({
         Title = "🧪 Test Auto Favorite",
-        Description = "Test sistem auto favorite (butuh ikan baru untuk test)",
+        Description = "Test sistem auto favorite",
         Callback = function()
             if not isAutoFavoriteActive then
                 print("❌ Auto Favorite tidak aktif")
-                print("💡 Aktifkan toggle Auto Favorite terlebih dahulu")
                 return
             end
             
@@ -3461,7 +3414,6 @@ do
                     activeCount = activeCount + 1
                     local itemData = getInventoryItemData(fishId)
                     if itemData then
-                        -- Cari tier dari fishList
                         for _, fish in pairs(fishList) do
                             if fish.id == fishId then
                                 print("  ⭐", itemData.Name or fish.name, "(ID:", fishId, "- Tier:", fish.tier .. ")")
@@ -3469,7 +3421,6 @@ do
                             end
                         end
                     else
-                        -- Fallback menggunakan fishList
                         for _, fish in pairs(fishList) do
                             if fish.id == fishId then
                                 print("  ⭐", fish.name, "(ID:", fishId, "- Tier:", fish.tier .. ")")
@@ -3482,16 +3433,14 @@ do
             
             if activeCount == 0 then
                 print("❌ TIDAK ADA IKAN YANG AKTIF!")
-                print("💡 Pilih kategori ikan di dropdown diatas terlebih dahulu")
             else
                 print("✅ Total ikan yang akan di-favorite:", activeCount)
-                print("🎣 Tangkap ikan untuk melihat auto favorite bekerja!")
                 print("🔄 Status monitoring:", autoFavoriteConnection and "AKTIF" or "TIDAK AKTIF")
             end
         end
     })
     
-    -- Tombol preset untuk memilih semua ikan berdasarkan tier (khusus inventory)
+    -- Quick Selection Section
     inventoryTab:AddSection("Quick Selection")
     
     inventoryTab:AddButton({
@@ -3548,16 +3497,8 @@ do
         end
     })
     
-    -- Debug & Troubleshooting Section
+    -- Debug Section
     inventoryTab:AddSection("Debug & Troubleshooting")
-
-    inventoryTab:AddButton({
-        Title = "🔄 Refresh Inventory UI",
-        Description = "Paksa refresh tampilan inventory untuk update status favorite",
-        Callback = function()
-            forceRefreshInventory()
-        end
-    })
 
     inventoryTab:AddButton({
         Title = "🔍 Debug Inventory Data",
@@ -3624,7 +3565,7 @@ do
     })
 end
 
--- Fungsi untuk memulai monitoring auto favorite (taruh di luar do block)
+-- Fungsi monitoring auto favorite yang diperbaiki
 function startAutoFavoriteMonitoring()
     local success, error = pcall(function()
         local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -3644,7 +3585,7 @@ function startAutoFavoriteMonitoring()
                             local dataReplion = Client:WaitReplion("Data")
                             
                             local lastProcessTime = 0
-                            local processingCooldown = 2 -- Perpanjang cooldown ke 2 detik
+                            local processingCooldown = 3 -- Perpanjang ke 3 detik
                             
                             autoFavoriteConnection = dataReplion:OnChange("Inventory", function(newInventory, oldInventory)
                                 if not isAutoFavoriteActive or not newInventory then
@@ -3684,52 +3625,18 @@ function startAutoFavoriteMonitoring()
                                                             if inventoryFishEnabled[fishId] == true then
                                                                 print("🌟 Auto favorite ikan:", itemData.Name or "Unknown Fish", "UUID:", uuid)
                                                                 
-                                                                -- Kirim favorite request dengan delay yang lebih lama
+                                                                -- Kirim favorite request dengan Net system
                                                                 spawn(function()
-                                                                    wait(1.5) -- Perpanjang delay untuk memastikan item ter-load
+                                                                    wait(2) -- Delay lebih lama
                                                                     
                                                                     local favoriteSuccess, favoriteError = pcall(function()
-                                                                        local netFolder = ReplicatedStorage.Packages._Index:FindFirstChild("sleitnick_net@0.2.0")
-                                                                        if netFolder and netFolder:FindFirstChild("net") then
-                                                                            local FavoriteItemEvent = netFolder.net:FindFirstChild("RE/FavoriteItem")
-                                                                            if FavoriteItemEvent then
-                                                                                FavoriteItemEvent:FireServer(uuid)
-                                                                                print("✅ Berhasil favorite:", itemData.Name or "Unknown Fish")
-                                                                                
-                                                                                -- Tambahan: Tunggu sebentar lalu cek apakah berhasil
-                                                                                spawn(function()
-                                                                                    wait(3) -- Tunggu 3 detik
-                                                                                    
-                                                                                    -- Cek ulang status favorite
-                                                                                    local checkSuccess, checkError = pcall(function()
-                                                                                        local currentInventory = dataReplion:Get("Inventory")
-                                                                                        if currentInventory then
-                                                                                            for cat, itms in pairs(currentInventory) do
-                                                                                                if type(itms) == "table" and itms[uuid] then
-                                                                                                    if itms[uuid].Favorited then
-                                                                                                        print("✅ Konfirmasi: Ikan", itemData.Name or "Unknown Fish", "sudah ter-favorite")
-                                                                                                    else
-                                                                                                        print("⚠️ Warning: Ikan", itemData.Name or "Unknown Fish", "belum ter-favorite, mencoba lagi...")
-                                                                                                        -- Coba favorite sekali lagi
-                                                                                                        wait(1)
-                                                                                                        if FavoriteItemEvent then
-                                                                                                            FavoriteItemEvent:FireServer(uuid)
-                                                                                                            print("🔄 Retry favorite untuk:", itemData.Name or "Unknown Fish")
-                                                                                                        end
-                                                                                                    end
-                                                                                                    break
-                                                                                                end
-                                                                                            end
-                                                                                        end
-                                                                                    end)
-                                                                                    
-                                                                                    if not checkSuccess then
-                                                                                        warn("❌ Error saat cek status favorite:", checkError)
-                                                                                    end
-                                                                                end)
-                                                                            else
-                                                                                warn("❌ FavoriteItem RemoteEvent tidak ditemukan")
-                                                                            end
+                                                                        local Net = require(ReplicatedStorage.Packages.Net)
+                                                                        local FavoriteItemEvent = Net:RemoteEvent("FavoriteItem")
+                                                                        if FavoriteItemEvent then
+                                                                            FavoriteItemEvent:FireServer(uuid)
+                                                                            print("✅ Berhasil favorite:", itemData.Name or "Unknown Fish")
+                                                                        else
+                                                                            warn("❌ FavoriteItem RemoteEvent tidak ditemukan")
                                                                         end
                                                                     end)
                                                                     

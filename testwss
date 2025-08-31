@@ -2464,7 +2464,7 @@ end
 local WebhookInput = WebhookTab:AddInput("Input", {
     Title = "URL Webhook Discord",
     Description = "Input Description",
-    Default = "Default",
+    Default = "",
     Placeholder = "https://discord.com/api/webhooks/...",
     Numeric = false,
     Finished = false,
@@ -2654,7 +2654,7 @@ local function sendWebhook(itemName, itemData, weight, isVariant, variantName)
                         },
                         {
                             ["name"] = "** -> Fishing : **\n > Fish: `" .. fullItemName.."`",
-                            ["value"] = "> Weight: `"..formatWeight(itemData.Weight, weight).."`\n > Price: ".. (itemData.SellPrice or 0) .."\n > Tier:` "..tierInfo.name .. "`",
+                            ["value"] = "> Weight: `"..formatWeight(itemData.Weight, weight).."`\n > Price: `".. (itemData.SellPrice or 0) .."`\n > Tier: `"..tierInfo.name .. "`",
                             ["inline"] = false
                         }
                     },

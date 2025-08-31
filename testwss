@@ -2653,8 +2653,8 @@ local function sendWebhook(itemName, itemData, weight, isVariant, variantName)
                             ["inline"] = true
                         },
                         {
-                            ["name"] = "** -> Fishing : **\n > Fish: `" .. fullItemName.."`",
-                            ["value"] = "> Weight: `"..formatWeight(itemData.Weight, weight).."`\n > Price: `".. (itemData.SellPrice or 0) .."`\n > Tier: `"..tierInfo.name .. "`",
+                            ["name"] = "** -> Fishing : **",
+                            ["value"] = "> Fish: `" .. fullItemName.."`\n > Weight: `"..formatWeight(itemData.Weight, weight).."`\n > Price: `".. (itemData.SellPrice or 0) .."`\n > Tier: `"..tierInfo.name .. "`",
                             ["inline"] = false
                         }
                     },

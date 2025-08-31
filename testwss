@@ -2371,36 +2371,36 @@ do
 -- Database Gambar Ikan
 local fishImages = {
     -- Ikan Uncommon
-    [139] = "rbxassetid://84055400571306",    -- Silver Tuna
-    [186] = "rbxassetid://101895900955177",   -- Parrot Fish
-    [182] = "rbxassetid://95659897738388",    -- Blackcap Basslet
-    [140] = "rbxassetid://114269547366510",   -- Pilot Fish
+    [139] = "https://imgur.com/a/XzkE17o",    -- Silver Tuna
+    [186] = "https://imgur.com/a/XzkE17o4",   -- Parrot Fish
+    [182] = "https://imgur.com/a/XzkE17o3",    -- Blackcap Basslet
+    [140] = "https://imgur.com/a/XzkE17o2",   -- Pilot Fish
     
     -- Ikan Secret
-    [156] = "rbxassetid://135470649745250",   -- Giant Squid
-    [136] = "rbxassetid://125463067542850",   -- Frostborn Shark
+    [156] = "https://imgur.com/a/XzkE17o6",   -- Giant Squid
+    [136] = "https://imgur.com/a/XzkE17o1",   -- Frostborn Shark
     
     -- Ikan Mythic
-    [75] = "rbxassetid://132465838670740",    -- Dotted Stingray
-    [15] = "rbxassetid://140212951494890",    -- Abyss Seahorse
-    [21] = "rbxassetid://129453304232199",    -- Hawks Turtle
-    [52] = "rbxassetid://91373020648344",     -- Hammerhead Shark
-    [54] = "rbxassetid://88385941559907",     -- Manta Ray
-    [35] = "rbxassetid://105300029672501",    -- Prismy Seahorse
-    [34] = "rbxassetid://91953712080535",     -- Loggerhead Turtle
-    [47] = "rbxassetid://113303332536600",    -- Blueflame Ray
+    [75] = "https://imgur.com/a/XzkE17o5",    -- Dotted Stingray
+    [15] = "https://imgur.com/a/XzkE17o7",    -- Abyss Seahorse
+    [21] = "https://imgur.com/a/XzkE17o8",    -- Hawks Turtle
+    [52] = "https://imgur.com/a/XzkE17o9",     -- Hammerhead Shark
+    [54] = "https://imgur.com/a/XzkE17os",     -- Manta Ray
+    [35] = "https://imgur.com/a/XzkE17ox",    -- Prismy Seahorse
+    [34] = "https://imgur.com/a/XzkE17oxa",     -- Loggerhead Turtle
+    [47] = "https://imgur.com/a/XzkE17od",    -- Blueflame Ray
     
     -- Ikan Legendary
-    [73] = "rbxassetid://86565235696991",     -- Yellowfin Tuna
-    [53] = "rbxassetid://103021560011734",    -- Chrome Tuna
-    [36] = "rbxassetid://106973499045957",    -- Lobster
-    [37] = "rbxassetid://138718017852833",    -- Bumblebee Grouper
-    [48] = "rbxassetid://96111934641941",     -- Lavafin Tuna
-    [22] = "rbxassetid://79569787883962",     -- Blue Lobster
-    [25] = "rbxassetid://79015880866732",     -- Greenbee Grouper
-    [24] = "rbxassetid://129447526017878",    -- Starjam Tang
-    [16] = "rbxassetid://88573644059627",     -- Magic Tang
-    [14] = "rbxassetid://108347802265821",    -- Enchanted Angelfish
+    [73] = "https://imgur.com/a/XzkE17oc",     -- Yellowfin Tuna
+    [53] = "https://imgur.com/a/XzkE17ox",    -- Chrome Tuna
+    [36] = "https://imgur.com/a/XzkE17occ",    -- Lobster
+    [37] = "https://imgur.com/a/XzkE17osa",    -- Bumblebee Grouper
+    [48] = "https://imgur.com/a/XzkE17osax",     -- Lavafin Tuna
+    [22] = "https://imgur.com/a/XzkE17oxx",     -- Blue Lobster
+    [25] = "https://imgur.com/a/XzkE17ogg",     -- Greenbee Grouper
+    [24] = "https://imgur.com/a/XzkE17o",    -- Starjam Tang
+    [16] = "https://imgur.com/a/XzkE17oh",     -- Magic Tang
+    [14] = "https://imgur.com/a/XzkE17ox",    -- Enchanted Angelfish
 }
 
 -- Variabel Webhook
@@ -2411,45 +2411,76 @@ local inventoryConnection = nil
 local httpRetryCount = 0
 local maxHttpRetries = 3
 
--- Ikan yang Diaktifkan (Hanya ikan ini yang akan dilacak)
-local specificFishEnabled = {
-    -- Ikan Secret
-    [156] = false, -- Giant Squid
-    [136] = false, -- Frostborn Shark
-    -- Ikan Mythic  
-    [75] = false,  -- Dotted Stingray
-    [15] = false,  -- Abyss Seahorse
-    [21] = false,  -- Hawks Turtle
-    [52] = false,  -- Hammerhead Shark
-    [54] = false,  -- Manta Ray
-    [35] = false,  -- Prismy Seahorse
-    [34] = false,  -- Loggerhead Turtle
-    [47] = false,  -- Blueflame Ray
-    -- Ikan Legendary
-    [73] = false,  -- Yellowfin Tuna
-    [53] = false,  -- Chrome Tuna
-    [36] = false,  -- Lobster
-    [37] = false,  -- Bumblebee Grouper
-    [48] = false,  -- Lavafin Tuna
-    [22] = false,  -- Blue Lobster
-    [25] = false,  -- Greenbee Grouper
-    [24] = false,  -- Starjam Tang
-    [16] = false,  -- Magic Tang
-    [14] = false,  -- Enchanted Angelfish
-    -- Ikan Uncommon
-    [140] = false, -- Pilot Fish
-    [182] = false, -- Blackcap Basslet
-    [139] = false, -- Silver Tuna
-    [186] = false, -- Parrot Fish
+-- Daftar ikan yang tersedia dengan nama dan ID
+local fishList = {
+    -- Secret Fish
+    {name = "Giant Squid", id = 156, tier = "Secret"},
+    {name = "Frostborn Shark", id = 136, tier = "Secret"},
+    
+    -- Mythic Fish
+    {name = "Dotted Stingray", id = 75, tier = "Mythic"},
+    {name = "Abyss Seahorse", id = 15, tier = "Mythic"},
+    {name = "Hawks Turtle", id = 21, tier = "Mythic"},
+    {name = "Hammerhead Shark", id = 52, tier = "Mythic"},
+    {name = "Manta Ray", id = 54, tier = "Mythic"},
+    {name = "Prismy Seahorse", id = 35, tier = "Mythic"},
+    {name = "Loggerhead Turtle", id = 34, tier = "Mythic"},
+    {name = "Blueflame Ray", id = 47, tier = "Mythic"},
+    
+    -- Legendary Fish
+    {name = "Yellowfin Tuna", id = 73, tier = "Legendary"},
+    {name = "Chrome Tuna", id = 53, tier = "Legendary"},
+    {name = "Lobster", id = 36, tier = "Legendary"},
+    {name = "Bumblebee Grouper", id = 37, tier = "Legendary"},
+    {name = "Lavafin Tuna", id = 48, tier = "Legendary"},
+    {name = "Blue Lobster", id = 22, tier = "Legendary"},
+    {name = "Greenbee Grouper", id = 25, tier = "Legendary"},
+    {name = "Starjam Tang", id = 24, tier = "Legendary"},
+    {name = "Magic Tang", id = 16, tier = "Legendary"},
+    {name = "Enchanted Angelfish", id = 14, tier = "Legendary"},
+    
+    -- Uncommon Fish
+    {name = "Silver Tuna", id = 139, tier = "Uncommon"},
+    {name = "Parrot Fish", id = 186, tier = "Uncommon"},
+    {name = "Blackcap Basslet", id = 182, tier = "Uncommon"},
+    {name = "Pilot Fish", id = 140, tier = "Uncommon"}
 }
+
+-- Ikan yang Diaktifkan (Hanya ikan ini yang akan dilacak)
+local specificFishEnabled = {}
+
+-- Inisialisasi semua ikan sebagai false
+for _, fish in pairs(fishList) do
+    specificFishEnabled[fish.id] = false
+end
+
+-- Buat array nama ikan untuk dropdown dengan tier info
+local fishDropdownValues = {}
+for _, fish in pairs(fishList) do
+    table.insert(fishDropdownValues, fish.name .. " (" .. fish.tier .. ")")
+end
+
+-- Sort berdasarkan tier dan nama
+table.sort(fishDropdownValues, function(a, b)
+    local tierOrder = {Secret = 1, Mythic = 2, Legendary = 3, Uncommon = 4}
+    
+    local tierA = string.match(a, "%((.-)%)")
+    local tierB = string.match(b, "%((.-)%)")
+    
+    if tierOrder[tierA] ~= tierOrder[tierB] then
+        return tierOrder[tierA] < tierOrder[tierB]
+    end
+    
+    return a < b
+end)
 
 local WebhookInput = WebhookTab:AddInput("Input", {
     Title = "URL Webhook Discord",
     Description = "Input Description",
     Default = "Default",
     Placeholder = "https://discord.com/api/webhooks/...",
-    Numeric = false, -- Only allows numbers
-    Finished = false, -- Only calls callback when you press enter
+    Numeric = false,
+    Finished = false,
     Callback = function(Text)
         webhookURL = Text
         httpRetryCount = 0
@@ -2457,6 +2488,48 @@ local WebhookInput = WebhookTab:AddInput("Input", {
         end
     end
 })
+
+-- Multi-Dropdown untuk memilih ikan
+local FishDropdown = WebhookTab:AddDropdown("FishSelection", {
+    Title = "Pilih Ikan untuk Dilacak",
+    Description = "Pilih ikan yang ingin dikirim ke webhook ketika tertangkap",
+    Values = fishDropdownValues,
+    Multi = true,
+    Default = {},
+})
+
+-- Event handler untuk dropdown
+FishDropdown:OnChanged(function(selectedFish)
+    -- Reset semua ikan ke false
+    for fishId, _ in pairs(specificFishEnabled) do
+        specificFishEnabled[fishId] = false
+    end
+    
+    -- Aktifkan ikan yang dipilih
+    for selectedName, isSelected in pairs(selectedFish) do
+        if isSelected then
+            -- Cari ID ikan berdasarkan nama
+            for _, fish in pairs(fishList) do
+                local displayName = fish.name .. " (" .. fish.tier .. ")"
+                if displayName == selectedName then
+                    specificFishEnabled[fish.id] = true
+                    print("✅ Mengaktifkan tracking untuk:", fish.name, "ID:", fish.id)
+                    break
+                end
+            end
+        end
+    end
+    
+    -- Debug: tampilkan ikan yang aktif
+    local activeCount = 0
+    for fishId, enabled in pairs(specificFishEnabled) do
+        if enabled then
+            activeCount = activeCount + 1
+        end
+    end
+    print("📊 Total ikan aktif:", activeCount)
+end)
+
 -- Fungsi untuk mendapatkan data ikan dari ReplicatedStorage
 local function getItemData(itemId)
     local success, itemData = pcall(function()
@@ -2525,6 +2598,7 @@ local function getFishImageURL(fishId)
     end
     return nil
 end
+
 -- Fungsi untuk mendapatkan info tier
 local function getTierInfo(tier)
     local tierColors = {
@@ -2819,7 +2893,7 @@ local function stopInventoryMonitoring()
     print("Monitoring inventory dihentikan")
 end
 
-local enbToggle = WebhookTab:AddToggle("webhooktracking", 
+local WebhookToggle = WebhookTab:AddToggle("webhooktracking", 
 {
     Title = "Enable Webhook", 
     Description = "Toggle description",
@@ -2838,225 +2912,66 @@ local enbToggle = WebhookTab:AddToggle("webhooktracking",
         end
     end 
 })
-local DottedStingrayToggle = WebhookTab:AddToggle("dottedstingray", {
-    Title = "Dotted Stingray",
-    Description = "Aktifkan untuk kirim Dotted Stingray ke webhook",
-    Default = false,
-    Callback = function(state)
-        specificFishEnabled[75] = state
-        print("🐟 Dotted Stingray toggle:", state, "untuk ID 75")
-    end
-})
 
-local AbyssSeahorseToggle = WebhookTab:AddToggle("abyssseahorse", {
-    Title = "Abyss Seahorse",
-    Description = "Aktifkan untuk kirim Abyss Seahorse ke webhook",
-    Default = false,
-    Callback = function(state)
-        specificFishEnabled[15] = state
-        print("🐟 Abyss Seahorse toggle:", state, "untuk ID 15")
-    end
-})
-
-local HawksTurtleToggle = WebhookTab:AddToggle("hawksturtle", {
-    Title = "Hawks Turtle",
-    Description = "Aktifkan untuk kirim Hawks Turtle ke webhook",
-    Default = false,
-    Callback = function(state)
-        specificFishEnabled[21] = state
-        print("🐟 Hawks Turtle toggle:", state, "untuk ID 21")
-    end
-})
-
-local HammerheadSharkToggle = WebhookTab:AddToggle("hammerheadshark", {
-    Title = "Hammerhead Shark",
-    Description = "Aktifkan untuk kirim Hammerhead Shark ke webhook",
-    Default = false,
-    Callback = function(state)
-        specificFishEnabled[52] = state
-        print("🐟 Hammerhead Shark toggle:", state, "untuk ID 52")
-    end
-})
-
-local MantaRayToggle = WebhookTab:AddToggle("mantaray", {
-    Title = "Manta Ray",
-    Description = "Aktifkan untuk kirim Manta Ray ke webhook",
-    Default = false,
-    Callback = function(state)
-        specificFishEnabled[54] = state
-        print("🐟 Manta Ray toggle:", state, "untuk ID 54")
-    end
-})
-
-local PrismySeahorseToggle = WebhookTab:AddToggle("prismyseahorse", {
-    Title = "Prismy Seahorse",
-    Description = "Aktifkan untuk kirim Prismy Seahorse ke webhook",
-    Default = false,
-    Callback = function(state)
-        specificFishEnabled[35] = state
-        print("🐟 Prismy Seahorse toggle:", state, "untuk ID 35")
-    end
-})
-
-local LoggerheadTurtleToggle = WebhookTab:AddToggle("loggerheadturtle", {
-    Title = "Loggerhead Turtle",
-    Description = "Aktifkan untuk kirim Loggerhead Turtle ke webhook",
-    Default = false,
-    Callback = function(state)
-        specificFishEnabled[34] = state
-        print("🐟 Loggerhead Turtle toggle:", state, "untuk ID 34")
-    end
-})
-
-local BlueflameRayToggle = WebhookTab:AddToggle("blueflameray", {
-    Title = "Blueflame Ray",
-    Description = "Aktifkan untuk kirim Blueflame Ray ke webhook",
-    Default = false,
-    Callback = function(state)
-        specificFishEnabled[47] = state
-        print("🐟 Blueflame Ray toggle:", state, "untuk ID 47")
-    end
-})
-
-local YellowfinTunaToggle = WebhookTab:AddToggle("yellowfintuna", {
-    Title = "Yellowfin Tuna",
-    Description = "Aktifkan untuk kirim Yellowfin Tuna ke webhook",
-    Default = false,
-    Callback = function(state)
-        specificFishEnabled[73] = state
-        print("🐟 Yellowfin Tuna toggle:", state, "untuk ID 73")
-    end
-})
-
-local ChromeTunaToggle = WebhookTab:AddToggle("chrometuna", {
-    Title = "Chrome Tuna",
-    Description = "Aktifkan untuk kirim Chrome Tuna ke webhook",
-    Default = false,
-    Callback = function(state)
-        specificFishEnabled[53] = state
-        print("🐟 Chrome Tuna toggle:", state, "untuk ID 53")
-    end
-})
-
-local LobsterToggle = WebhookTab:AddToggle("lobster", {
-    Title = "Lobster",
-    Description = "Aktifkan untuk kirim Lobster ke webhook",
-    Default = false,
-    Callback = function(state)
-        specificFishEnabled[36] = state
-        print("🐟 Lobster toggle:", state, "untuk ID 36")
-    end
-})
-
-local BumblebeeGrouperToggle = WebhookTab:AddToggle("bumblebeegrouper", {
-    Title = "Bumblebee Grouper",
-    Description = "Aktifkan untuk kirim Bumblebee Grouper ke webhook",
-    Default = false,
-    Callback = function(state)
-        specificFishEnabled[37] = state
-        print("🐟 Bumblebee Grouper toggle:", state, "untuk ID 37")
-    end
-})
-
-local LavafinTunaToggle = WebhookTab:AddToggle("lavafintuna", {
-    Title = "Lavafin Tuna",
-    Description = "Aktifkan untuk kirim Lavafin Tuna ke webhook",
-    Default = false,
-    Callback = function(state)
-        specificFishEnabled[48] = state
-        print("🐟 Lavafin Tuna toggle:", state, "untuk ID 48")
-    end
-})
-
-local BlueLobsterToggle = WebhookTab:AddToggle("bluelobster", {
-    Title = "Blue Lobster",
-    Description = "Aktifkan untuk kirim Blue Lobster ke webhook",
-    Default = false,
-    Callback = function(state)
-        specificFishEnabled[22] = state
-        print("🐟 Blue Lobster toggle:", state, "untuk ID 22")
-    end
-})
-
-local GreenbeeGrouperToggle = WebhookTab:AddToggle("greenbeegrouper", {
-    Title = "Greenbee Grouper",
-    Description = "Aktifkan untuk kirim Greenbee Grouper ke webhook",
-    Default = false,
-    Callback = function(state)
-        specificFishEnabled[25] = state
-        print("🐟 Greenbee Grouper toggle:", state, "untuk ID 25")
-    end
-})
-
-local StarjamTangToggle = WebhookTab:AddToggle("starjamtang", {
-    Title = "Starjam Tang",
-    Description = "Aktifkan untuk kirim Starjam Tang ke webhook",
-    Default = false,
-    Callback = function(state)
-        specificFishEnabled[24] = state
-        print("🐟 Starjam Tang toggle:", state, "untuk ID 24")
-    end
-})
-
-local MagicTangToggle = WebhookTab:AddToggle("magictang", {
-    Title = "Magic Tang",
-    Description = "Aktifkan untuk kirim Magic Tang ke webhook",
-    Default = false,
-    Callback = function(state)
-        specificFishEnabled[16] = state
-        print("🐟 Magic Tang toggle:", state, "untuk ID 16")
-    end
-})
-
-local EnchantedAngelfishToggle = WebhookTab:AddToggle("enchantedangelfish", {
-    Title = "Enchanted Angelfish",
-    Description = "Aktifkan untuk kirim Enchanted Angelfish ke webhook",
-    Default = false,
-    Callback = function(state)
-        specificFishEnabled[14] = state
-        print("🐟 Enchanted Angelfish toggle:", state, "untuk ID 14")
-    end
-})
-
-local PilotFishToggle = WebhookTab:AddToggle("pilotfish", {
-    Title = "Pilot Fish",
-    Description = "Aktifkan untuk kirim Pilot Fish ke webhook",
-    Default = false,
-    Callback = function(state)
-        specificFishEnabled[140] = state
-        print("🐟 Pilot Fish toggle:", state, "untuk ID 140")
-        if state then
+-- Fungsi helper untuk preset ikan berdasarkan tier
+local function selectFishByTier(tier)
+    local fishToSelect = {}
+    for _, fish in pairs(fishList) do
+        if fish.tier == tier then
+            fishToSelect[fish.name .. " (" .. fish.tier .. ")"] = true
         end
     end
-})
+    FishDropdown:SetValue(fishToSelect)
+end
 
-local BlackcapBassletToggle = WebhookTab:AddToggle("blackcapbasslet", {
-    Title = "Blackcap Basslet",
-    Description = "Aktifkan untuk kirim Blackcap Basslet ke webhook",
-    Default = false,
-    Callback = function(state)
-        specificFishEnabled[182] = state
-        print("🐟 Blackcap Basslet toggle:", state, "untuk ID 182")
+-- Tombol preset untuk memilih semua ikan berdasarkan tier
+WebhookTab:AddButton({
+    Title = "🔥 Pilih Semua Secret & Mythic",
+    Description = "Aktifkan tracking untuk semua ikan Secret dan Mythic",
+    Callback = function()
+        local fishToSelect = {}
+        for _, fish in pairs(fishList) do
+            if fish.tier == "Secret" or fish.tier == "Mythic" then
+                fishToSelect[fish.name .. " (" .. fish.tier .. ")"] = true
+            end
+        end
+        FishDropdown:SetValue(fishToSelect)
     end
 })
 
-local SilverTunaToggle = WebhookTab:AddToggle("silvertuna", {
-    Title = "Silver Tuna",
-    Description = "Aktifkan untuk kirim Silver Tuna ke webhook",
-    Default = false,
-    Callback = function(state)
-        specificFishEnabled[139] = state
-        print("🐟 Silver Tuna toggle:", state, "untuk ID 139")
+WebhookTab:AddButton({
+    Title = "⭐ Pilih Semua Legendary",
+    Description = "Aktifkan tracking untuk semua ikan Legendary",
+    Callback = function()
+        selectFishByTier("Legendary")
     end
 })
 
-local ParrotFishToggle = WebhookTab:AddToggle("parrotfish", {
-    Title = "Parrot Fish",
-    Description = "Aktifkan untuk kirim Parrot Fish ke webhook",
-    Default = false,
-    Callback = function(state)
-        specificFishEnabled[186] = state
-        print("🐟 Parrot Fish toggle:", state, "untuk ID 186")
+WebhookTab:AddButton({
+    Title = "🟢 Pilih Semua Uncommon",
+    Description = "Aktifkan tracking untuk semua ikan Uncommon",
+    Callback = function()
+        selectFishByTier("Uncommon")
+    end
+})
+
+WebhookTab:AddButton({
+    Title = "🌟 Pilih Semua Ikan",
+    Description = "Aktifkan tracking untuk semua ikan yang tersedia",
+    Callback = function()
+        local allFish = {}
+        for _, fish in pairs(fishList) do
+            allFish[fish.name .. " (" .. fish.tier .. ")"] = true
+        end
+        FishDropdown:SetValue(allFish)
+    end
+})
+
+WebhookTab:AddButton({
+    Title = "❌ Hapus Semua Pilihan",
+    Description = "Nonaktifkan tracking untuk semua ikan",
+    Callback = function()
+        FishDropdown:SetValue({})
     end
 })
 
@@ -3079,6 +2994,7 @@ WebhookTab:AddButton({
         sendWebhook("Test Fish (Silver Tuna)", testData, 3.5, false, nil)
         end
     })
+
 WebhookTab:AddButton({
         Title = "🔍 Debug Filter Ikan",
         Description = "",
@@ -3108,6 +3024,7 @@ WebhookTab:AddButton({
         print("=== AKHIR DEBUG ===")
         end
     })
+
     WebhookTab:AddButton({
         Title = "🔄 Reset Sistem Webhook",
         Description = "",
@@ -3130,6 +3047,7 @@ WebhookTab:AddButton({
         end
         end
     })
+
 WebhookTab:AddButton({
         Title = "🔄 Hapus URL Webhook",
         Description = "",

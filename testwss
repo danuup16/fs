@@ -2368,39 +2368,41 @@ do
 end
 do
         local WebhookTab = Tabs.Webhook
--- Database Gambar Ikan
+-- Database Gambar Ikan (sementara menggunakan placeholder)
 local fishImages = {
-    -- Ikan Uncommon
-    [139] = "https://imgur.com/a/XzkE17o",    -- Silver Tuna
-    [186] = "https://imgur.com/a/XzkE17o4",   -- Parrot Fish
-    [182] = "https://imgur.com/a/XzkE17o3",    -- Blackcap Basslet
-    [140] = "https://imgur.com/a/XzkE17o2",   -- Pilot Fish
+    -- Secret Fish
+    [156] = "https://imgur.com/a/XzkE17o", -- Giant Squid
+    [136] = "https://imgur.com/a/XzkE17o", -- Frostborn Shark
+    [99] = "https://imgur.com/a/XzkE17o",  -- Great Christmas Whale
+    [141] = "https://imgur.com/a/XzkE17o", -- Great Whale
+    [159] = "https://imgur.com/a/XzkE17o", -- Robot Kraken
+    [145] = "https://imgur.com/a/XzkE17o", -- Worm Fish
+    [176] = "https://imgur.com/a/XzkE17o", -- Ghost Worm Fish
+    [83] = "https://imgur.com/a/XzkE17o",  -- Ghost Shark
     
-    -- Ikan Secret
-    [156] = "https://imgur.com/a/XzkE17o6",   -- Giant Squid
-    [136] = "https://imgur.com/a/XzkE17o1",   -- Frostborn Shark
+    -- Mythic Fish
+    [110] = "https://imgur.com/a/XzkE17o", -- Lined Cardinal Fish
+    [97] = "https://imgur.com/a/XzkE17o",  -- Gingerbread Turtle
+    [34] = "https://imgur.com/a/XzkE17o",  -- Loggerhead Turtle
+    [21] = "https://imgur.com/a/XzkE17o",  -- Hawks Turtle
+    [150] = "https://imgur.com/a/XzkE17o", -- Blob Fish
+    [15] = "https://imgur.com/a/XzkE17o",  -- Abyss Seahorse
+    [35] = "https://imgur.com/a/XzkE17o",  -- Prismy Seahorse
+    [146] = "https://imgur.com/a/XzkE17o", -- Strippled Seahorse
+    [47] = "https://imgur.com/a/XzkE17o",  -- Blueflame Ray
+    [75] = "https://imgur.com/a/XzkE17o",  -- Dotted Stingray
+    [54] = "https://imgur.com/a/XzkE17o",  -- Manta Ray
+    [52] = "https://imgur.com/a/XzkE17o",  -- Hammerhead Shark
+    [98] = "https://imgur.com/a/XzkE17o",  -- Gingerbread Shark
+    [122] = "https://imgur.com/a/XzkE17o", -- Loving Shark
+    [137] = "https://imgur.com/a/XzkE17o", -- Plasma Shark
+    [147] = "https://imgur.com/a/XzkE17o", -- Thresher Shark
     
-    -- Ikan Mythic
-    [75] = "https://imgur.com/a/XzkE17o5",    -- Dotted Stingray
-    [15] = "https://imgur.com/a/XzkE17o7",    -- Abyss Seahorse
-    [21] = "https://imgur.com/a/XzkE17o8",    -- Hawks Turtle
-    [52] = "https://imgur.com/a/XzkE17o9",     -- Hammerhead Shark
-    [54] = "https://imgur.com/a/XzkE17os",     -- Manta Ray
-    [35] = "https://imgur.com/a/XzkE17ox",    -- Prismy Seahorse
-    [34] = "https://imgur.com/a/XzkE17oxa",     -- Loggerhead Turtle
-    [47] = "https://imgur.com/a/XzkE17od",    -- Blueflame Ray
-    
-    -- Ikan Legendary
-    [73] = "https://imgur.com/a/XzkE17oc",     -- Yellowfin Tuna
-    [53] = "https://imgur.com/a/XzkE17ox",    -- Chrome Tuna
-    [36] = "https://imgur.com/a/XzkE17occ",    -- Lobster
-    [37] = "https://imgur.com/a/XzkE17osa",    -- Bumblebee Grouper
-    [48] = "https://imgur.com/a/XzkE17osax",     -- Lavafin Tuna
-    [22] = "https://imgur.com/a/XzkE17oxx",     -- Blue Lobster
-    [25] = "https://imgur.com/a/XzkE17ogg",     -- Greenbee Grouper
-    [24] = "https://imgur.com/a/XzkE17o",    -- Starjam Tang
-    [16] = "https://imgur.com/a/XzkE17oh",     -- Magic Tang
-    [14] = "https://imgur.com/a/XzkE17ox",    -- Enchanted Angelfish
+    -- Uncommon Fish
+    [139] = "https://imgur.com/a/XzkE17o", -- Silver Tuna
+    [186] = "https://imgur.com/a/XzkE17o", -- Parrot Fish
+    [182] = "https://imgur.com/a/XzkE17o", -- Blackcap Basslet
+    [140] = "https://imgur.com/a/XzkE17o", -- Pilot Fish
 }
 
 -- Variabel Webhook
@@ -2413,31 +2415,33 @@ local maxHttpRetries = 3
 
 -- Daftar ikan yang tersedia dengan nama dan ID
 local fishList = {
-    -- Secret Fish
+    -- Secret Fish (Tier 5 & 6)
     {name = "Giant Squid", id = 156, tier = "Secret"},
     {name = "Frostborn Shark", id = 136, tier = "Secret"},
+    {name = "Great Christmas Whale", id = 99, tier = "Secret"},
+    {name = "Great Whale", id = 141, tier = "Secret"},
+    {name = "Robot Kraken", id = 159, tier = "Secret"},
+    {name = "Worm Fish", id = 145, tier = "Secret"},
+    {name = "Ghost Worm Fish", id = 176, tier = "Secret"},
+    {name = "Ghost Shark", id = 83, tier = "Secret"},
     
-    -- Mythic Fish
-    {name = "Dotted Stingray", id = 75, tier = "Mythic"},
-    {name = "Abyss Seahorse", id = 15, tier = "Mythic"},
-    {name = "Hawks Turtle", id = 21, tier = "Mythic"},
-    {name = "Hammerhead Shark", id = 52, tier = "Mythic"},
-    {name = "Manta Ray", id = 54, tier = "Mythic"},
-    {name = "Prismy Seahorse", id = 35, tier = "Mythic"},
+    -- Mythic Fish (Tier 5 & 6)
+    {name = "Lined Cardinal Fish", id = 110, tier = "Mythic"},
+    {name = "Gingerbread Turtle", id = 97, tier = "Mythic"},
     {name = "Loggerhead Turtle", id = 34, tier = "Mythic"},
+    {name = "Hawks Turtle", id = 21, tier = "Mythic"},
+    {name = "Blob Fish", id = 150, tier = "Mythic"},
+    {name = "Abyss Seahorse", id = 15, tier = "Mythic"},
+    {name = "Prismy Seahorse", id = 35, tier = "Mythic"},
+    {name = "Strippled Seahorse", id = 146, tier = "Mythic"},
     {name = "Blueflame Ray", id = 47, tier = "Mythic"},
-    
-    -- Legendary Fish
-    {name = "Yellowfin Tuna", id = 73, tier = "Legendary"},
-    {name = "Chrome Tuna", id = 53, tier = "Legendary"},
-    {name = "Lobster", id = 36, tier = "Legendary"},
-    {name = "Bumblebee Grouper", id = 37, tier = "Legendary"},
-    {name = "Lavafin Tuna", id = 48, tier = "Legendary"},
-    {name = "Blue Lobster", id = 22, tier = "Legendary"},
-    {name = "Greenbee Grouper", id = 25, tier = "Legendary"},
-    {name = "Starjam Tang", id = 24, tier = "Legendary"},
-    {name = "Magic Tang", id = 16, tier = "Legendary"},
-    {name = "Enchanted Angelfish", id = 14, tier = "Legendary"},
+    {name = "Dotted Stingray", id = 75, tier = "Mythic"},
+    {name = "Manta Ray", id = 54, tier = "Mythic"},
+    {name = "Hammerhead Shark", id = 52, tier = "Mythic"},
+    {name = "Gingerbread Shark", id = 98, tier = "Mythic"},
+    {name = "Loving Shark", id = 122, tier = "Mythic"},
+    {name = "Plasma Shark", id = 137, tier = "Mythic"},
+    {name = "Thresher Shark", id = 147, tier = "Mythic"},
     
     -- Uncommon Fish
     {name = "Silver Tuna", id = 139, tier = "Uncommon"},
@@ -2454,25 +2458,8 @@ for _, fish in pairs(fishList) do
     specificFishEnabled[fish.id] = false
 end
 
--- Buat array nama ikan untuk dropdown dengan tier info
-local fishDropdownValues = {}
-for _, fish in pairs(fishList) do
-    table.insert(fishDropdownValues, fish.name .. " (" .. fish.tier .. ")")
-end
-
--- Sort berdasarkan tier dan nama
-table.sort(fishDropdownValues, function(a, b)
-    local tierOrder = {Secret = 1, Mythic = 2, Legendary = 3, Uncommon = 4}
-    
-    local tierA = string.match(a, "%((.-)%)")
-    local tierB = string.match(b, "%((.-)%)")
-    
-    if tierOrder[tierA] ~= tierOrder[tierB] then
-        return tierOrder[tierA] < tierOrder[tierB]
-    end
-    
-    return a < b
-end)
+-- Buat array nama ikan untuk dropdown (tidak digunakan lagi)
+-- local fishDropdownValues = {}
 
 local WebhookInput = WebhookTab:AddInput("Input", {
     Title = "URL Webhook Discord",
@@ -2489,45 +2476,54 @@ local WebhookInput = WebhookTab:AddInput("Input", {
     end
 })
 
--- Multi-Dropdown untuk memilih ikan
+-- Multi-Dropdown untuk memilih tier ikan
 local FishDropdown = WebhookTab:AddDropdown("FishSelection", {
-    Title = "Pilih Ikan untuk Dilacak",
-    Description = "Pilih ikan yang ingin dikirim ke webhook ketika tertangkap",
-    Values = fishDropdownValues,
+    Title = "Pilih Kategori Ikan untuk Dilacak",
+    Description = "Pilih kategori ikan yang ingin dikirim ke webhook ketika tertangkap",
+    Values = {"Secret", "Mythic", "Uncommon"},
     Multi = true,
     Default = {},
 })
 
 -- Event handler untuk dropdown
-FishDropdown:OnChanged(function(selectedFish)
+FishDropdown:OnChanged(function(selectedTiers)
     -- Reset semua ikan ke false
     for fishId, _ in pairs(specificFishEnabled) do
         specificFishEnabled[fishId] = false
     end
     
-    -- Aktifkan ikan yang dipilih
-    for selectedName, isSelected in pairs(selectedFish) do
+    -- Aktifkan semua ikan dari tier yang dipilih
+    for tierName, isSelected in pairs(selectedTiers) do
         if isSelected then
-            -- Cari ID ikan berdasarkan nama
             for _, fish in pairs(fishList) do
-                local displayName = fish.name .. " (" .. fish.tier .. ")"
-                if displayName == selectedName then
+                if fish.tier == tierName then
                     specificFishEnabled[fish.id] = true
-                    print("✅ Mengaktifkan tracking untuk:", fish.name, "ID:", fish.id)
+                    print("✅ Mengaktifkan tracking untuk:", fish.name, "ID:", fish.id, "Tier:", fish.tier)
+                end
+            end
+        end
+    end
+    
+    -- Debug: tampilkan ikan yang aktif per tier
+    local tierCounts = {Secret = 0, Mythic = 0, Uncommon = 0}
+    for fishId, enabled in pairs(specificFishEnabled) do
+        if enabled then
+            for _, fish in pairs(fishList) do
+                if fish.id == fishId then
+                    tierCounts[fish.tier] = tierCounts[fish.tier] + 1
                     break
                 end
             end
         end
     end
     
-    -- Debug: tampilkan ikan yang aktif
-    local activeCount = 0
-    for fishId, enabled in pairs(specificFishEnabled) do
-        if enabled then
-            activeCount = activeCount + 1
+    print("📊 Ikan aktif per tier:")
+    for tier, count in pairs(tierCounts) do
+        if count > 0 then
+            print("  " .. tier .. ":", count, "ikan")
         end
     end
-    print("📊 Total ikan aktif:", activeCount)
+    print("📊 Total ikan aktif:", tierCounts.Secret + tierCounts.Mythic + tierCounts.Uncommon)
 end)
 
 -- Fungsi untuk mendapatkan data ikan dari ReplicatedStorage
@@ -2915,35 +2911,25 @@ local WebhookToggle = WebhookTab:AddToggle("webhooktracking",
 
 -- Fungsi helper untuk preset ikan berdasarkan tier
 local function selectFishByTier(tier)
-    local fishToSelect = {}
-    for _, fish in pairs(fishList) do
-        if fish.tier == tier then
-            fishToSelect[fish.name .. " (" .. fish.tier .. ")"] = true
-        end
-    end
-    FishDropdown:SetValue(fishToSelect)
+    local tiersToSelect = {}
+    tiersToSelect[tier] = true
+    FishDropdown:SetValue(tiersToSelect)
 end
 
 -- Tombol preset untuk memilih semua ikan berdasarkan tier
 WebhookTab:AddButton({
-    Title = "🔥 Pilih Semua Secret & Mythic",
-    Description = "Aktifkan tracking untuk semua ikan Secret dan Mythic",
+    Title = "🔥 Pilih Semua Secret",
+    Description = "Aktifkan tracking untuk semua ikan Secret",
     Callback = function()
-        local fishToSelect = {}
-        for _, fish in pairs(fishList) do
-            if fish.tier == "Secret" or fish.tier == "Mythic" then
-                fishToSelect[fish.name .. " (" .. fish.tier .. ")"] = true
-            end
-        end
-        FishDropdown:SetValue(fishToSelect)
+        selectFishByTier("Secret")
     end
 })
 
 WebhookTab:AddButton({
-    Title = "⭐ Pilih Semua Legendary",
-    Description = "Aktifkan tracking untuk semua ikan Legendary",
+    Title = "⭐ Pilih Semua Mythic",
+    Description = "Aktifkan tracking untuk semua ikan Mythic",
     Callback = function()
-        selectFishByTier("Legendary")
+        selectFishByTier("Mythic")
     end
 })
 
@@ -2956,14 +2942,14 @@ WebhookTab:AddButton({
 })
 
 WebhookTab:AddButton({
-    Title = "🌟 Pilih Semua Ikan",
-    Description = "Aktifkan tracking untuk semua ikan yang tersedia",
+    Title = "🌟 Pilih Semua Kategori",
+    Description = "Aktifkan tracking untuk semua kategori ikan",
     Callback = function()
-        local allFish = {}
-        for _, fish in pairs(fishList) do
-            allFish[fish.name .. " (" .. fish.tier .. ")"] = true
-        end
-        FishDropdown:SetValue(allFish)
+        FishDropdown:SetValue({
+            Secret = true,
+            Mythic = true,
+            Uncommon = true
+        })
     end
 })
 

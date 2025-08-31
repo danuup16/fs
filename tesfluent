@@ -2666,29 +2666,17 @@ do
                 print("[DEBUG] === END INVENTORY STRUCTURE ===")
                 
                 -- Now try to find fish data with different possible names
-                local possibleFishCategories = {"Fishes", "Fish", "fishes", "fish", "Items"}
-local fishData = {}
-local foundCategory = nil
-
-for _, categoryName in pairs(possibleFishCategories) do
-    if newInventory[categoryName] and type(newInventory[categoryName]) == "table" then
-        for uuid, itemData in pairs(newInventory[categoryName]) do
-            if itemData and itemData.Id then
-                local testItemData = getItemData(itemData.Id)
-                if testItemData and testItemData.Type == "Fishes" then
-                    fishData[uuid] = itemData
-                    foundCategory = categoryName
-                end
-            end
-        end
-    end
+                local fishData = newInventory.Fishes
+if not fishData or type(fishData) ~= "table" then
+    print("[DEBUG] No fish data found in category Fishes")
+    return
 end
 
-if not next(fishData) then
-    print("[DEBUG] No fish data found in any category")
-else
-    print("[DEBUG] Fish data found in category '"..foundCategory.."'! Total fish:", table.count(fishData))
+local fishCount = 0
+for _ in pairs(fishData) do
+    fishCount += 1
 end
+print("[DEBUG] Fish data found in category 'Fishes'! Total fish items:", fishCount)
 
                 
                 if not fishData then

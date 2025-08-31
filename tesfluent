@@ -205,7 +205,6 @@ local Tabs = {
     Fishing = Window:AddTab({ Title = "Fishing", Icon = "fish" }),
     Teleport = Window:AddTab({ Title = "Teleport", Icon = "map-pin" }),
     Buy = Window:AddTab({ Title = "Buy", Icon = "shopping-cart" }),
-    Webhook = Window:AddTab({ Title = "Webhook", Icon = "globe" }),
     Settings = Window:AddTab({ Title = "Settings", Icon = "settings" })
 }
 

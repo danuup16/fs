@@ -2314,23 +2314,58 @@ do
         end
     end)
 end
--- FINAL WEBHOOK FIX - COMPLETE SOLUTION
-local WebhookTab = Window:CreateTab("Webhook", "bell-ring")
+do
+    local WebhookTab = Window:CreateTab("Webhook", "bell-ring")
 
--- Webhook Variables
+-- Database Gambar Ikan
+local fishImages = {
+    -- Ikan Uncommon
+    [139] = "rbxassetid://84055400571306",    -- Silver Tuna
+    [186] = "rbxassetid://101895900955177",   -- Parrot Fish
+    [182] = "rbxassetid://95659897738388",    -- Blackcap Basslet
+    [140] = "rbxassetid://114269547366510",   -- Pilot Fish
+    
+    -- Ikan Secret
+    [156] = "rbxassetid://135470649745250",   -- Giant Squid
+    [136] = "rbxassetid://125463067542850",   -- Frostborn Shark
+    
+    -- Ikan Mythic
+    [75] = "rbxassetid://132465838670740",    -- Dotted Stingray
+    [15] = "rbxassetid://140212951494890",    -- Abyss Seahorse
+    [21] = "rbxassetid://129453304232199",    -- Hawks Turtle
+    [52] = "rbxassetid://91373020648344",     -- Hammerhead Shark
+    [54] = "rbxassetid://88385941559907",     -- Manta Ray
+    [35] = "rbxassetid://105300029672501",    -- Prismy Seahorse
+    [34] = "rbxassetid://91953712080535",     -- Loggerhead Turtle
+    [47] = "rbxassetid://113303332536600",    -- Blueflame Ray
+    
+    -- Ikan Legendary
+    [73] = "rbxassetid://86565235696991",     -- Yellowfin Tuna
+    [53] = "rbxassetid://103021560011734",    -- Chrome Tuna
+    [36] = "rbxassetid://106973499045957",    -- Lobster
+    [37] = "rbxassetid://138718017852833",    -- Bumblebee Grouper
+    [48] = "rbxassetid://96111934641941",     -- Lavafin Tuna
+    [22] = "rbxassetid://79569787883962",     -- Blue Lobster
+    [25] = "rbxassetid://79015880866732",     -- Greenbee Grouper
+    [24] = "rbxassetid://129447526017878",    -- Starjam Tang
+    [16] = "rbxassetid://88573644059627",     -- Magic Tang
+    [14] = "rbxassetid://108347802265821",    -- Enchanted Angelfish
+}
+
+-- Variabel Webhook
 local webhookURL = ""
-local isWebhookActive = false  -- Set to false by default when script loads
+local isWebhookActive = false
 local lastInventoryState = {}
 local inventoryConnection = nil
 local httpRetryCount = 0
 local maxHttpRetries = 3
 
--- Specific Fish Enabled (Only these will be tracked)
+-- Ikan yang Diaktifkan (Hanya ikan ini yang akan dilacak)
 local specificFishEnabled = {
-    -- Secret Fish
+    -- Ikan Secret
     [156] = false, -- Giant Squid
     [136] = false, -- Frostborn Shark
-    -- Mythic Fish  
+    -- Ikan Mythic  
     [75] = false,  -- Dotted Stingray
     [15] = false,  -- Abyss Seahorse
     [21] = false,  -- Hawks Turtle
@@ -2339,7 +2374,7 @@ local specificFishEnabled = {
     [35] = false,  -- Prismy Seahorse
     [34] = false,  -- Loggerhead Turtle
     [47] = false,  -- Blueflame Ray
-    -- Legendary Fish
+    -- Ikan Legendary
     [73] = false,  -- Yellowfin Tuna
     [53] = false,  -- Chrome Tuna
     [36] = false,  -- Lobster
@@ -2350,128 +2385,25 @@ local specificFishEnabled = {
     [24] = false,  -- Starjam Tang
     [16] = false,  -- Magic Tang
     [14] = false,  -- Enchanted Angelfish
-    -- Uncommon Fish
+    -- Ikan Uncommon
     [140] = false, -- Pilot Fish
     [182] = false, -- Blackcap Basslet
     [139] = false, -- Silver Tuna
     [186] = false, -- Parrot Fish
 }
 
--- Webhook URL Input
+-- Input URL Webhook
 local WebhookInput = WebhookTab:CreateInput({
-    Name = "Discord Webhook URL",
-    PlaceholderText = "Link Webhook",
+    Name = "URL Webhook Discord",
+    PlaceholderText = "https://discord.com/api/webhooks/...",
     RemoveTextAfterFocusLost = false,
     Callback = function(Text)
         webhookURL = Text
-        httpRetryCount = 0 
-    end,
-})
-
--- Fish Selection Dropdown (Mendukung pilihan manual multiple fish)
-local FishDropdown = WebhookTab:CreateDropdown({
-    Name = "🐟 Select Fish to Track (Manual Selection)",
-    Options = {
-        -- Secret Fish
-        "Giant Squid (Secret)",
-        "Frostborn Shark (Secret)",
-        -- Mythic Fish
-        "Dotted Stingray (Mythic)",
-        "Abyss Seahorse (Mythic)", 
-        "Hawks Turtle (Mythic)",
-        "Hammerhead Shark (Mythic)",
-        "Manta Ray (Mythic)",
-        "Prismy Seahorse (Mythic)",
-        "Loggerhead Turtle (Mythic)",
-        "Blueflame Ray (Mythic)",
-        -- Legendary Fish
-        "Yellowfin Tuna (Legendary)",
-        "Chrome Tuna (Legendary)",
-        "Lobster (Legendary)",
-        "Bumblebee Grouper (Legendary)",
-        "Lavafin Tuna (Legendary)",
-        "Blue Lobster (Legendary)",
-        "Greenbee Grouper (Legendary)",
-        "Starjam Tang (Legendary)",
-        "Magic Tang (Legendary)",
-        "Enchanted Angelfish (Legendary)",
-        -- Uncommon Fish
-        "Pilot Fish (Uncommon)",
-        "Blackcap Basslet (Uncommon)",
-        "Silver Tuna (Uncommon)",
-        "Parrot Fish (Uncommon)"
-    },
-    CurrentOption = {},
-    MultipleOptions = true, -- PENTING: Ini memungkinkan pilihan multiple
-    Flag = "FishSelection",
-    Callback = function(Options)
-        -- Reset all fish to false first
-        for fishId, _ in pairs(specificFishEnabled) do
-            specificFishEnabled[fishId] = false
-        end
-        
-        -- Fish name to ID mapping (dengan tier labels)
-        local fishNameToId = {
-            -- Secret Fish
-            ["Giant Squid (Secret)"] = 156,
-            ["Frostborn Shark (Secret)"] = 136,
-            -- Mythic Fish
-            ["Dotted Stingray (Mythic)"] = 75,
-            ["Abyss Seahorse (Mythic)"] = 15,
-            ["Hawks Turtle (Mythic)"] = 21,
-            ["Hammerhead Shark (Mythic)"] = 52,
-            ["Manta Ray (Mythic)"] = 54,
-            ["Prismy Seahorse (Mythic)"] = 35,
-            ["Loggerhead Turtle (Mythic)"] = 34,
-            ["Blueflame Ray (Mythic)"] = 47,
-            -- Legendary Fish
-            ["Yellowfin Tuna (Legendary)"] = 73,
-            ["Chrome Tuna (Legendary)"] = 53,
-            ["Lobster (Legendary)"] = 36,
-            ["Bumblebee Grouper (Legendary)"] = 37,
-            ["Lavafin Tuna (Legendary)"] = 48,
-            ["Blue Lobster (Legendary)"] = 22,
-            ["Greenbee Grouper (Legendary)"] = 25,
-            ["Starjam Tang (Legendary)"] = 24,
-            ["Magic Tang (Legendary)"] = 16,
-            ["Enchanted Angelfish (Legendary)"] = 14,
-            -- Uncommon Fish
-            ["Pilot Fish (Uncommon)"] = 140,
-            ["Blackcap Basslet (Uncommon)"] = 182,
-            ["Silver Tuna (Uncommon)"] = 139,
-            ["Parrot Fish (Uncommon)"] = 186
-        }
-        
-        -- Enable selected fish
-        for _, fishName in pairs(Options) do
-            local fishId = fishNameToId[fishName]
-            if fishId then
-                specificFishEnabled[fishId] = true
-                print("✅ Enabled:", fishName, "ID:", fishId)
-            end
-        end
-        
-        -- Show notification with selected fish names
-        local selectedCount = #Options
-        if selectedCount > 0 then
-            local fishList = ""
-            for i, fishName in pairs(Options) do
-                fishList = fishList .. fishName:gsub(" %(.+%)", "") -- Remove tier label for display
-                if i < selectedCount then
-                    fishList = fishList .. ", "
-                end
-            end
-            
+        httpRetryCount = 0
+        if Text ~= "" then
             Rayfield:Notify({
-                Title = "✅ Fish Selected (" .. selectedCount .. ")",
-                Content = fishList,
-                Duration = 5,
-                Image = "bell-ring",
-            })
-        else
-            Rayfield:Notify({
-                Title = "❌ No Fish Selected", 
-                Content = "Webhook tracking disabled",
+                Title = "URL Webhook Diatur",
+                Content = "Siap melacak ikan!",
                 Duration = 3,
                 Image = "bell-ring",
             })
@@ -2479,6 +2411,7 @@ local FishDropdown = WebhookTab:CreateDropdown({
     end,
 })
 
+-- Fungsi untuk mendapatkan data ikan dari ReplicatedStorage
 local function getItemData(itemId)
     local success, itemData = pcall(function()
         local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -2487,6 +2420,7 @@ local function getItemData(itemId)
         if not itemsFolder then
             return nil
         end
+        
         for _, itemModule in pairs(itemsFolder:GetChildren()) do
             if itemModule:IsA("ModuleScript") then
                 local success2, data = pcall(function()
@@ -2495,6 +2429,7 @@ local function getItemData(itemId)
                 
                 if success2 and data and data.Data and data.Data.Id == itemId then
                     return {
+                        Id = data.Data.Id,
                         Name = data.Data.Name,
                         Type = data.Data.Type,
                         Tier = data.Data.Tier,
@@ -2518,18 +2453,52 @@ local function getItemData(itemId)
     end
 end
 
+-- Fungsi untuk format berat ikan
 local function formatWeight(weight, actualWeight)
     if not actualWeight then
-        return "Unknown"
+        return "Tidak Diketahui"
     end
+    
     local weightText = string.format("%.1f kg", actualWeight)
+    
     if weight and weight.Big and actualWeight >= weight.Big.Min then
-        weightText = weightText .. " (BIG)"
+        weightText = weightText .. " (BESAR)"
     end
     
     return weightText
 end
 
+-- Fungsi untuk mendapatkan URL gambar ikan
+local function getFishImageURL(fishId)
+    local assetId = fishImages[fishId]
+    if assetId then
+        local imageId = string.match(assetId, "rbxassetid://(%d+)")
+        if imageId then
+            return "https://www.roblox.com/asset-thumbnail/image?assetId=" .. imageId .. "&width=420&height=420&format=png"
+        end
+    end
+    return nil
+end
+
+-- Fungsi untuk cek apakah ikan harus dikirim ke webhook
+local function shouldSendFish(itemData)
+    local fishId = itemData.Id
+    
+    print("🐟 Mengecek ikan:", itemData.Name, "ID:", fishId)
+    print("📊 Status ikan aktif:", specificFishEnabled[fishId])
+    
+    local shouldSend = specificFishEnabled[fishId] == true
+    
+    if shouldSend then
+        print("✅ Ikan AKAN dikirim:", itemData.Name, "ID:", fishId)
+    else
+        print("❌ Ikan DIBLOKIR:", itemData.Name, "ID:", fishId, "- Status toggle:", specificFishEnabled[fishId])
+    end
+    
+    return shouldSend
+end
+
+-- Fungsi untuk mendapatkan info tier
 local function getTierInfo(tier)
     local tierColors = {
         [1] = {name = "Common", color = 0x808080},
@@ -2545,10 +2514,12 @@ local function getTierInfo(tier)
     return tierColors[tier] or {name = "Unknown", color = 0x808080}
 end
 
+-- Fungsi untuk mengirim webhook dengan gambar ikan
 local function sendWebhook(itemName, itemData, weight, isVariant, variantName)
     if webhookURL == "" then
         return
     end
+    
     local RunService = game:GetService("RunService")
     RunService.Heartbeat:Wait()
     
@@ -2563,46 +2534,75 @@ local function sendWebhook(itemName, itemData, weight, isVariant, variantName)
             local sendSuccess, sendError = pcall(function()
                 local player = game.Players.LocalPlayer
                 local tierInfo = getTierInfo(itemData.Tier or 1)
-                local rarityText = "Unknown"
+                
+                local rarityText = "Tidak Diketahui"
                 if itemData.Probability and itemData.Probability.Chance then
                     local chance = itemData.Probability.Chance
-                    rarityText = string.format("1 in %.0f", 1/chance)
+                    rarityText = string.format("1 dari %.0f", 1/chance)
                 end
+                
                 local fullItemName = itemName
                 if isVariant and variantName then
                     fullItemName = variantName .. " " .. itemName
                 end
-                local data = {
-                    ["username"] = "#DJSTEST",
-                    ["embeds"] = {{
-                        ["title"] = "#DJSTEST - Fish It",
-                        ["color"] = tierInfo.color,
-                        ["fields"] = {
-                           {
-                                ["name"] = "**-> Profil**",
-                                ["value"] = "** Username:** "..player.Name,
-                                ["inline"] = false
-                            },
-                            {
-                                ["name"] = "**-> Info** ",
-                                ["value"] = "** 🐟 Fish:** " .. fullItemName .. "\n ** ⚖️ Weight:** "..formatWeight(itemData.Weight, weight).."\n ** 💰 Price:** ".. (itemData.SellPrice or 0) .."\n ** ⭐ Tier:** "..tierInfo.name .. " (T" .. (itemData.Tier or 1) .. ")",
-                                ["inline"] = false
-                            }
+                
+                -- Dapatkan URL gambar ikan
+                local fishImageURL = getFishImageURL(itemData.Id)
+                
+                local embedData = {
+                    ["title"] = "🎣 Ikan Baru Tertangkap!",
+                    ["color"] = tierInfo.color,
+                    ["fields"] = {
+                       {
+                            ["name"] = "👤 Pemain",
+                            ["value"] = player.Name,
+                            ["inline"] = true
                         },
-                        ["footer"] = {
-                            ["text"] = "https://discord.gg/uwXYuxj6cF • " .. os.date("%Y-%m-%d %H:%M:%S")
+                        {
+                            ["name"] = "📍 Server",
+                            ["value"] = "JobId: " .. string.sub(game.JobId, 1, 8) .. "...",
+                            ["inline"] = true
                         },
-                        ["thumbnail"] = {
-                            ["url"] = "https://www.roblox.com/headshot-thumbnail/image?userId=" .. player.UserId .. "&width=150&height=150&format=png"
+                        {
+                            ["name"] = "🐟 " .. fullItemName,
+                            ["value"] = "⚖️ **Berat:** "..formatWeight(itemData.Weight, weight).."\n💰 **Harga Jual:** ".. (itemData.SellPrice or 0) .." 💎\n⭐ **Tier:** "..tierInfo.name .. " (T" .. (itemData.Tier or 1) .. ")\n🎯 **Kelangkaan:** " .. rarityText,
+                            ["inline"] = false
                         }
-                    }}
+                    },
+                    ["footer"] = {
+                        ["text"] = "Fish It Tracker • " .. os.date("%Y-%m-%d %H:%M:%S"),
+                        ["icon_url"] = "https://www.roblox.com/headshot-thumbnail/image?userId=" .. player.UserId .. "&width=32&height=32&format=png"
+                    }
                 }
+                
+                -- Tambahkan gambar ikan sebagai thumbnail (pojok kanan atas) dan gambar besar
+                if fishImageURL then
+                    embedData["thumbnail"] = {
+                        ["url"] = fishImageURL
+                    }
+                    embedData["image"] = {
+                        ["url"] = fishImageURL
+                    }
+                else
+                    -- Jika tidak ada gambar ikan, gunakan avatar player sebagai thumbnail
+                    embedData["thumbnail"] = {
+                        ["url"] = "https://www.roblox.com/headshot-thumbnail/image?userId=" .. player.UserId .. "&width=150&height=150&format=png"
+                    }
+                end
+                
+                local data = {
+                    ["username"] = "Fish It Tracker",
+                    ["embeds"] = {embedData}
+                }
+                
                 local headers = {["Content-Type"] = "application/json"}
                 local body = game:GetService("HttpService"):JSONEncode(data)
+                
                 local req = http_request or request or syn.request
                 if fluxus and fluxus.request then
                     req = fluxus.request
                 end
+                
                 if req then
                     local response = req({
                         Url = webhookURL,
@@ -2610,13 +2610,15 @@ local function sendWebhook(itemName, itemData, weight, isVariant, variantName)
                         Headers = headers,
                         Body = body
                     })
+                    
                     if response and (response.StatusCode == 200 or response.StatusCode == 204) then
                         success = true
+                        print("Webhook berhasil dikirim dengan gambar ikan!")
                     else
                         error("HTTP Error: " .. (response and response.StatusCode or "Unknown"))
                     end
                 else
-                    error("No HTTP request function available")
+                    error("Tidak ada fungsi HTTP request yang tersedia")
                 end
             end)
             
@@ -2624,7 +2626,7 @@ local function sendWebhook(itemName, itemData, weight, isVariant, variantName)
                 success = true
                 httpRetryCount = 0
             else
-                warn("Webhook attempt " .. retryAttempt .. " failed:", sendError)
+                warn("Percobaan webhook " .. retryAttempt .. " gagal:", sendError)
                 
                 if retryAttempt < maxRetries then
                     wait(retryAttempt * 2)
@@ -2632,8 +2634,16 @@ local function sendWebhook(itemName, itemData, weight, isVariant, variantName)
                     httpRetryCount = httpRetryCount + 1
                     
                     if httpRetryCount >= maxHttpRetries then
-                        warn("Too many webhook failures, temporarily disabling...")
+                        warn("Terlalu banyak kegagalan webhook, menonaktifkan sementara...")
                         isWebhookActive = false
+                        
+                        Rayfield:Notify({
+                            Title = "Webhook Dinonaktifkan Sementara",
+                            Content = "Terlalu banyak percobaan gagal. Periksa URL webhook Anda.",
+                            Duration = 10,
+                            Image = "bell-ring",
+                        })
+                        
                         spawn(function()
                             wait(30)
                             httpRetryCount = 0
@@ -2645,9 +2655,11 @@ local function sendWebhook(itemName, itemData, weight, isVariant, variantName)
     end)
 end
 
+-- Fungsi monitoring Replion
 local function startReplionMonitoring()
     local success, error = pcall(function()
         local ReplicatedStorage = game:GetService("ReplicatedStorage")
+        
         local replionPackage = ReplicatedStorage:FindFirstChild("Packages")
         if replionPackage then
             replionPackage = replionPackage:FindFirstChild("_Index")
@@ -2658,20 +2670,28 @@ local function startReplionMonitoring()
                         if replionModule then
                             local Replion = require(replionModule)
                             local Client = Replion.Client
+                            
                             local dataReplion = Client:WaitReplion("Data")
+                            
                             local lastProcessTime = 0
-                            local processingCooldown = 2 
+                            local processingCooldown = 2
+                            
                             dataReplion:OnChange("Inventory", function(newInventory, oldInventory)
                                 if not isWebhookActive or not newInventory then
                                     return
                                 end
+                                
                                 local currentTime = tick()
                                 if currentTime - lastProcessTime < processingCooldown then
+                                    print("Melewati perubahan inventory - terlalu cepat (anti-spam)")
                                     return
                                 end
                                 lastProcessTime = currentTime
+                                
                                 task.defer(function()
                                     local processSuccess, processError = pcall(function()
+                                        print("Memproses perubahan inventory...")
+                                        
                                         for category, items in pairs(newInventory) do
                                             if type(items) == "table" then
                                                 for uuid, itemInfo in pairs(items) do
@@ -2689,10 +2709,16 @@ local function startReplionMonitoring()
                                                         local itemData = getItemData(itemInfo.Id)
                                                         
                                                         if itemData and itemData.Type == "Fishes" then
+                                                            print("🐟 Ikan terdeteksi:", itemData.Name, "ID:", itemInfo.Id, "itemData.Id:", itemData.Id)
+                                                            
                                                             local fishId = itemInfo.Id
+                                                            
                                                             if specificFishEnabled[fishId] == true then
+                                                                print("✅ Ikan lolos filter:", itemData.Name, "ID:", fishId)
+                                                                
                                                                 local isVariant = false
                                                                 local variantName = nil
+                                                                
                                                                 if itemInfo.Metadata and itemInfo.Metadata.VariantId then
                                                                     local variantSuccess, variantData = pcall(function()
                                                                         local ItemUtility = require(ReplicatedStorage.Shared.ItemUtility)
@@ -2704,11 +2730,22 @@ local function startReplionMonitoring()
                                                                         variantName = variantData.Data.Name
                                                                     end
                                                                 end
+                                                                
                                                                 local weight = nil
                                                                 if itemInfo.Metadata and itemInfo.Metadata.Weight then
                                                                     weight = itemInfo.Metadata.Weight
                                                                 end
+                                                                
                                                                 sendWebhook(itemData.Name, itemData, weight, isVariant, variantName)
+                                                                
+                                                                Rayfield:Notify({
+                                                                    Title = "Ikan Terdeteksi!",
+                                                                    Content = (variantName and (variantName .. " ") or "") .. itemData.Name .. " dikirim ke webhook",
+                                                                    Duration = 5,
+                                                                    Image = "bell-ring",
+                                                                })
+                                                            else
+                                                                print("❌ Ikan difilter:", itemData.Name, "ID:", fishId, "Status toggle:", specificFishEnabled[fishId])
                                                             end
                                                         end
                                                     end
@@ -2718,7 +2755,7 @@ local function startReplionMonitoring()
                                     end)
                                     
                                     if not processSuccess then
-                                        warn("Error processing inventory change:", processError)
+                                        warn("Error memproses perubahan inventory:", processError)
                                     end
                                 end)
                             end)
@@ -2734,156 +2771,32 @@ local function startReplionMonitoring()
     end)
     
     if success then
+        print("Monitoring Replion dimulai dengan sukses")
         return true
     else
-        warn("Failed to start Replion monitoring:", error)
+        warn("Gagal memulai monitoring Replion:", error)
         return false
     end
 end
 
-local function startEventMonitoring()
-    local success, error = pcall(function()
-        local ReplicatedStorage = game:GetService("ReplicatedStorage")
-        local netFolder = ReplicatedStorage.Packages._Index:FindFirstChild("sleitnick_net@0.2.0")
-        
-        if netFolder and netFolder:FindFirstChild("net") then
-            local net = netFolder.net
-            local fishingCompleted = net:FindFirstChild("RE/FishingCompleted")
-            
-            if fishingCompleted then
-                local originalFire = fishingCompleted.FireServer
-                fishingCompleted.FireServer = function(...)
-                    local result = originalFire(...)
-                    
-                    if isWebhookActive then
-                        spawn(function()
-                            wait(2)
-                            print("Fishing completed, checking for new fish...")
-                            checkForNewFish()
-                        end)
-                    end
-                    
-                    return result
-                end
-                return true
-            end
-        end
-        
-        return false
-    end)
-    
-    if success then
-        return true
-    else
-        warn("Failed to start event monitoring:", error)
-        return false
-    end
-end
-
-local function checkForNewFish()
-    if not isWebhookActive then return end
-    local RunService = game:GetService("RunService")
-    RunService.Heartbeat:Wait()
-    
-    local success, error = pcall(function()
-        local ReplicatedStorage = game:GetService("ReplicatedStorage")
-        local Client = require(ReplicatedStorage.Packages.Replion).Client
-        local dataReplion = Client:WaitReplion("Data")
-        
-        local currentInventory = dataReplion:Get("Inventory")
-        
-        if currentInventory then
-            for category, items in pairs(currentInventory) do
-                if type(items) == "table" then
-                    for uuid, itemInfo in pairs(items) do
-                        local isNewItem = false
-                        
-                        if not lastInventoryState[category] or not lastInventoryState[category][uuid] then
-                            isNewItem = true
-                        elseif lastInventoryState[category][uuid].Quantity and itemInfo.Quantity then
-                            if itemInfo.Quantity > lastInventoryState[category][uuid].Quantity then
-                                isNewItem = true
-                            end
-                        end
-                        
-                        if isNewItem and itemInfo.Id then
-                            local itemData = getItemData(itemInfo.Id)
-                            
-                            if itemData and itemData.Type == "Fishes" then
-                                local fishId = itemInfo.Id
-                                
-                                if specificFishEnabled[fishId] == true then
-                                    local isVariant = false
-                                    local variantName = nil
-                                    
-                                    if itemInfo.Metadata and itemInfo.Metadata.VariantId then
-                                        local variantSuccess, variantData = pcall(function()
-                                            local ItemUtility = require(ReplicatedStorage.Shared.ItemUtility)
-                                            return ItemUtility:GetVariantData(itemInfo.Metadata.VariantId)
-                                        end)
-                                        
-                                        if variantSuccess and variantData and variantData.Data then
-                                            isVariant = true
-                                            variantName = variantData.Data.Name
-                                        end
-                                    end
-                                    
-                                    local weight = nil
-                                    if itemInfo.Metadata and itemInfo.Metadata.Weight then
-                                        weight = itemInfo.Metadata.Weight
-                                    end
-                                    
-                                    sendWebhook(itemData.Name, itemData, weight, isVariant, variantName)
-                                end
-                            end
-                        end
-                    end
-                end
-            end
-            lastInventoryState = {}
-            for category, items in pairs(currentInventory) do
-                lastInventoryState[category] = {}
-                if type(items) == "table" then
-                    for uuid, itemInfo in pairs(items) do
-                        lastInventoryState[category][uuid] = {
-                            Id = itemInfo.Id,
-                            Quantity = itemInfo.Quantity
-                        }
-                    end
-                end
-            end
-        end
-    end)
-    
-    if not success then
-        warn("Error checking for new fish:", error)
-    end
-end
-
+-- Fungsi untuk memulai monitoring inventory
 local function startInventoryMonitoring()
+    print("Memulai monitoring inventory...")
+    
     httpRetryCount = 0
+    
     if startReplionMonitoring() then
+        print("Menggunakan metode monitoring Replion")
         return
     end
-    if startEventMonitoring() then
-    end
     
+    print("Menggunakan metode pengecekan berkala")
     if inventoryConnection then
         inventoryConnection:Disconnect()
     end
-    spawn(function()
-        wait(1)
-        checkForNewFish()
-    end)
-    inventoryConnection = game:GetService("RunService").Heartbeat:Connect(function()
-        if isWebhookActive then
-            if tick() % 10 < 0.1 then
-                checkForNewFish()
-            end
-        end
-    end)
 end
 
+-- Fungsi untuk menghentikan monitoring
 local function stopInventoryMonitoring()
     if inventoryConnection then
         inventoryConnection:Disconnect()
@@ -2891,112 +2804,557 @@ local function stopInventoryMonitoring()
     end
     lastInventoryState = {}
     httpRetryCount = 0
+    print("Monitoring inventory dihentikan")
 end
 
--- Webhook Toggle
+-- Toggle Webhook
 local WebhookToggle = WebhookTab:CreateToggle({
-    Name = "Enable Webhook",
-    CurrentValue = false,  
+    Name = "Aktifkan Pelacakan Webhook",
+    CurrentValue = false,
     Flag = "webhooktracking",
     Callback = function(Value)
         isWebhookActive = Value
         
         if Value then
             if webhookURL == "" then
+                Rayfield:Notify({
+                    Title = "Tidak Ada URL Webhook",
+                    Content = "Silakan masukkan URL webhook terlebih dahulu",
+                    Duration = 5,
+                    Image = "bell-ring",
+                })
                 WebhookToggle:Set(false)
                 return
             end
+            
             startInventoryMonitoring()
+            
+            Rayfield:Notify({
+                Title = "Pelacakan Webhook Dimulai",
+                Content = "Hanya ikan yang dipilih yang akan dilacak",
+                Duration = 5,
+                Image = "bell-ring",
+            })
         else
             stopInventoryMonitoring()
+            
+            Rayfield:Notify({
+                Title = "Pelacakan Webhook Dihentikan",
+                Content = "",
+                Duration = 3,
+                Image = "bell-ring",
+            })
         end
     end,
 })
 
--- Test Webhook Button
-local TestWebhookButton = WebhookTab:CreateButton({
-    Name = "Test Webhook",
-    Callback = function()
-        if webhookURL == "" then
-            return
-        end
-        local testData = {
-            Name = "Test Fish",
-            Type = "Fishes",
-            Tier = 3,
-            SellPrice = 150,
-            Weight = {Default = {Min = 2, Max = 5}},
-            Probability = {Chance = 0.05}
-        }
-        sendWebhook("Test Fish", testData, 3.5, false, nil)
-    end,
+-- BAGIAN IKAN SECRET
+local SecretParagraph = WebhookTab:CreateParagraph({
+    Title = "---===Secret===---",
+    Content = "Ikan Tier 7+ - Sangat Langka"
 })
 
--- Reset Webhook Button
-local ResetWebhookButton = WebhookTab:CreateButton({
-    Name = "Reset Webhook",
-    Callback = function()
-        if isWebhookActive then
-            WebhookToggle:Set(false)
-        end
-        webhookURL = ""
-        WebhookInput:Set("")
-        httpRetryCount = 0
-        lastInventoryState = {}
-    end,
-})
-
--- Deselect All Button (Reset dropdown)
-local DeselectAllButton = WebhookTab:CreateButton({
-    Name = "🗑️ Deselect All Fish",
-    Callback = function()
-        -- Clear dropdown selection (reset ke kosong)
-        FishDropdown:Set({})
+local GiantSquidToggle = WebhookTab:CreateToggle({
+    Name = "Giant Squid",
+    CurrentValue = false,
+    Flag = "giantsquid",
+    Callback = function(Value)
+        specificFishEnabled[156] = Value
         
-        -- Reset all fish tracking to false
-        for fishId, _ in pairs(specificFishEnabled) do
-            specificFishEnabled[fishId] = false
+        if Value then
+            Rayfield:Notify({
+                Title = "Giant Squid Diaktifkan",
+                Content = "Akan mengirim Giant Squid ke webhook",
+                Duration = 3,
+                Image = "bell-ring",
+            })
         end
+    end,
+})
+
+local FrostbornSharkToggle = WebhookTab:CreateToggle({
+    Name = "Frostborn Shark",
+    CurrentValue = false,
+    Flag = "frostbornshark",
+    Callback = function(Value)
+        specificFishEnabled[136] = Value
+        
+        if Value then
+            Rayfield:Notify({
+                Title = "Frostborn Shark Diaktifkan",
+                Content = "Akan mengirim Frostborn Shark ke webhook",
+                Duration = 3,
+                Image = "bell-ring",
+            })
+        end
+    end,
+})
+
+-- BAGIAN IKAN MYTHIC
+local MythicParagraph = WebhookTab:CreateParagraph({
+    Title = "---===Mythic===---", 
+    Content = "Ikan Tier 6 - Sangat Langka"
+})
+
+local DottedStingrayToggle = WebhookTab:CreateToggle({
+    Name = "Dotted Stingray",
+    CurrentValue = false,
+    Flag = "dottedstingray",
+    Callback = function(Value)
+        specificFishEnabled[75] = Value
+    end,
+})
+
+local AbyssSeahorseToggle = WebhookTab:CreateToggle({
+    Name = "Abyss Seahorse",
+    CurrentValue = false,
+    Flag = "abyssseahorse",
+    Callback = function(Value)
+        specificFishEnabled[15] = Value
+    end,
+})
+
+local HawksTurtleToggle = WebhookTab:CreateToggle({
+    Name = "Hawks Turtle",
+    CurrentValue = false,
+    Flag = "hawksturtle",
+    Callback = function(Value)
+        specificFishEnabled[21] = Value
+    end,
+})
+
+local HammerheadSharkToggle = WebhookTab:CreateToggle({
+    Name = "Hammerhead Shark",
+    CurrentValue = false,
+    Flag = "hammerheadshark",
+    Callback = function(Value)
+        specificFishEnabled[52] = Value
+    end,
+})
+
+local MantaRayToggle = WebhookTab:CreateToggle({
+    Name = "Manta Ray",
+    CurrentValue = false,
+    Flag = "mantaray",
+    Callback = function(Value)
+        specificFishEnabled[54] = Value
+    end,
+})
+
+local PrismySeahorseToggle = WebhookTab:CreateToggle({
+    Name = "Prismy Seahorse",
+    CurrentValue = false,
+    Flag = "prismyseahorse",
+    Callback = function(Value)
+        specificFishEnabled[35] = Value
+    end,
+})
+
+local LoggerheadTurtleToggle = WebhookTab:CreateToggle({
+    Name = "Loggerhead Turtle",
+    CurrentValue = false,
+    Flag = "loggerheadturtle",
+    Callback = function(Value)
+        specificFishEnabled[34] = Value
+    end,
+})
+
+local BlueflameRayToggle = WebhookTab:CreateToggle({
+    Name = "Blueflame Ray",
+    CurrentValue = false,
+    Flag = "blueflameray",
+    Callback = function(Value)
+        specificFishEnabled[47] = Value
+    end,
+})
+
+-- BAGIAN IKAN LEGENDARY
+local LegendaryParagraph = WebhookTab:CreateParagraph({
+    Title = "---===Legendary===---",
+    Content = "Ikan Tier 5 - Langka"
+})
+
+local YellowfinTunaToggle = WebhookTab:CreateToggle({
+    Name = "Yellowfin Tuna",
+    CurrentValue = false,
+    Flag = "yellowfintuna",
+    Callback = function(Value)
+        specificFishEnabled[73] = Value
+    end,
+})
+
+local ChromeTunaToggle = WebhookTab:CreateToggle({
+    Name = "Chrome Tuna",
+    CurrentValue = false,
+    Flag = "chrometuna",
+    Callback = function(Value)
+        specificFishEnabled[53] = Value
+    end,
+})
+
+local LobsterToggle = WebhookTab:CreateToggle({
+    Name = "Lobster",
+    CurrentValue = false,
+    Flag = "lobster",
+    Callback = function(Value)
+        specificFishEnabled[36] = Value
+    end,
+})
+
+local BumblebeeGrouperToggle = WebhookTab:CreateToggle({
+    Name = "Bumblebee Grouper",
+    CurrentValue = false,
+    Flag = "bumblebeerouper",
+    Callback = function(Value)
+        specificFishEnabled[37] = Value
+    end,
+})
+
+local LavafinTunaToggle = WebhookTab:CreateToggle({
+    Name = "Lavafin Tuna",
+    CurrentValue = false,
+    Flag = "lavafintuna",
+    Callback = function(Value)
+        specificFishEnabled[48] = Value
+    end,
+})
+
+local BlueLobsterToggle = WebhookTab:CreateToggle({
+    Name = "Blue Lobster",
+    CurrentValue = false,
+    Flag = "bluelobster",
+    Callback = function(Value)
+        specificFishEnabled[22] = Value
+    end,
+})
+
+local GreenbeeGrouperToggle = WebhookTab:CreateToggle({
+    Name = "Greenbee Grouper",
+    CurrentValue = false,
+    Flag = "greenbeerouper",
+    Callback = function(Value)
+        specificFishEnabled[25] = Value
+    end,
+})
+
+local StarjamTangToggle = WebhookTab:CreateToggle({
+    Name = "Starjam Tang",
+    CurrentValue = false,
+    Flag = "starjamtang",
+    Callback = function(Value)
+        specificFishEnabled[24] = Value
+    end,
+})
+
+local MagicTangToggle = WebhookTab:CreateToggle({
+    Name = "Magic Tang",
+    CurrentValue = false,
+    Flag = "magictang",
+    Callback = function(Value)
+        specificFishEnabled[16] = Value
+    end,
+})
+
+local EnchantedAngelfishToggle = WebhookTab:CreateToggle({
+    Name = "Enchanted Angelfish",
+    CurrentValue = false,
+    Flag = "enchantedangelfish",
+    Callback = function(Value)
+        specificFishEnabled[14] = Value
+    end,
+})
+
+-- BAGIAN IKAN UNCOMMON
+local UncommonParagraph = WebhookTab:CreateParagraph({
+    Title = "---===Uncommon===---",
+    Content = "Ikan Tier 2 - Biasa tapi bisa dilacak"
+})
+
+local PilotFishToggle = WebhookTab:CreateToggle({
+    Name = "Pilot Fish",
+    CurrentValue = false,
+    Flag = "pilotfish",
+    Callback = function(Value)
+        specificFishEnabled[140] = Value
+        print("🐟 Pilot Fish toggle diatur ke:", Value, "untuk ID 140")
+        
+        if Value then
+            Rayfield:Notify({
+                Title = "Pilot Fish Diaktifkan",
+                Content = "Akan mengirim Pilot Fish ke webhook",
+                Duration = 3,
+                Image = "bell-ring",
+            })
+        end
+    end,
+})
+
+local BlackcapBassletToggle = WebhookTab:CreateToggle({
+    Name = "Blackcap Basslet",
+    CurrentValue = false,
+    Flag = "blackcapbasslet",
+    Callback = function(Value)
+        specificFishEnabled[182] = Value
+        print("🐟 Blackcap Basslet toggle diatur ke:", Value, "untuk ID 182")
+    end,
+})
+
+local SilverTunaToggle = WebhookTab:CreateToggle({
+    Name = "Silver Tuna",
+    CurrentValue = false,
+    Flag = "silvertuna",
+    Callback = function(Value)
+        specificFishEnabled[139] = Value
+        print("🐟 Silver Tuna toggle diatur ke:", Value, "untuk ID 139")
+        
+        if Value then
+            Rayfield:Notify({
+                Title = "Silver Tuna Diaktifkan",
+                Content = "Akan mengirim Silver Tuna ke webhook",
+                Duration = 3,
+                Image = "bell-ring",
+            })
+        end
+    end,
+})
+
+local ParrotFishToggle = WebhookTab:CreateToggle({
+    Name = "Parrot Fish",
+    CurrentValue = false,
+    Flag = "parrotfish",
+    Callback = function(Value)
+        specificFishEnabled[186] = Value
+        print("🐟 Parrot Fish toggle diatur ke:", Value, "untuk ID 186")
+    end,
+})
+
+-- Tombol Aksi Cepat
+local DeselectAllButton = WebhookTab:CreateButton({
+    Name = "Nonaktifkan Semua Ikan",
+    Callback = function()
+        -- Secret
+        GiantSquidToggle:Set(false)
+        FrostbornSharkToggle:Set(false)
+        -- Mythic
+        DottedStingrayToggle:Set(false)
+        AbyssSeahorseToggle:Set(false)
+        HawksTurtleToggle:Set(false)
+        HammerheadSharkToggle:Set(false)
+        MantaRayToggle:Set(false)
+        PrismySeahorseToggle:Set(false)
+        LoggerheadTurtleToggle:Set(false)
+        BlueflameRayToggle:Set(false)
+        -- Legendary
+        YellowfinTunaToggle:Set(false)
+        ChromeTunaToggle:Set(false)
+        LobsterToggle:Set(false)
+        BumblebeeGrouperToggle:Set(false)
+        LavafinTunaToggle:Set(false)
+        BlueLobsterToggle:Set(false)
+        GreenbeeGrouperToggle:Set(false)
+        StarjamTangToggle:Set(false)
+        MagicTangToggle:Set(false)
+        EnchantedAngelfishToggle:Set(false)
+        -- Uncommon
+        PilotFishToggle:Set(false)
+        BlackcapBassletToggle:Set(false)
+        SilverTunaToggle:Set(false)
+        ParrotFishToggle:Set(false)
         
         Rayfield:Notify({
-            Title = "🗑️ All Fish Deselected",
-            Content = "Dropdown reset - No fish will be tracked",
+            Title = "Semua Ikan Dinonaktifkan",
+            Content = "Tidak ada ikan yang akan dikirim ke webhook",
             Duration = 3,
             Image = "bell-ring",
         })
     end,
 })
 
--- Quick Select Buttons untuk kemudahan (opsional)
-local SelectSecretButton = WebhookTab:CreateButton({
-    Name = "⭐ Select Secret Fish",
+-- Tombol Aktifkan Ikan Langka
+local SelectRareButton = WebhookTab:CreateButton({
+    Name = "Aktifkan Ikan Langka (Mythic+)",
     Callback = function()
-        FishDropdown:Set({"Giant Squid (Secret)", "Frostborn Shark (Secret)"})
-    end,
-})
-
-local SelectMythicButton = WebhookTab:CreateButton({
-    Name = "🔮 Select Mythic Fish", 
-    Callback = function()
-        FishDropdown:Set({
-            "Dotted Stingray (Mythic)", "Abyss Seahorse (Mythic)", "Hawks Turtle (Mythic)",
-            "Hammerhead Shark (Mythic)", "Manta Ray (Mythic)", "Prismy Seahorse (Mythic)",
-            "Loggerhead Turtle (Mythic)", "Blueflame Ray (Mythic)"
+        -- Secret
+        GiantSquidToggle:Set(true)
+        FrostbornSharkToggle:Set(true)
+        -- Mythic
+        DottedStingrayToggle:Set(true)
+        AbyssSeahorseToggle:Set(true)
+        HawksTurtleToggle:Set(true)
+        HammerheadSharkToggle:Set(true)
+        MantaRayToggle:Set(true)
+        PrismySeahorseToggle:Set(true)
+        LoggerheadTurtleToggle:Set(true)
+        BlueflameRayToggle:Set(true)
+        
+        Rayfield:Notify({
+            Title = "Ikan Langka Diaktifkan",
+            Content = "Secret & Mythic fish akan dikirim ke webhook",
+            Duration = 3,
+            Image = "bell-ring",
         })
     end,
 })
 
-local SelectLegendaryButton = WebhookTab:CreateButton({
-    Name = "👑 Select Legendary Fish",
+-- Tombol Test Webhook dengan gambar
+local TestWebhookButton = WebhookTab:CreateButton({
+    Name = "🧪 Test Webhook",
     Callback = function()
-        FishDropdown:Set({
-            "Yellowfin Tuna (Legendary)", "Chrome Tuna (Legendary)", "Lobster (Legendary)", 
-            "Bumblebee Grouper (Legendary)", "Lavafin Tuna (Legendary)", "Blue Lobster (Legendary)", 
-            "Greenbee Grouper (Legendary)", "Starjam Tang (Legendary)", "Magic Tang (Legendary)", 
-            "Enchanted Angelfish (Legendary)"
+        if webhookURL == "" then
+            Rayfield:Notify({
+                Title = "Tidak Ada URL Webhook",
+                Content = "Silakan masukkan URL webhook terlebih dahulu",
+                Duration = 5,
+                Image = "bell-ring",
+            })
+            return
+        end
+        
+        local testData = {
+            Id = 139, -- Silver Tuna ID untuk testing
+            Name = "Test Fish (Silver Tuna)",
+            Type = "Fishes",
+            Tier = 2,
+            SellPrice = 150,
+            Weight = {Default = {Min = 2, Max = 5}},
+            Probability = {Chance = 0.05}
+        }
+        
+        sendWebhook("Test Fish (Silver Tuna)", testData, 3.5, false, nil)
+        
+        Rayfield:Notify({
+            Title = "Test Webhook Dikirim",
+            Content = "Cek channel Discord untuk melihat gambar ikan",
+            Duration = 5,
+            Image = "bell-ring",
         })
     end,
 })
+
+-- Tombol Debug Filter Ikan
+local DebugButton = WebhookTab:CreateButton({
+    Name = "🔍 Debug Filter Ikan",
+    Callback = function()
+        print("=== DEBUG FILTER IKAN ===")
+        print("Toggle yang aktif:")
+        
+        local activeCount = 0
+        for fishId, enabled in pairs(specificFishEnabled) do
+            if enabled then
+                activeCount = activeCount + 1
+                local itemData = getItemData(fishId)
+                if itemData then
+                    print("  ✅", itemData.Name, "(ID:", fishId .. ")")
+                else
+                    print("  ❓ Ikan ID tidak dikenal:", fishId)
+                end
+            end
+        end
+        
+        if activeCount == 0 then
+            print("  ❌ TIDAK ADA IKAN YANG AKTIF - Webhook tidak akan mengirim apapun!")
+        else
+            print("  Total ikan yang aktif:", activeCount)
+        end
+        
+        print("=== AKHIR DEBUG ===")
+        
+        Rayfield:Notify({
+            Title = "Debug Filter Selesai",
+            Content = activeCount .. " ikan aktif. Cek console (F9)",
+            Duration = 5,
+            Image = "bell-ring",
+        })
+    end,
+})
+
+-- Tombol Debug Gambar Ikan
+local DebugImagesButton = WebhookTab:CreateButton({
+    Name = "🖼️ Debug Gambar Ikan",
+    Callback = function()
+        print("=== DEBUG GAMBAR IKAN ===")
+        
+        local imageCount = 0
+        for fishId, imageUrl in pairs(fishImages) do
+            imageCount = imageCount + 1
+            local itemData = getItemData(fishId)
+            local fishName = itemData and itemData.Name or "Tidak Dikenal"
+            local convertedUrl = getFishImageURL(fishId)
+            
+            print("🐟", fishName, "(ID:", fishId .. ")")
+            print("   Asset ID:", imageUrl)
+            print("   URL Gambar:", convertedUrl or "Gagal konversi")
+            print("---")
+        end
+        
+        print("Total ikan dengan gambar:", imageCount)
+        print("=== AKHIR DEBUG ===")
+        
+        Rayfield:Notify({
+            Title = "Debug Gambar Selesai",
+            Content = imageCount .. " ikan punya gambar. Cek console (F9)",
+            Duration = 5,
+            Image = "bell-ring",
+        })
+    end,
+})
+
+-- Tombol Reset Webhook
+local ResetWebhookButton = WebhookTab:CreateButton({
+    Name = "🔄 Reset Sistem Webhook",
+    Callback = function()
+        -- Hentikan monitoring
+        if isWebhookActive then
+            WebhookToggle:Set(false)
+        end
+        
+        -- Reset semua variabel
+        httpRetryCount = 0
+        lastInventoryState = {}
+        
+        -- Tunggu sebentar
+        wait(1)
+        
+        -- Restart jika URL webhook sudah diatur
+        if webhookURL ~= "" then
+            WebhookToggle:Set(true)
+        end
+        
+        Rayfield:Notify({
+            Title = "Sistem Webhook Direset",
+            Content = "Semua counter dan state telah direset",
+            Duration = 5,
+            Image = "bell-ring",
+        })
+    end,
+})
+
+-- Tombol Hapus URL Webhook
+local ClearWebhookButton = WebhookTab:CreateButton({
+    Name = "🗑️ Hapus URL Webhook",
+    Callback = function()
+        webhookURL = ""
+        WebhookInput:Set("")
+        if isWebhookActive then
+            WebhookToggle:Set(false)
+        end
+        httpRetryCount = 0
+        
+        Rayfield:Notify({
+            Title = "URL Webhook Dihapus",
+            Content = "",
+            Duration = 3,
+            Image = "bell-ring",
+        })
+    end,
+})
+
+-- Informasi Webhook
+local WebhookParagraph = WebhookTab:CreateParagraph({
+    Title = "Informasi Webhook",
+    Content = "🎣 Webhook ini hanya akan melacak ikan yang Anda pilih\n\n📊 Cara kerja:\n• Toggle ON = Ikan akan dikirim ke webhook\n• Toggle OFF = Ikan akan diabaikan\n• Tidak ada toggle aktif = Tidak ada webhook yang dikirim\n\n⚡ Fitur:\n• Auto-retry jika gagal kirim\n• Proteksi thread safety\n• Pelacakan ikan selektif\n• Gambar ikan di pojok kanan atas dan besar\n• Hanya mengirim apa yang Anda pilih"
+})
+end
 end
 Window:SelectTab(1)
 AutoConfig:Initialize(Fluent)

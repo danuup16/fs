@@ -2992,7 +2992,7 @@ do
     local isAutoFavoriteActive = false
     local autoFavoriteConnection = nil
     -- Section Auto Favorite
-    inventoryTab:AddSection("Auto Favorite System")
+        inventoryTab:AddSection("Auto Favorite System")
     
     -- Info tentang sistem
     inventoryTab:AddParagraph({
@@ -3009,6 +3009,16 @@ do
             isAutoFavoriteActive = Value
             
             if Value then
+                -- Cek apakah specificFishEnabled sudah diinisialisasi
+                if not specificFishEnabled then
+                    print("❌ Sistem filter belum diinisialisasi!")
+                    print("💡 Buka tab Webhook terlebih dahulu untuk menginisialisasi sistem")
+                    if Options.AutoFavorite then
+                        Options.AutoFavorite:SetValue(false)
+                    end
+                    return
+                end
+                
                 -- Cek apakah ada ikan yang dipilih
                 local activeCount = 0
                 for fishId, enabled in pairs(specificFishEnabled) do
@@ -3020,7 +3030,9 @@ do
                 if activeCount == 0 then
                     print("❌ Tidak ada ikan yang dipilih di tab Webhook!")
                     print("💡 Pilih kategori ikan di tab Webhook terlebih dahulu")
-                    AutoFavoriteToggle:SetValue(false)
+                    if Options.AutoFavorite then
+                        Options.AutoFavorite:SetValue(false)
+                    end
                     return
                 end
                 
@@ -3040,6 +3052,14 @@ do
         Description = "Lihat ikan mana saja yang akan di-favorite otomatis",
         Callback = function()
             print("=== STATUS FILTER AUTO FAVORITE ===")
+            
+            -- Cek apakah specificFishEnabled sudah diinisialisasi
+            if not specificFishEnabled then
+                print("❌ Sistem filter belum diinisialisasi!")
+                print("💡 Buka tab Webhook terlebih dahulu untuk menginisialisasi sistem")
+                print("=== AKHIR STATUS ===")
+                return
+            end
             
             local tierCounts = {Secret = 0, Mythic = 0, Uncommon = 0}
             local totalActive = 0
@@ -3084,6 +3104,13 @@ do
         Title = "🌟 Favorite Ikan Sekarang",
         Description = "Favorite semua ikan yang ada di inventory sesuai filter",
         Callback = function()
+            -- Cek apakah specificFishEnabled sudah diinisialisasi
+            if not specificFishEnabled then
+                print("❌ Sistem filter belum diinisialisasi!")
+                print("💡 Buka tab Webhook terlebih dahulu")
+                return
+            end
+            
             local activeCount = 0
             for fishId, enabled in pairs(specificFishEnabled) do
                 if enabled then
@@ -3133,10 +3160,12 @@ do
                                                                     wait(favoriteCount * 0.1) -- Delay bertahap
                                                                     
                                                                     local favoriteSuccess, favoriteError = pcall(function()
-                                                                        local Net = require(ReplicatedStorage.Packages.Net)
-                                                                        local FavoriteItemEvent = Net:RemoteEvent("FavoriteItem")
-                                                                        if FavoriteItemEvent then
-                                                                            FavoriteItemEvent:FireServer(uuid)
+                                                                        local netFolder = ReplicatedStorage.Packages._Index:FindFirstChild("sleitnick_net@0.2.0")
+                                                                        if netFolder and netFolder:FindFirstChild("net") then
+                                                                            local FavoriteItemEvent = netFolder.net:FindFirstChild("RE/FavoriteItem")
+                                                                            if FavoriteItemEvent then
+                                                                                FavoriteItemEvent:FireServer(uuid)
+                                                                            end
                                                                         end
                                                                     end)
                                                                     
@@ -3261,6 +3290,13 @@ do
                 return
             end
             
+            -- Cek apakah specificFishEnabled sudah diinisialisasi
+            if not specificFishEnabled then
+                print("❌ Sistem filter belum diinisialisasi!")
+                print("💡 Buka tab Webhook terlebih dahulu")
+                return
+            end
+            
             print("🧪 Test Auto Favorite dimulai...")
             print("📋 Ikan yang akan di-favorite otomatis:")
             
@@ -3360,13 +3396,15 @@ function startAutoFavoriteMonitoring()
                                                                     wait(0.5) -- Delay kecil untuk memastikan item sudah ter-load
                                                                     
                                                                     local favoriteSuccess, favoriteError = pcall(function()
-                                                                        local Net = require(ReplicatedStorage.Packages.Net)
-                                                                        local FavoriteItemEvent = Net:RemoteEvent("FavoriteItem")
-                                                                        if FavoriteItemEvent then
-                                                                            FavoriteItemEvent:FireServer(uuid)
-                                                                            print("✅ Berhasil favorite:", itemData.Name)
-                                                                        else
-                                                                            warn("❌ FavoriteItem RemoteEvent tidak ditemukan")
+                                                                        local netFolder = ReplicatedStorage.Packages._Index:FindFirstChild("sleitnick_net@0.2.0")
+                                                                        if netFolder and netFolder:FindFirstChild("net") then
+                                                                            local FavoriteItemEvent = netFolder.net:FindFirstChild("RE/FavoriteItem")
+                                                                            if FavoriteItemEvent then
+                                                                                FavoriteItemEvent:FireServer(uuid)
+                                                                                print("✅ Berhasil favorite:", itemData.Name)
+                                                                            else
+                                                                                warn("❌ FavoriteItem RemoteEvent tidak ditemukan")
+                                                                            end
                                                                         end
                                                                     end)
                                                                     

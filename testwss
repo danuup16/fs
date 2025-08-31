@@ -1083,7 +1083,7 @@ local function stopInstantReel()
         instantReelConnection = nil
     end
 end
-local instantReelToggle = fishTab:CreateToggle({
+local instantReelToggle = Tabs.Fishing:CreateToggle({
     Name = "Instant Rail",
     CurrentValue = false,
     Flag = "instrail",

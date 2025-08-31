@@ -3039,6 +3039,58 @@ for _, fish in pairs(fishList) do
     inventoryFishEnabled[fish.id] = false
 end
 
+-- Fungsi untuk mendapatkan data ikan (perbaikan untuk error)
+local function getInventoryItemData(itemId)
+    local success, itemData = pcall(function()
+        local ReplicatedStorage = game:GetService("ReplicatedStorage")
+        local itemsFolder = ReplicatedStorage:FindFirstChild("Items")
+        
+        if not itemsFolder then
+            return nil
+        end
+        
+        for _, itemModule in pairs(itemsFolder:GetChildren()) do
+            if itemModule:IsA("ModuleScript") then
+                local success2, data = pcall(function()
+                    return require(itemModule)
+                end)
+                
+                if success2 and data and data.Data and data.Data.Id == itemId then
+                    return {
+                        Id = data.Data.Id,
+                        Name = data.Data.Name,
+                        Type = data.Data.Type,
+                        Tier = data.Data.Tier,
+                        SellPrice = data.SellPrice,
+                        Weight = data.Weight,
+                        Icon = data.Data.Icon,
+                        Probability = data.Probability
+                    }
+                end
+            end
+        end
+        
+        return nil
+    end)
+    
+    if success and itemData then
+        return itemData
+    else
+        -- Fallback: cari di fishList jika fungsi getItemData tidak tersedia
+        for _, fish in pairs(fishList) do
+            if fish.id == itemId then
+                return {
+                    Id = fish.id,
+                    Name = fish.name,
+                    Type = "Fishes",
+                    Tier = fish.tier == "Secret" and 8 or (fish.tier == "Mythic" and 6 or 2)
+                }
+            end
+        end
+        return nil
+    end
+end
+
 -- Tab Inventory (letakkan setelah tab Webhook)
 do
     local inventoryTab = Tabs.Inventory
@@ -3150,13 +3202,22 @@ do
             for fishId, enabled in pairs(inventoryFishEnabled) do
                 if enabled then
                     totalActive = totalActive + 1
-                    local itemData = getItemData(fishId)
+                    local itemData = getInventoryItemData(fishId)
                     if itemData then
                         -- Cari tier ikan dari fishList
                         for _, fish in pairs(fishList) do
                             if fish.id == fishId then
                                 tierCounts[fish.tier] = tierCounts[fish.tier] + 1
-                                print("  ⭐", itemData.Name, "(ID:", fishId, "- Tier:", fish.tier .. ")")
+                                print("  ⭐", itemData.Name or fish.name, "(ID:", fishId, "- Tier:", fish.tier .. ")")
+                                break
+                            end
+                        end
+                    else
+                        -- Jika getInventoryItemData gagal, gunakan data dari fishList
+                        for _, fish in pairs(fishList) do
+                            if fish.id == fishId then
+                                tierCounts[fish.tier] = tierCounts[fish.tier] + 1
+                                print("  ⭐", fish.name, "(ID:", fishId, "- Tier:", fish.tier .. ")")
                                 break
                             end
                         end
@@ -3224,14 +3285,14 @@ do
                                             if type(items) == "table" then
                                                 for uuid, itemInfo in pairs(items) do
                                                     if itemInfo.Id and not itemInfo.Favorited then
-                                                        local itemData = getItemData(itemInfo.Id)
+                                                        local itemData = getInventoryItemData(itemInfo.Id)
                                                         
                                                         if itemData and itemData.Type == "Fishes" then
                                                             local fishId = itemInfo.Id
                                                             
                                                             if inventoryFishEnabled[fishId] == true then
                                                                 favoriteCount = favoriteCount + 1
-                                                                print("🌟 Favorite:", itemData.Name)
+                                                                print("🌟 Favorite:", itemData.Name or "Unknown Fish")
                                                                 
                                                                 spawn(function()
                                                                     wait(favoriteCount * 0.1) -- Delay bertahap
@@ -3309,11 +3370,11 @@ do
                                             if type(items) == "table" then
                                                 for uuid, itemInfo in pairs(items) do
                                                     if itemInfo.Id and itemInfo.Favorited then
-                                                        local itemData = getItemData(itemInfo.Id)
+                                                        local itemData = getInventoryItemData(itemInfo.Id)
                                                         
                                                         if itemData and itemData.Type == "Fishes" then
                                                             unfavoriteCount = unfavoriteCount + 1
-                                                            print("💔 Unfavorite:", itemData.Name)
+                                                            print("💔 Unfavorite:", itemData.Name or "Unknown Fish")
                                                             
                                                             spawn(function()
                                                                 wait(unfavoriteCount * 0.1) -- Delay bertahap
@@ -3376,12 +3437,20 @@ do
             for fishId, enabled in pairs(inventoryFishEnabled) do
                 if enabled then
                     activeCount = activeCount + 1
-                    local itemData = getItemData(fishId)
+                    local itemData = getInventoryItemData(fishId)
                     if itemData then
                         -- Cari tier dari fishList
                         for _, fish in pairs(fishList) do
                             if fish.id == fishId then
-                                print("  ⭐", itemData.Name, "(ID:", fishId, "- Tier:", fish.tier .. ")")
+                                print("  ⭐", itemData.Name or fish.name, "(ID:", fishId, "- Tier:", fish.tier .. ")")
+                                break
+                            end
+                        end
+                    else
+                        -- Fallback menggunakan fishList
+                        for _, fish in pairs(fishList) do
+                            if fish.id == fishId then
+                                print("  ⭐", fish.name, "(ID:", fishId, "- Tier:", fish.tier .. ")")
                                 break
                             end
                         end
@@ -3509,14 +3578,14 @@ function startAutoFavoriteMonitoring()
                                                     
                                                     -- Jika item baru dan belum difavorite
                                                     if isNewItem and itemInfo.Id and not itemInfo.Favorited then
-                                                        local itemData = getItemData(itemInfo.Id)
+                                                        local itemData = getInventoryItemData(itemInfo.Id)
                                                         
                                                         -- Cek apakah ini ikan dan ada dalam filter yang aktif
                                                         if itemData and itemData.Type == "Fishes" then
                                                             local fishId = itemInfo.Id
                                                             
                                                             if inventoryFishEnabled[fishId] == true then
-                                                                print("🌟 Auto favorite ikan:", itemData.Name, "UUID:", uuid)
+                                                                print("🌟 Auto favorite ikan:", itemData.Name or "Unknown Fish", "UUID:", uuid)
                                                                 
                                                                 -- Kirim favorite request
                                                                 spawn(function()
@@ -3528,7 +3597,7 @@ function startAutoFavoriteMonitoring()
                                                                             local FavoriteItemEvent = netFolder.net:FindFirstChild("RE/FavoriteItem")
                                                                             if FavoriteItemEvent then
                                                                                 FavoriteItemEvent:FireServer(uuid)
-                                                                                print("✅ Berhasil favorite:", itemData.Name)
+                                                                                print("✅ Berhasil favorite:", itemData.Name or "Unknown Fish")
                                                                             else
                                                                                 warn("❌ FavoriteItem RemoteEvent tidak ditemukan")
                                                                             end

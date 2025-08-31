@@ -2280,12 +2280,10 @@ do
     local webhookTab = Tabs.Webhook
     local webhookURL = ""
     local isWebhookActive = false
-    local lastInventoryState = {}
-    local inventoryConnection = nil
     local httpRetryCount = 0
     local maxHttpRetries = 3
     
-    -- Updated fish list with all Secret and Mythic fish
+    -- Updated fish list with all Secret, Mythic, and Test fish
     local specificFishEnabled = {
         -- Secret Fish (Tier 7)
         [156] = false, -- Giant Squid
@@ -2314,6 +2312,10 @@ do
         [122] = false, -- Loving Shark
         [137] = false, -- Plasma Shark
         [147] = false, -- Thresher Shark
+        
+        -- Test Fish (Tier 2) - Easy to catch for testing
+        [197] = false, -- Gar Fish
+        [69] = false,  -- Yello Damselfish
     }
 
     local webhookInput = webhookTab:AddInput("WebhookURL", {
@@ -2331,36 +2333,103 @@ do
     
     webhookTab:AddSection("Fish Selection")
     
-    local fishDropdown = webhookTab:AddDropdown("FishSelection", {
-        Title = "Select Fish Tiers to Track",
-        Description = "Choose which tiers of fish to send to webhook",
-        Values = {
-            "Secret Fish",
-            "Mythic Fish"
-        },
-        Multi = true,
-        Default = {},
-        Callback = function(Values)
-            -- Reset all fish to false
-            for fishId, _ in pairs(specificFishEnabled) do
-                specificFishEnabled[fishId] = false
+    local selectedTiers = {
+        secret = false,
+        mythic = false,
+        test = false
+    }
+    
+    local function updateFishSelection()
+        -- Reset all fish to false first
+        for fishId, _ in pairs(specificFishEnabled) do
+            specificFishEnabled[fishId] = false
+        end
+        
+        local totalEnabled = 0
+        local activeTiers = {}
+        
+        if selectedTiers.secret then
+            -- Enable all secret fish (Tier 7)
+            local secretIds = {156, 136, 99, 141, 159, 145, 176, 83}
+            for _, id in pairs(secretIds) do
+                specificFishEnabled[id] = true
+                totalEnabled = totalEnabled + 1
             end
-            
-            for _, tier in pairs(Values) do
-                if tier == "Secret Fish" then
-                    -- Enable all secret fish (Tier 7)
-                    local secretIds = {156, 136, 99, 141, 159, 145, 176, 83}
-                    for _, id in pairs(secretIds) do
-                        specificFishEnabled[id] = true
-                    end
-                elseif tier == "Mythic Fish" then
-                    -- Enable all mythic fish (Tier 5 & 6) 
-                    local mythicIds = {110, 97, 34, 21, 150, 15, 35, 146, 47, 75, 54, 52, 98, 122, 137, 147}
-                    for _, id in pairs(mythicIds) do
-                        specificFishEnabled[id] = true
-                    end
-                end
+            table.insert(activeTiers, "Secret Fish")
+            print("[DEBUG] Enabled 8 secret fish")
+        end
+        
+        if selectedTiers.mythic then
+            -- Enable all mythic fish (Tier 5 & 6) 
+            local mythicIds = {110, 97, 34, 21, 150, 15, 35, 146, 47, 75, 54, 52, 98, 122, 137, 147}
+            for _, id in pairs(mythicIds) do
+                specificFishEnabled[id] = true
+                totalEnabled = totalEnabled + 1
             end
+            table.insert(activeTiers, "Mythic Fish")
+            print("[DEBUG] Enabled 16 mythic fish")
+        end
+        
+        if selectedTiers.test then
+            -- Enable test fish (Tier 2) - Easy to catch for testing
+            local testIds = {197, 69}
+            for _, id in pairs(testIds) do
+                specificFishEnabled[id] = true
+                totalEnabled = totalEnabled + 1
+            end
+            table.insert(activeTiers, "Test Fish")
+            print("[DEBUG] Enabled 2 test fish")
+        end
+        
+        print("[DEBUG] Total fish enabled:", totalEnabled)
+        
+        -- Show feedback
+        if totalEnabled > 0 then
+            local selectedText = table.concat(activeTiers, " + ")
+            Fluent:Notify({
+                Title = "Fish Selection Updated",
+                Content = "Now tracking: " .. selectedText .. " (" .. totalEnabled .. " fish)",
+                Duration = 3
+            })
+        else
+            Fluent:Notify({
+                Title = "Fish Selection Cleared", 
+                Content = "No fish will be tracked",
+                Duration = 2
+            })
+        end
+    end
+    
+    local secretToggle = webhookTab:AddToggle("SecretFishToggle", {
+        Title = "Secret Fish",
+        Description = "Track all Secret tier fish (8 types)",
+        Default = false,
+        Callback = function(Value)
+            print("[DEBUG] Secret fish toggle:", Value)
+            selectedTiers.secret = Value
+            updateFishSelection()
+        end
+    })
+    
+    local mythicToggle = webhookTab:AddToggle("MythicFishToggle", {
+        Title = "Mythic Fish", 
+        Description = "Track all Mythic tier fish (16 types)",
+        Default = false,
+        Callback = function(Value)
+            print("[DEBUG] Mythic fish toggle:", Value)
+            selectedTiers.mythic = Value
+            updateFishSelection()
+        end
+    })
+    
+    local testToggle = webhookTab:AddToggle("TestFishToggle", {
+        Title = "Test Fish", 
+        Description = "Track common test fish - Gar Fish & Yello Damselfish (2 types)",
+        Default = false,
+        Callback = function(Value)
+            print("[DEBUG] Test fish toggle:", Value)
+            selectedTiers.test = Value
+            updateFishSelection()
         end
     })
 
@@ -2503,6 +2572,7 @@ do
                 if sendSuccess then
                     success = true
                     httpRetryCount = 0
+                    print("[DEBUG] Webhook sent successfully for:", itemName)
                 else
                     warn("Webhook attempt " .. retryAttempt .. " failed:", sendError)
                     
@@ -2526,114 +2596,225 @@ do
         end)
     end
     
-    local function startReplionMonitoring()
+    -- Debug monitoring that runs independently - always active for debugging
+    local inventoryConnection = nil
+    local debugConnection = nil
+    
+    -- Start debug monitoring immediately when script loads
+    local function startDebugMonitoring()
         local success, error = pcall(function()
             local ReplicatedStorage = game:GetService("ReplicatedStorage")
-            local replionPackage = ReplicatedStorage:FindFirstChild("Packages")
-            if replionPackage then
-                replionPackage = replionPackage:FindFirstChild("_Index")
-                if replionPackage then
-                    for _, folder in pairs(replionPackage:GetChildren()) do
-                        if string.find(folder.Name:lower(), "replion") then
-                            local replionModule = folder:FindFirstChild("replion")
-                            if replionModule then
-                                local Replion = require(replionModule)
-                                local Client = Replion.Client
-                                local dataReplion = Client:WaitReplion("Data")
-                                local lastProcessTime = 0
-                                local processingCooldown = 2 
-                                dataReplion:OnChange("Inventory", function(newInventory, oldInventory)
-                                    if not isWebhookActive or not newInventory then
-                                        return
-                                    end
-                                    local currentTime = tick()
-                                    if currentTime - lastProcessTime < processingCooldown then
-                                        return
-                                    end
-                                    lastProcessTime = currentTime
-                                    task.defer(function()
-                                        local processSuccess, processError = pcall(function()
-                                            for category, items in pairs(newInventory) do
-                                                if type(items) == "table" then
-                                                    for uuid, itemInfo in pairs(items) do
-                                                        local isNewItem = false
-                                                        
-                                                        if not oldInventory or not oldInventory[category] or not oldInventory[category][uuid] then
-                                                            isNewItem = true
-                                                        elseif oldInventory[category][uuid].Quantity and itemInfo.Quantity then
-                                                            if itemInfo.Quantity > oldInventory[category][uuid].Quantity then
-                                                                isNewItem = true
-                                                            end
-                                                        end
-                                                        
-                                                        if isNewItem and itemInfo.Id then
-                                                            local itemData = getItemData(itemInfo.Id)
-                                                            
-                                                            if itemData and itemData.Type == "Fishes" then
-                                                                local fishId = itemInfo.Id
-                                                                if specificFishEnabled[fishId] == true then
-                                                                    local isVariant = false
-                                                                    local variantName = nil
-                                                                    if itemInfo.Metadata and itemInfo.Metadata.VariantId then
-                                                                        local variantSuccess, variantData = pcall(function()
-                                                                            local ItemUtility = require(ReplicatedStorage.Shared.ItemUtility)
-                                                                            return ItemUtility:GetVariantData(itemInfo.Metadata.VariantId)
-                                                                        end)
-                                                                        
-                                                                        if variantSuccess and variantData and variantData.Data then
-                                                                            isVariant = true
-                                                                            variantName = variantData.Data.Name
-                                                                        end
-                                                                    end
-                                                                    local weight = nil
-                                                                    if itemInfo.Metadata and itemInfo.Metadata.Weight then
-                                                                        weight = itemInfo.Metadata.Weight
-                                                                    end
-                                                                    sendWebhook(itemData.Name, itemData, weight, isVariant, variantName)
-                                                                end
-                                                            end
-                                                        end
-                                                    end
-                                                end
-                                            end
-                                        end)
-                                        
-                                        if not processSuccess then
-                                            warn("Error processing inventory change:", processError)
-                                        end
-                                    end)
-                                end)
-                                
-                                return true
+            local Client = require(ReplicatedStorage.Packages.Replion).Client
+            print("[DEBUG] Starting independent debug monitoring...")
+            
+            local dataReplion = Client:WaitReplion("Data")
+            print("[DEBUG] Debug monitor connected to Data Replion")
+            
+            if not dataReplion then
+                error("Failed to get Data replion for debug monitoring")
+            end
+            
+            -- Debug connection that always runs - separate from webhook functionality
+            debugConnection = dataReplion:OnChange("Inventory", function(newInventory, oldInventory)
+                print("[DEBUG] ========== INVENTORY CHANGE DETECTED ==========")
+                
+                -- Safety check
+                if not newInventory or type(newInventory) ~= "table" then
+                    print("[DEBUG] Invalid inventory data")
+                    return
+                end
+                
+                -- Look for Fishes category specifically
+                local newFishes = newInventory.Fishes
+                local oldFishes = oldInventory and oldInventory.Fishes
+                
+                if not newFishes or type(newFishes) ~= "table" then
+                    print("[DEBUG] No fish data found in inventory")
+                    return
+                end
+                
+                -- Count fish
+                local fishCount = 0
+                for _ in pairs(newFishes) do
+                    fishCount = fishCount + 1
+                end
+                
+                print("[DEBUG] Fish inventory found! Total fish items:", fishCount)
+                
+                -- Debug: Show all current fish in inventory
+                print("[DEBUG] === ALL FISH IN INVENTORY ===")
+                for uuid, fishData in pairs(newFishes) do
+                    if fishData and fishData.Id then
+                        local itemData = getItemData(fishData.Id)
+                        local fishName = itemData and itemData.Name or ("Unknown Fish ID: " .. fishData.Id)
+                        local quantity = fishData.Quantity or 1
+                        local weight = fishData.Metadata and fishData.Metadata.Weight or "No weight"
+                        
+                        print(string.format("[DEBUG] Fish: %s (ID: %d) | Qty: %d | Weight: %s | UUID: %s", 
+                            fishName, fishData.Id, quantity, tostring(weight), uuid:sub(1, 8) .. "..."))
+                    end
+                end
+                print("[DEBUG] === END FISH INVENTORY ===")
+                
+                -- Check for NEW or CHANGED fish (for debugging purposes)
+                print("[DEBUG] === ANALYZING FISH CHANGES ===")
+                for uuid, fishData in pairs(newFishes) do
+                    if fishData and fishData.Id then
+                        local fishId = fishData.Id
+                        local isNewFish = false
+                        local changeReason = ""
+                        
+                        -- Check if this is a completely new fish
+                        if not oldFishes or not oldFishes[uuid] then
+                            isNewFish = true
+                            changeReason = "NEW FISH ADDED"
+                        -- Check if quantity increased (multiple catches)
+                        elseif oldFishes[uuid].Quantity and fishData.Quantity then
+                            if fishData.Quantity > oldFishes[uuid].Quantity then
+                                isNewFish = true
+                                changeReason = "QUANTITY INCREASED"
+                            end
+                        end
+                        
+                        if isNewFish then
+                            local itemData = getItemData(fishId)
+                            local fishName = itemData and itemData.Name or ("Unknown ID: " .. fishId)
+                            print(string.format("[DEBUG] CHANGE DETECTED: %s | Fish: %s (ID: %d)", changeReason, fishName, fishId))
+                            
+                            if changeReason == "QUANTITY INCREASED" then
+                                print(string.format("[DEBUG] Quantity changed from %d to %d", oldFishes[uuid].Quantity or 0, fishData.Quantity or 0))
                             end
                         end
                     end
                 end
-            end
-            return false
+                print("[DEBUG] === END FISH ANALYSIS ===")
+                print("[DEBUG] ========== INVENTORY ANALYSIS COMPLETE ==========")
+            end)
+            
+            print("[DEBUG] Debug monitoring successfully set up!")
+            return true
         end)
+        
         if success then
+            print("[DEBUG] Independent debug monitoring started!")
             return true
         else
-            warn("Failed to start Replion monitoring:", error)
+            warn("[ERROR] Failed to start debug monitoring:", error)
             return false
         end
     end
     
-    local function startInventoryMonitoring()
-        httpRetryCount = 0
-        if startReplionMonitoring() then
+    -- Start debug monitoring immediately
+    startDebugMonitoring()
+    
+    local function startWebhookMonitoring()
+        local success, error = pcall(function()
+            local ReplicatedStorage = game:GetService("ReplicatedStorage")
+            local Client = require(ReplicatedStorage.Packages.Replion).Client
+            print("[DEBUG] Starting webhook monitoring...")
+            
+            local dataReplion = Client:WaitReplion("Data")
+            print("[DEBUG] Webhook monitor connected to Data Replion")
+            
+            if not dataReplion then
+                error("Failed to get Data replion for webhook monitoring")
+            end
+            
+            -- Webhook connection - only for sending webhooks
+            inventoryConnection = dataReplion:OnChange("Inventory", function(newInventory, oldInventory)
+                if not isWebhookActive then
+                    return -- Skip webhook processing if not active
+                end
+                
+                print("[DEBUG] === WEBHOOK PROCESSING STARTED ===")
+                
+                -- Safety check
+                if not newInventory or type(newInventory) ~= "table" then
+                    return
+                end
+                
+                local newFishes = newInventory.Fishes
+                local oldFishes = oldInventory and oldInventory.Fishes
+                
+                if not newFishes or type(newFishes) ~= "table" then
+                    return
+                end
+                
+                -- Process each fish item for webhook notifications
+                for uuid, fishData in pairs(newFishes) do
+                    if fishData and fishData.Id then
+                        local fishId = fishData.Id
+                        local isNewFish = false
+                        
+                        -- Check if this is a completely new fish
+                        if not oldFishes or not oldFishes[uuid] then
+                            isNewFish = true
+                        -- Check if quantity increased
+                        elseif oldFishes[uuid].Quantity and fishData.Quantity then
+                            if fishData.Quantity > oldFishes[uuid].Quantity then
+                                isNewFish = true
+                            end
+                        end
+                        
+                        if isNewFish then
+                            print("[DEBUG] Checking fish ID", fishId, "for webhook eligibility")
+                            
+                            if specificFishEnabled[fishId] == true then
+                                print("[DEBUG] Fish ID", fishId, "is enabled - sending webhook!")
+                                
+                                local itemData = getItemData(fishId)
+                                if itemData and itemData.Type == "Fishes" then
+                                    -- Check for variant
+                                    local isVariant = false
+                                    local variantName = nil
+                                    
+                                    if fishData.Metadata and fishData.Metadata.VariantId then
+                                        local variantSuccess, variantData = pcall(function()
+                                            local ItemUtility = require(ReplicatedStorage.Shared.ItemUtility)
+                                            return ItemUtility:GetVariantData(fishData.Metadata.VariantId)
+                                        end)
+                                        
+                                        if variantSuccess and variantData and variantData.Data then
+                                            isVariant = true
+                                            variantName = variantData.Data.Name
+                                        end
+                                    end
+                                    
+                                    -- Get weight
+                                    local weight = nil
+                                    if fishData.Metadata and fishData.Metadata.Weight then
+                                        weight = fishData.Metadata.Weight
+                                    end
+                                    
+                                    -- Send the webhook
+                                    sendWebhook(itemData.Name, itemData, weight, isVariant, variantName)
+                                end
+                            end
+                        end
+                    end
+                end
+                
+                print("[DEBUG] === WEBHOOK PROCESSING COMPLETE ===")
+            end)
+            
             return true
+        end)
+        
+        if success then
+            print("[DEBUG] Webhook monitoring started!")
+            return true
+        else
+            warn("[ERROR] Failed to start webhook monitoring:", error)
+            return false
         end
-        return false
     end
     
-    local function stopInventoryMonitoring()
+    local function stopWebhookMonitoring()
         if inventoryConnection then
             inventoryConnection:Disconnect()
             inventoryConnection = nil
+            print("[DEBUG] Webhook monitoring stopped")
         end
-        lastInventoryState = {}
         httpRetryCount = 0
     end
     
@@ -2656,34 +2837,38 @@ do
                     return
                 end
                 
-                -- Check if at least one fish type is selected
-                local selectedCount = 0
-                for _, enabled in pairs(specificFishEnabled) do
-                    if enabled then selectedCount = selectedCount + 1 end
+                -- Check if any fish are enabled
+                local enabledCount = 0
+                for fishId, enabled in pairs(specificFishEnabled) do
+                    if enabled then 
+                        enabledCount = enabledCount + 1 
+                    end
                 end
                 
-                if selectedCount == 0 then
+                if enabledCount == 0 then
                     Fluent:Notify({
                         Title = "Webhook Error", 
-                        Content = "Please select a fish tier to track!",
+                        Content = "Please select at least one fish type (Secret/Mythic/Test) first!",
                         Duration = 5
                     })
                     Options.WebhookToggle:SetValue(false)
                     return
                 end
                 
-                -- Try to start monitoring
-                if startInventoryMonitoring() then
+                print("[DEBUG] Starting webhook with", enabledCount, "fish types enabled")
+                
+                -- Try to start webhook monitoring
+                if startWebhookMonitoring() then
                     isWebhookActive = true
                     Fluent:Notify({
                         Title = "Webhook Active",
-                        Content = "Successfully started tracking " .. selectedCount .. " fish types!",
+                        Content = "Successfully started tracking " .. enabledCount .. " fish types!",
                         Duration = 3
                     })
                 else
                     Fluent:Notify({
                         Title = "Webhook Error",
-                        Content = "Failed to start inventory monitoring. Try rejoining the game.",
+                        Content = "Failed to start webhook monitoring. Try rejoining the game.",
                         Duration = 5
                     })
                     Options.WebhookToggle:SetValue(false)
@@ -2691,7 +2876,7 @@ do
                 end
             else
                 isWebhookActive = false
-                stopInventoryMonitoring()
+                stopWebhookMonitoring()
                 Fluent:Notify({
                     Title = "Webhook Disabled",
                     Content = "Stopped tracking fish catches.",
@@ -2730,19 +2915,17 @@ do
         end
     })
     
-    local deselectAllButton = webhookTab:AddButton({
+    local resetSelectionButton = webhookTab:AddButton({
         Title = "Reset Selection",
-        Description = "Clear fish tier selection",
+        Description = "Clear all fish tier selections",
         Callback = function()
-            Options.FishSelection:SetValue("None")
-            for fishId, _ in pairs(specificFishEnabled) do
-                specificFishEnabled[fishId] = false
-            end
-            Fluent:Notify({
-                Title = "Selection Cleared",
-                Content = "Fish tracking disabled.",
-                Duration = 2
-            })
+            selectedTiers.secret = false
+            selectedTiers.mythic = false
+            selectedTiers.test = false
+            Options.SecretFishToggle:SetValue(false)
+            Options.MythicFishToggle:SetValue(false)
+            Options.TestFishToggle:SetValue(false)
+            updateFishSelection()
         end
     })
     
@@ -2756,7 +2939,6 @@ do
             webhookURL = ""
             Options.WebhookURL:SetValue("")
             httpRetryCount = 0
-            lastInventoryState = {}
             Fluent:Notify({
                 Title = "Webhook Reset",
                 Content = "Webhook settings have been cleared.",

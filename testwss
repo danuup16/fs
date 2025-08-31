@@ -206,6 +206,7 @@ local Tabs = {
     Teleport = Window:AddTab({ Title = "Teleport", Icon = "map-pin" }),
     Buy = Window:AddTab({ Title = "Buy", Icon = "shopping-cart" }),
     Webhook = Window:AddTab({ Title = "Webhook", Icon = "bell-ring" }),
+    Inventory = Window:AddTab({ Title = "Inventory", Icon = "package" }),
     Settings = Window:AddTab({ Title = "Settings", Icon = "settings" })
 }
 
@@ -2368,35 +2369,33 @@ do
 end
 do
         local WebhookTab = Tabs.Webhook
--- Database Gambar Ikan (sementara menggunakan placeholder)
 local fishImages = {
     -- Secret Fish
-    [156] = "https://i.imgur.com/0mURszZ.png", -- Giant Squid
-    [136] = "https://i.imgur.com/0mURszZ.png", -- Frostborn Shark
+    [156] = "https://i.imgur.com/VAUGUBf.png", -- Giant Squid
+    [136] = "https://i.imgur.com/taZohVB.png", -- Frostborn Shark
     [99] = "https://i.imgur.com/0mURszZ.png",  -- Great Christmas Whale
-    [141] = "https://i.imgur.com/0mURszZ.png", -- Great Whale
-    [159] = "https://i.imgur.com/0mURszZ.png", -- Robot Kraken
-    [145] = "https://i.imgur.com/0mURszZ.png", -- Worm Fish
+    [141] = "https://i.imgur.com/DGwZd1N.png", -- Great Whale
+    [159] = "https://i.imgur.com/3qDECjI.png", -- Robot Kraken
+    [145] = "https://i.imgur.com/nWiP04p.png", -- Worm Fish
     [176] = "https://i.imgur.com/0mURszZ.png", -- Ghost Worm Fish
-    [83] = "https://i.imgur.com/0mURszZ.png",  -- Ghost Shark
-    
+    [83] = "https://i.imgur.com/b9lVzg6.png",  -- Ghost Shark
     -- Mythic Fish
     [110] = "https://i.imgur.com/0mURszZ.png", -- Lined Cardinal Fish
     [97] = "https://i.imgur.com/0mURszZ.png",  -- Gingerbread Turtle
-    [34] = "https://i.imgur.com/0mURszZ.png",  -- Loggerhead Turtle
+    [34] = "https://i.imgur.com/EPA4CXL.png",  -- Loggerhead Turtle
     [21] = "https://i.imgur.com/0mURszZ.png",  -- Hawks Turtle
-    [150] = "https://i.imgur.com/0mURszZ.png", -- Blob Fish
-    [15] = "https://i.imgur.com/0mURszZ.png",  -- Abyss Seahorse
-    [35] = "https://i.imgur.com/0mURszZ.png",  -- Prismy Seahorse
-    [146] = "https://i.imgur.com/0mURszZ.png", -- Strippled Seahorse
-    [47] = "https://i.imgur.com/0mURszZ.png",  -- Blueflame Ray
-    [75] = "https://i.imgur.com/0mURszZ.png",  -- Dotted Stingray
-    [54] = "https://i.imgur.com/0mURszZ.png",  -- Manta Ray
-    [52] = "https://i.imgur.com/0mURszZ.png",  -- Hammerhead Shark
+    [150] = "https://i.imgur.com/dmN5qFd.png", -- Blob Fish
+    [15] = "https://i.imgur.com/i5HPY7d.png",  -- Abyss Seahorse
+    [35] = "https://i.imgur.com/oX0y9mk.png",  -- Prismy Seahorse
+    [146] = "https://i.imgur.com/lyRcwy2.png", -- Strippled Seahorse
+    [47] = "https://i.imgur.com/yDo7zfz.png",  -- Blueflame Ray
+    [75] = "https://i.imgur.com/wUQ3ngv.png",  -- Dotted Stingray
+    [54] = "https://i.imgur.com/QynhFHm.png",  -- Manta Ray
+    [52] = "https://i.imgur.com/Oio2qpc.png",  -- Hammerhead Shark
     [98] = "https://i.imgur.com/0mURszZ.png",  -- Gingerbread Shark
     [122] = "https://i.imgur.com/0mURszZ.png", -- Loving Shark
-    [137] = "https://i.imgur.com/0mURszZ.png", -- Plasma Shark
-    [147] = "https://i.imgur.com/0mURszZ.png", -- Thresher Shark
+    [137] = "https://i.imgur.com/umiwlEx.png", -- Plasma Shark
+    [147] = "https://i.imgur.com/EWr1i53.png", -- Thresher Shark
     
     -- Uncommon Fish
     [139] = "https://i.imgur.com/0mURszZ.png", -- Silver Tuna
@@ -2449,18 +2448,10 @@ local fishList = {
     {name = "Blackcap Basslet", id = 182, tier = "Uncommon"},
     {name = "Pilot Fish", id = 140, tier = "Uncommon"}
 }
-
--- Ikan yang Diaktifkan (Hanya ikan ini yang akan dilacak)
 local specificFishEnabled = {}
-
--- Inisialisasi semua ikan sebagai false
 for _, fish in pairs(fishList) do
     specificFishEnabled[fish.id] = false
 end
-
--- Buat array nama ikan untuk dropdown (tidak digunakan lagi)
--- local fishDropdownValues = {}
-
 local WebhookInput = WebhookTab:AddInput("Input", {
     Title = "URL Webhook Discord",
     Description = "Input Description",
@@ -2484,15 +2475,10 @@ local FishDropdown = WebhookTab:AddDropdown("FishSelection", {
     Multi = true,
     Default = {},
 })
-
--- Event handler untuk dropdown
 FishDropdown:OnChanged(function(selectedTiers)
-    -- Reset semua ikan ke false
     for fishId, _ in pairs(specificFishEnabled) do
         specificFishEnabled[fishId] = false
     end
-    
-    -- Aktifkan semua ikan dari tier yang dipilih
     for tierName, isSelected in pairs(selectedTiers) do
         if isSelected then
             for _, fish in pairs(fishList) do
@@ -2503,8 +2489,6 @@ FishDropdown:OnChanged(function(selectedTiers)
             end
         end
     end
-    
-    -- Debug: tampilkan ikan yang aktif per tier
     local tierCounts = {Secret = 0, Mythic = 0, Uncommon = 0}
     for fishId, enabled in pairs(specificFishEnabled) do
         if enabled then
@@ -2525,8 +2509,6 @@ FishDropdown:OnChanged(function(selectedTiers)
     end
     print("📊 Total ikan aktif:", tierCounts.Secret + tierCounts.Mythic + tierCounts.Uncommon)
 end)
-
--- Fungsi untuk mendapatkan data ikan dari ReplicatedStorage
 local function getItemData(itemId)
     local success, itemData = pcall(function()
         local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -2604,62 +2586,50 @@ local function getTierInfo(tier)
         [7] = {name = "Divine", color = 0xFFD700},
         [8] = {name = "Exotic", color = 0xFF69B4}
     }
-    
     return tierColors[tier] or {name = "Unknown", color = 0x808080}
 end
-
--- Fungsi untuk mengirim webhook dengan gambar ikan
 local function sendWebhook(itemName, itemData, weight, isVariant, variantName)
     if webhookURL == "" then
         return
     end
-    
     local RunService = game:GetService("RunService")
     RunService.Heartbeat:Wait()
-    
     spawn(function()
         local retryAttempt = 0
         local maxRetries = 3
         local success = false
-        
         while retryAttempt < maxRetries and not success do
             retryAttempt = retryAttempt + 1
-            
             local sendSuccess, sendError = pcall(function()
                 local player = game.Players.LocalPlayer
                 local tierInfo = getTierInfo(itemData.Tier or 1)
-                
                 local rarityText = "Tidak Diketahui"
                 if itemData.Probability and itemData.Probability.Chance then
                     local chance = itemData.Probability.Chance
                     rarityText = string.format("1 dari %.0f", 1/chance)
                 end
-                
                 local fullItemName = itemName
                 if isVariant and variantName then
                     fullItemName = variantName .. " " .. itemName
                 end
-                
-                -- Dapatkan URL gambar ikan
                 local fishImageURL = getFishImageURL(itemData.Id)
-                
                 local embedData = {
                     ["title"] = "🎣 FISH IT - #DJSTEST!",
                     ["color"] = tierInfo.color,
                     ["fields"] = {
                        {
-                            ["name"] = "** -> Profile : **",
+                            ["name"] = "**Profile : **",
                             ["value"] = "> Username :`"..player.Name.."`",
                             ["inline"] = true
                         },
                         {
-                            ["name"] = "** -> Fishing : **",
-                            ["value"] = "> Fish: `" .. fullItemName.."`\n > Weight: `"..formatWeight(itemData.Weight, weight).."`\n > Price: `".. (itemData.SellPrice or 0) .."`\n > Tier: `"..tierInfo.name .. "`",
+                            ["name"] = "**Fishing : **",
+                            ["value"] = "> Fish: `" .. fullItemName.."`\n > Weight: `"..formatWeight(itemData.Weight, weight).."`\n > Price: `".. (itemData.SellPrice or 0) .." Coin`\n > Tier: `"..tierInfo.name .. "`",
                             ["inline"] = false
                         }
                     },
                     ["footer"] = {
-                        ["text"] = os.date("%Y-%m-%d %H:%M:%S").." [Discord Server](https://discord.gg/uwXYuxj6cF)"
+                        ["text"] = os.date("%Y-%m-%d %H:%M:%S")
                     }
                 }
                 if fishImageURL then
@@ -2941,7 +2911,6 @@ WebhookTab:AddButton({
         FishDropdown:SetValue({})
     end
 })
-
 WebhookTab:AddButton({
         Title = "🧪 Test Webhook",
         Description = "",
@@ -2981,40 +2950,29 @@ WebhookTab:AddButton({
                 end
             end
         end
-        
         if activeCount == 0 then
             print("  ❌ TIDAK ADA IKAN YANG AKTIF - Webhook tidak akan mengirim apapun!")
         else
             print("  Total ikan yang aktif:", activeCount)
         end
-        
         print("=== AKHIR DEBUG ===")
         end
     })
-
     WebhookTab:AddButton({
         Title = "🔄 Reset Sistem Webhook",
         Description = "",
         Callback = function()
-           -- Hentikan monitoring
         if isWebhookActive then
             WebhookToggle:Set(false)
         end
-        
-        -- Reset semua variabel
         httpRetryCount = 0
         lastInventoryState = {}
-        
-        -- Tunggu sebentar
         wait(1)
-        
-        -- Restart jika URL webhook sudah diatur
         if webhookURL ~= "" then
             WebhookToggle:Set(true)
         end
         end
     })
-
 WebhookTab:AddButton({
         Title = "🔄 Hapus URL Webhook",
         Description = "",
@@ -3028,6 +2986,435 @@ WebhookTab:AddButton({
         end
     })
 
+end
+do
+    local inventoryTab = Tabs.Inventory
+    local isAutoFavoriteActive = false
+    local autoFavoriteConnection = nil
+    -- Section Auto Favorite
+    inventoryTab:AddSection("Auto Favorite System")
+    
+    -- Info tentang sistem
+    inventoryTab:AddParagraph({
+        Title = "Info Auto Favorite",
+        Content = "Sistem ini akan otomatis mem-favorite ikan yang sesuai dengan kategori yang dipilih di tab Webhook. Pastikan sudah memilih kategori ikan di tab Webhook terlebih dahulu."
+    })
+    
+    -- Toggle Auto Favorite
+    local AutoFavoriteToggle = inventoryTab:AddToggle("AutoFavorite", {
+        Title = "🌟 Auto Favorite Fish",
+        Description = "Otomatis favorite ikan yang dipilih di kategori webhook",
+        Default = false,
+        Callback = function(Value)
+            isAutoFavoriteActive = Value
+            
+            if Value then
+                -- Cek apakah ada ikan yang dipilih
+                local activeCount = 0
+                for fishId, enabled in pairs(specificFishEnabled) do
+                    if enabled then
+                        activeCount = activeCount + 1
+                    end
+                end
+                
+                if activeCount == 0 then
+                    print("❌ Tidak ada ikan yang dipilih di tab Webhook!")
+                    print("💡 Pilih kategori ikan di tab Webhook terlebih dahulu")
+                    AutoFavoriteToggle:SetValue(false)
+                    return
+                end
+                
+                print("✅ Auto Favorite diaktifkan untuk", activeCount, "jenis ikan")
+                startAutoFavoriteMonitoring()
+            else
+                print("❌ Auto Favorite dinonaktifkan")
+                stopAutoFavoriteMonitoring()
+            end
+        end
+    })
+
+    
+    -- Tombol untuk cek status filter ikan
+    inventoryTab:AddButton({
+        Title = "📋 Cek Filter Ikan Aktif",
+        Description = "Lihat ikan mana saja yang akan di-favorite otomatis",
+        Callback = function()
+            print("=== STATUS FILTER AUTO FAVORITE ===")
+            
+            local tierCounts = {Secret = 0, Mythic = 0, Uncommon = 0}
+            local totalActive = 0
+            
+            for fishId, enabled in pairs(specificFishEnabled) do
+                if enabled then
+                    totalActive = totalActive + 1
+                    local itemData = getItemData(fishId)
+                    if itemData then
+                        -- Cari tier ikan dari fishList
+                        for _, fish in pairs(fishList) do
+                            if fish.id == fishId then
+                                tierCounts[fish.tier] = tierCounts[fish.tier] + 1
+                                print("  ⭐", itemData.Name, "(ID:", fishId, "- Tier:", fish.tier .. ")")
+                                break
+                            end
+                        end
+                    end
+                end
+            end
+            
+            if totalActive == 0 then
+                print("❌ TIDAK ADA IKAN YANG AKTIF!")
+                print("💡 Pilih kategori ikan di tab Webhook terlebih dahulu")
+            else
+                print("📊 Ringkasan per tier:")
+                for tier, count in pairs(tierCounts) do
+                    if count > 0 then
+                        print("  " .. tier .. ":", count, "ikan")
+                    end
+                end
+                print("📊 Total ikan yang akan di-favorite:", totalActive)
+            end
+            
+            print("🔄 Status Auto Favorite:", isAutoFavoriteActive and "AKTIF" or "TIDAK AKTIF")
+            print("=== AKHIR STATUS ===")
+        end
+    })
+    
+    -- Tombol untuk favorite semua ikan di inventory sekarang
+    inventoryTab:AddButton({
+        Title = "🌟 Favorite Ikan Sekarang",
+        Description = "Favorite semua ikan yang ada di inventory sesuai filter",
+        Callback = function()
+            local activeCount = 0
+            for fishId, enabled in pairs(specificFishEnabled) do
+                if enabled then
+                    activeCount = activeCount + 1
+                end
+            end
+            
+            if activeCount == 0 then
+                print("❌ Tidak ada ikan yang dipilih di filter!")
+                return
+            end
+            
+            print("🔄 Mencari ikan di inventory untuk di-favorite...")
+            
+            local success, error = pcall(function()
+                local ReplicatedStorage = game:GetService("ReplicatedStorage")
+                local replionPackage = ReplicatedStorage:FindFirstChild("Packages")
+                
+                if replionPackage then
+                    replionPackage = replionPackage:FindFirstChild("_Index")
+                    if replionPackage then
+                        for _, folder in pairs(replionPackage:GetChildren()) do
+                            if string.find(folder.Name:lower(), "replion") then
+                                local replionModule = folder:FindFirstChild("replion")
+                                if replionModule then
+                                    local Replion = require(replionModule)
+                                    local Client = Replion.Client
+                                    local dataReplion = Client:WaitReplion("Data")
+                                    local inventory = dataReplion:Get("Inventory")
+                                    
+                                    if inventory then
+                                        local favoriteCount = 0
+                                        for category, items in pairs(inventory) do
+                                            if type(items) == "table" then
+                                                for uuid, itemInfo in pairs(items) do
+                                                    if itemInfo.Id and not itemInfo.Favorited then
+                                                        local itemData = getItemData(itemInfo.Id)
+                                                        
+                                                        if itemData and itemData.Type == "Fishes" then
+                                                            local fishId = itemInfo.Id
+                                                            
+                                                            if specificFishEnabled[fishId] == true then
+                                                                favoriteCount = favoriteCount + 1
+                                                                print("🌟 Favorite:", itemData.Name)
+                                                                
+                                                                spawn(function()
+                                                                    wait(favoriteCount * 0.1) -- Delay bertahap
+                                                                    
+                                                                    local favoriteSuccess, favoriteError = pcall(function()
+                                                                        local Net = require(ReplicatedStorage.Packages.Net)
+                                                                        local FavoriteItemEvent = Net:RemoteEvent("FavoriteItem")
+                                                                        if FavoriteItemEvent then
+                                                                            FavoriteItemEvent:FireServer(uuid)
+                                                                        end
+                                                                    end)
+                                                                    
+                                                                    if not favoriteSuccess then
+                                                                        warn("❌ Gagal favorite:", favoriteError)
+                                                                    end
+                                                                end)
+                                                            end
+                                                        end
+                                                    end
+                                                end
+                                            end
+                                        end
+                                        
+                                        if favoriteCount > 0 then
+                                            print("✅ Berhasil memproses", favoriteCount, "ikan untuk di-favorite")
+                                        else
+                                            print("ℹ️ Tidak ada ikan yang perlu di-favorite")
+                                        end
+                                    end
+                                    break
+                                end
+                            end
+                        end
+                    end
+                end
+            end)
+            
+            if not success then
+                warn("❌ Error saat favorite ikan:", error)
+            end
+        end
+    })
+    
+    -- Section untuk management favorite
+    inventoryTab:AddSection("Favorite Management")
+    
+    -- Tombol untuk unfavorite semua ikan
+    inventoryTab:AddButton({
+        Title = "💔 Unfavorite Semua Ikan",
+        Description = "Hapus favorite dari semua ikan di inventory",
+        Callback = function()
+            print("🔄 Mencari ikan yang di-favorite untuk dihapus...")
+            
+            local success, error = pcall(function()
+                local ReplicatedStorage = game:GetService("ReplicatedStorage")
+                local replionPackage = ReplicatedStorage:FindFirstChild("Packages")
+                
+                if replionPackage then
+                    replionPackage = replionPackage:FindFirstChild("_Index")
+                    if replionPackage then
+                        for _, folder in pairs(replionPackage:GetChildren()) do
+                            if string.find(folder.Name:lower(), "replion") then
+                                local replionModule = folder:FindFirstChild("replion")
+                                if replionModule then
+                                    local Replion = require(replionModule)
+                                    local Client = Replion.Client
+                                    local dataReplion = Client:WaitReplion("Data")
+                                    local inventory = dataReplion:Get("Inventory")
+                                    
+                                    if inventory then
+                                        local unfavoriteCount = 0
+                                        for category, items in pairs(inventory) do
+                                            if type(items) == "table" then
+                                                for uuid, itemInfo in pairs(items) do
+                                                    if itemInfo.Id and itemInfo.Favorited then
+                                                        local itemData = getItemData(itemInfo.Id)
+                                                        
+                                                        if itemData and itemData.Type == "Fishes" then
+                                                            unfavoriteCount = unfavoriteCount + 1
+                                                            print("💔 Unfavorite:", itemData.Name)
+                                                            
+                                                            spawn(function()
+                                                                wait(unfavoriteCount * 0.1) -- Delay bertahap
+                                                                
+                                                                local unfavoriteSuccess, unfavoriteError = pcall(function()
+                                                                    local Net = require(ReplicatedStorage.Packages.Net)
+                                                                    local FavoriteItemEvent = Net:RemoteEvent("FavoriteItem")
+                                                                    if FavoriteItemEvent then
+                                                                        FavoriteItemEvent:FireServer(uuid)
+                                                                    end
+                                                                end)
+                                                                
+                                                                if not unfavoriteSuccess then
+                                                                    warn("❌ Gagal unfavorite:", unfavoriteError)
+                                                                end
+                                                            end)
+                                                        end
+                                                    end
+                                                end
+                                            end
+                                        end
+                                        
+                                        if unfavoriteCount > 0 then
+                                            print("✅ Berhasil memproses", unfavoriteCount, "ikan untuk di-unfavorite")
+                                        else
+                                            print("ℹ️ Tidak ada ikan yang di-favorite")
+                                        end
+                                    end
+                                    break
+                                end
+                            end
+                        end
+                    end
+                end
+            end)
+            
+            if not success then
+                warn("❌ Error saat unfavorite ikan:", error)
+            end
+        end
+    })
+    
+    -- Tombol test auto favorite
+    inventoryTab:AddButton({
+        Title = "🧪 Test Auto Favorite",
+        Description = "Test sistem auto favorite (butuh ikan baru untuk test)",
+        Callback = function()
+            if not isAutoFavoriteActive then
+                print("❌ Auto Favorite tidak aktif")
+                print("💡 Aktifkan toggle Auto Favorite terlebih dahulu")
+                return
+            end
+            
+            print("🧪 Test Auto Favorite dimulai...")
+            print("📋 Ikan yang akan di-favorite otomatis:")
+            
+            local activeCount = 0
+            for fishId, enabled in pairs(specificFishEnabled) do
+                if enabled then
+                    activeCount = activeCount + 1
+                    local itemData = getItemData(fishId)
+                    if itemData then
+                        -- Cari tier dari fishList
+                        for _, fish in pairs(fishList) do
+                            if fish.id == fishId then
+                                print("  ⭐", itemData.Name, "(ID:", fishId, "- Tier:", fish.tier .. ")")
+                                break
+                            end
+                        end
+                    end
+                end
+            end
+            
+            if activeCount == 0 then
+                print("❌ TIDAK ADA IKAN YANG AKTIF!")
+                print("💡 Pilih kategori ikan di tab Webhook terlebih dahulu")
+            else
+                print("✅ Total ikan yang akan di-favorite:", activeCount)
+                print("🎣 Tangkap ikan untuk melihat auto favorite bekerja!")
+                print("🔄 Status monitoring:", autoFavoriteConnection and "AKTIF" or "TIDAK AKTIF")
+            end
+        end
+    })
+end
+
+-- Fungsi untuk memulai monitoring auto favorite (taruh di luar do block)
+function startAutoFavoriteMonitoring()
+-- Fungsi untuk memulai monitoring auto favorite (taruh di luar do block)
+function startAutoFavoriteMonitoring()
+    local success, error = pcall(function()
+        local ReplicatedStorage = game:GetService("ReplicatedStorage")
+        
+        -- Cari Replion package
+        local replionPackage = ReplicatedStorage:FindFirstChild("Packages")
+        if replionPackage then
+            replionPackage = replionPackage:FindFirstChild("_Index")
+            if replionPackage then
+                for _, folder in pairs(replionPackage:GetChildren()) do
+                    if string.find(folder.Name:lower(), "replion") then
+                        local replionModule = folder:FindFirstChild("replion")
+                        if replionModule then
+                            local Replion = require(replionModule)
+                            local Client = Replion.Client
+                            
+                            local dataReplion = Client:WaitReplion("Data")
+                            
+                            local lastProcessTime = 0
+                            local processingCooldown = 1 -- Cooldown 1 detik untuk auto favorite
+                            
+                            autoFavoriteConnection = dataReplion:OnChange("Inventory", function(newInventory, oldInventory)
+                                if not isAutoFavoriteActive or not newInventory then
+                                    return
+                                end
+                                
+                                local currentTime = tick()
+                                if currentTime - lastProcessTime < processingCooldown then
+                                    return
+                                end
+                                lastProcessTime = currentTime
+                                
+                                task.defer(function()
+                                    local processSuccess, processError = pcall(function()
+                                        for category, items in pairs(newInventory) do
+                                            if type(items) == "table" then
+                                                for uuid, itemInfo in pairs(items) do
+                                                    local isNewItem = false
+                                                    
+                                                    -- Cek apakah ini item baru
+                                                    if not oldInventory or not oldInventory[category] or not oldInventory[category][uuid] then
+                                                        isNewItem = true
+                                                    elseif oldInventory[category][uuid].Quantity and itemInfo.Quantity then
+                                                        if itemInfo.Quantity > oldInventory[category][uuid].Quantity then
+                                                            isNewItem = true
+                                                        end
+                                                    end
+                                                    
+                                                    -- Jika item baru dan belum difavorite
+                                                    if isNewItem and itemInfo.Id and not itemInfo.Favorited then
+                                                        local itemData = getItemData(itemInfo.Id)
+                                                        
+                                                        -- Cek apakah ini ikan dan ada dalam filter yang aktif
+                                                        if itemData and itemData.Type == "Fishes" then
+                                                            local fishId = itemInfo.Id
+                                                            
+                                                            if specificFishEnabled[fishId] == true then
+                                                                print("🌟 Auto favorite ikan:", itemData.Name, "UUID:", uuid)
+                                                                
+                                                                -- Kirim favorite request
+                                                                spawn(function()
+                                                                    wait(0.5) -- Delay kecil untuk memastikan item sudah ter-load
+                                                                    
+                                                                    local favoriteSuccess, favoriteError = pcall(function()
+                                                                        local Net = require(ReplicatedStorage.Packages.Net)
+                                                                        local FavoriteItemEvent = Net:RemoteEvent("FavoriteItem")
+                                                                        if FavoriteItemEvent then
+                                                                            FavoriteItemEvent:FireServer(uuid)
+                                                                            print("✅ Berhasil favorite:", itemData.Name)
+                                                                        else
+                                                                            warn("❌ FavoriteItem RemoteEvent tidak ditemukan")
+                                                                        end
+                                                                    end)
+                                                                    
+                                                                    if not favoriteSuccess then
+                                                                        warn("❌ Gagal favorite ikan:", favoriteError)
+                                                                    end
+                                                                end)
+                                                            end
+                                                        end
+                                                    end
+                                                end
+                                            end
+                                        end
+                                    end)
+                                    
+                                    if not processSuccess then
+                                        warn("Error auto favorite:", processError)
+                                    end
+                                end)
+                            end)
+                            
+                            return true
+                        end
+                    end
+                end
+            end
+        end
+        
+        return false
+    end)
+    
+    if success then
+        print("🔄 Auto Favorite monitoring dimulai")
+        return true
+    else
+        warn("❌ Gagal memulai Auto Favorite monitoring:", error)
+        return false
+    end
+end
+
+-- Fungsi untuk menghentikan monitoring auto favorite
+function stopAutoFavoriteMonitoring()
+    if autoFavoriteConnection then
+        autoFavoriteConnection:Disconnect()
+        autoFavoriteConnection = nil
+        print("🔄 Auto Favorite monitoring dihentikan")
+    end
+end
 end
 end
 Window:SelectTab(1)

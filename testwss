@@ -2576,178 +2576,100 @@ do
     local inventoryConnection = nil
     
     local function startWebhookMonitoring()
-        print("[DEBUG] Starting webhook monitoring...")
-        print("[DEBUG] Webhook URL:", webhookURL ~= "" and "SET" or "EMPTY")
-        print("[DEBUG] Minimum tier:", minimumTier)
-        
-        local success = pcall(function()
-            local ReplicatedStorage = game:GetService("ReplicatedStorage")
-            local Client = require(ReplicatedStorage.Packages.Replion).Client
-            
-            -- Wait for Data replion
-            local dataReplion = Client:WaitReplion("Data")
-            
-            if not dataReplion then
-                error("Failed to get Data replion")
+    print("[DEBUG] Starting webhook monitoring...")
+    print("[DEBUG] Webhook URL:", webhookURL ~= "" and "SET" or "EMPTY")
+    print("[DEBUG] Minimum tier:", minimumTier)
+
+    local success = pcall(function()
+        local ReplicatedStorage = game:GetService("ReplicatedStorage")
+        local InventoryController = require(ReplicatedStorage.Controllers.InventoryController)
+
+        if not InventoryController then
+            error("Failed to require InventoryController")
+        end
+
+        print("[DEBUG] Connected to InventoryController successfully")
+
+        -- Set monitoring start time BEFORE taking snapshot
+        monitoringStartTime = tick()
+        print("[DEBUG] Monitoring start time set:", monitoringStartTime)
+
+        -- Clear snapshot dulu
+        lastInventorySnapshot = {}
+
+        -- Listener InventoryStateChanged
+        inventoryConnection = InventoryController.InventoryStateChanged:Connect(function(category)
+            print("[DEBUG] InventoryStateChanged fired:", category)
+
+            -- hanya proses kalau kategori ikan
+            if category ~= "Fish" and category ~= "Fishes" then
+                print("[DEBUG] Category bukan ikan, skip:", category)
+                return
             end
-            
-            print("[DEBUG] Connected to Data replion successfully")
-            
-            -- Set monitoring start time BEFORE taking snapshot
-            monitoringStartTime = tick()
-            print("[DEBUG] Monitoring start time set:", monitoringStartTime)
-            
-            -- Get initial inventory snapshot
-            local currentInventory = dataReplion:Get("Inventory") or {}
-            local count = 0
-            for uuid, item in pairs(currentInventory) do
-                lastInventorySnapshot[uuid] = true
-                count = count + 1
+
+            local inventory = InventoryController.Inventory
+            if not inventory then
+                print("[DEBUG] Tidak ada data inventory di controller")
+                return
             end
-            print("[DEBUG] Initial inventory items:", count)
-            
-            -- Wait a moment before starting to monitor (to avoid catching existing items)
-            task.wait(1)
-            print("[DEBUG] Starting active monitoring...")
-            
-            -- Monitor inventory changes with enhanced debugging
-            inventoryConnection = dataReplion:OnChange("Inventory", function(newValue, oldValue)
-                print("[DEBUG] === INVENTORY CHANGE DETECTED ===")
-                print("[DEBUG] Webhook active:", isWebhookActive)
-                print("[DEBUG] Track all fish:", trackAllFish)
-                
-                if not isWebhookActive or not trackAllFish then
-                    print("[DEBUG] Webhook monitoring disabled, skipping...")
-                    return
-                end
-                
-                -- Handle the inventory structure properly
-                if type(newValue) ~= "table" then
-                    print("[DEBUG] New inventory value is not a table:", type(newValue))
-                    return
-                end
-                
-                print("[DEBUG] Processing inventory changes...")
-                local newItemsFound = 0
-                local fishFound = 0
-                local currentTime = tick()
-                
-                -- Process all items in inventory
-                for uuid, itemData in pairs(newValue) do
-                    -- Check if this is a new item AND monitoring has been active for a bit
-                    if not lastInventorySnapshot[uuid] and (currentTime - monitoringStartTime) > 2 then
-                        newItemsFound = newItemsFound + 1
-                        print("[DEBUG] New item #" .. newItemsFound .. " - UUID:", uuid)
-                        print("[DEBUG] Item data:", itemData and "EXISTS" or "NIL")
-                        
-                        if itemData then
-                            print("[DEBUG] Item ID:", itemData.Id or "NO_ID")
-                            print("[DEBUG] Item Metadata:", itemData.Metadata and "EXISTS" or "NIL")
-                            
-                            if itemData.Id then
-                                -- Get item information with detailed logging
-                                local itemInfo = getItemData(itemData.Id)
-                                
-                                if itemInfo then
-                                    print("[DEBUG] Item info retrieved - Name:", itemInfo.Name, "Type:", itemInfo.Type, "Tier:", itemInfo.Tier)
-                                    
-                                    if itemInfo.Type == "Fishes" then
-                                        fishFound = fishFound + 1
-                                        print("[DEBUG] Fish #" .. fishFound .. " found:", itemInfo.Name, "Tier:", itemInfo.Tier, "Min tier:", minimumTier)
-                                        
-                                        -- Check tier requirement
-                                        if itemInfo.Tier >= minimumTier then
-                                            print("[DEBUG] Fish meets tier requirement, processing...")
-                                            
-                                            -- Check for variant
-                                            local isVariant = false
-                                            local variantName = nil
-                                            
-                                            if itemData.Metadata and itemData.Metadata.VariantId then
-                                                print("[DEBUG] Checking variant ID:", itemData.Metadata.VariantId)
-                                                local variantSuccess, variantData = pcall(function()
-                                                    local ItemUtility = require(ReplicatedStorage.Shared.ItemUtility)
-                                                    return ItemUtility:GetVariantData(itemData.Metadata.VariantId)
-                                                end)
-                                                
-                                                if variantSuccess and variantData and variantData.Data then
-                                                    isVariant = true
-                                                    variantName = variantData.Data.Name
-                                                    print("[DEBUG] Variant found:", variantName)
-                                                else
-                                                    print("[DEBUG] Variant data failed or empty")
-                                                end
-                                            else
-                                                print("[DEBUG] No variant metadata")
-                                            end
-                                            
-                                            -- Get weight
-                                            local weight = nil
-                                            if itemData.Metadata and itemData.Metadata.Weight then
-                                                weight = itemData.Metadata.Weight
-                                                print("[DEBUG] Weight found:", weight)
-                                            else
-                                                print("[DEBUG] No weight data")
-                                            end
-                                            
-                                            -- Send webhook with comprehensive info
-                                            print("[DEBUG] Calling sendWebhook function...")
-                                            sendWebhook(itemInfo.Name, itemInfo, weight, isVariant, variantName)
-                                        else
-                                            print("[DEBUG] Fish below minimum tier:", itemInfo.Tier, "<", minimumTier)
-                                        end
-                                    else
-                                        print("[DEBUG] Item is not a fish, type:", itemInfo.Type)
+
+            local newItemsFound = 0
+            local fishFound = 0
+            local currentTime = tick()
+
+            for uuid, itemData in pairs(inventory or {}) do
+                if not lastInventorySnapshot[uuid] and (currentTime - monitoringStartTime) > 2 then
+                    newItemsFound += 1
+                    print("[DEBUG] Fish item baru UUID:", uuid)
+
+                    if itemData and itemData.Id then
+                        local itemInfo = getItemData(itemData.Id)
+                        if itemInfo and itemInfo.Type == "Fishes" then
+                            fishFound += 1
+                            print("[DEBUG] Fish baru ditemukan:", itemInfo.Name, "Tier:", itemInfo.Tier)
+
+                            if itemInfo.Tier >= minimumTier then
+                                local weight = itemData.Metadata and itemData.Metadata.Weight
+                                local isVariant, variantName = false, nil
+                                if itemData.Metadata and itemData.Metadata.VariantId then
+                                    local ok, variantData = pcall(function()
+                                        local ItemUtility = require(ReplicatedStorage.Shared.ItemUtility)
+                                        return ItemUtility:GetVariantData(itemData.Metadata.VariantId)
+                                    end)
+                                    if ok and variantData and variantData.Data then
+                                        isVariant, variantName = true, variantData.Data.Name
+                                        print("[DEBUG] Variant:", variantName)
                                     end
-                                else
-                                    print("[DEBUG] Failed to get item info for ID:", itemData.Id)
                                 end
+                                sendWebhook(itemInfo.Name, itemInfo, weight, isVariant, variantName)
                             else
-                                print("[DEBUG] Item data missing ID")
+                                print("[DEBUG] Fish tier terlalu rendah:", itemInfo.Tier, "<", minimumTier)
                             end
                         else
-                            print("[DEBUG] Item data is nil")
+                            print("[DEBUG] Item bukan fish atau gagal dapat info")
                         end
-                        
-                        -- Add to snapshot
-                        lastInventorySnapshot[uuid] = true
-                    elseif lastInventorySnapshot[uuid] then
-                        -- Item already exists in snapshot
                     else
-                        -- Monitoring just started, skip this item
-                        print("[DEBUG] Skipping item (monitoring just started):", uuid)
-                        lastInventorySnapshot[uuid] = true
+                        print("[DEBUG] Item data kosong atau tidak ada Id")
                     end
+
+                    lastInventorySnapshot[uuid] = true
                 end
-                
-                print("[DEBUG] Summary - New items:", newItemsFound, "Fish found:", fishFound)
-                
-                -- Clean up snapshot (remove items that no longer exist)
-                local removedCount = 0
-                for uuid, _ in pairs(lastInventorySnapshot) do
-                    if not newValue[uuid] then
-                        lastInventorySnapshot[uuid] = nil
-                        removedCount = removedCount + 1
-                    end
-                end
-                
-                if removedCount > 0 then
-                    print("[DEBUG] Cleaned up", removedCount, "removed items from snapshot")
-                end
-                
-                print("[DEBUG] === END INVENTORY CHANGE ===")
-            end)
-            
-            print("[DEBUG] Webhook monitoring started successfully!")
+            end
+
+            print("[DEBUG] Summary (InventoryStateChanged) - New:", newItemsFound, "Fish:", fishFound)
         end)
-        
-        if not success then
-            print("[DEBUG] Failed to start webhook monitoring")
-            return false
-        end
-        
-        return true
+
+        print("[DEBUG] Webhook monitoring started successfully!")
+    end)
+
+    if not success then
+        print("[DEBUG] Failed to start webhook monitoring")
+        return false
     end
+
+    return true
+end
+
     
     local function stopWebhookMonitoring()
         print("[DEBUG] Stopping webhook monitoring...")

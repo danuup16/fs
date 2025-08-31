@@ -205,6 +205,7 @@ local Tabs = {
     Fishing = Window:AddTab({ Title = "Fishing", Icon = "fish" }),
     Teleport = Window:AddTab({ Title = "Teleport", Icon = "map-pin" }),
     Buy = Window:AddTab({ Title = "Buy", Icon = "shopping-cart" }),
+    Webhook = Window:AddTab({ Title = "Webhook", Icon = "globe" }),
     Settings = Window:AddTab({ Title = "Settings", Icon = "settings" })
 }
 
@@ -2274,6 +2275,84 @@ do
             end
         end
     end)
+end
+do
+    -- Webhook Tab
+Tabs.Webhook = Window:AddTab({ Title = "Webhook", Icon = "globe" })
+
+local webhookURL = ""
+Tabs.Webhook:AddInput("WebhookURL", {
+    Title = "Discord Webhook URL",
+    Default = "",
+    Placeholder = "Masukkan URL Webhook...",
+    Callback = function(Value)
+        webhookURL = Value
+    end
+})
+
+-- fungsi kirim webhook ke Discord
+local function sendFishToDiscord(username, fishName, weight, price, tier)
+    if webhookURL == "" then return end
+
+    local embed = {
+        ["embeds"] = {{
+            ["title"] = "🎣 New Fish Caught!",
+            ["color"] = 5763719,
+            ["fields"] = {
+                {["name"] = "-> Profile", ["value"] = "Username: " .. username, ["inline"] = false},
+                {["name"] = "-> Info", ["value"] =
+                    "🟢 Fish: " .. tostring(fishName) .. "\n" ..
+                    "⚖️ Weight: " .. tostring(weight) .. " kg\n" ..
+                    "💰 Price: " .. tostring(price) .. "\n" ..
+                    "⭐ Tier: " .. tostring(tier),
+                    ["inline"] = false
+                }
+            }
+        }}
+    }
+
+    local body = game:GetService("HttpService"):JSONEncode(embed)
+    local requestFunc = (syn and syn.request) or (http and http.request) or request or http_request
+    if requestFunc then
+        requestFunc({
+            Url = webhookURL,
+            Method = "POST",
+            Headers = {["Content-Type"] = "application/json"},
+            Body = body
+        })
+    else
+        warn("Webhook: executor tidak support request!")
+    end
+end
+
+-- Hook ke InventoryController untuk deteksi ikan baru
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+local success, InventoryController = pcall(function()
+    return require(ReplicatedStorage.Controllers.InventoryController)
+end)
+
+if success and InventoryController and InventoryController.InventoryStateChanged then
+    InventoryController.InventoryStateChanged:Connect(function(itemData)
+        if itemData and itemData.Data and itemData.Data.Type == "Fishes" then
+            local username = LocalPlayer.Name
+            local fishName = itemData.Data.Name or "Unknown"
+            local weight = (itemData.Metadata and itemData.Metadata.Weight) or 0
+            local price = (itemData.Metadata and itemData.Metadata.Price) or 0
+
+            local tierUtility = require(ReplicatedStorage.Shared.TierUtility)
+            local tierInfo = tierUtility:GetTier(itemData.Data.Tier)
+            local tier = tierInfo and (tierInfo.Name .. " (T" .. tostring(itemData.Data.Tier) .. ")") or tostring(itemData.Data.Tier)
+
+            sendFishToDiscord(username, fishName, weight, price, tier)
+        end
+    end)
+else
+    warn("Webhook: InventoryController tidak ditemukan!")
+end
+
 end
 end
 Window:SelectTab(1)

@@ -2644,28 +2644,23 @@ local function sendWebhook(itemName, itemData, weight, isVariant, variantName)
                 local fishImageURL = getFishImageURL(itemData.Id)
                 
                 local embedData = {
-                    ["title"] = "🎣 Ikan Baru Tertangkap!",
+                    ["title"] = "🎣 FISH IT - #DJSTEST!",
                     ["color"] = tierInfo.color,
                     ["fields"] = {
                        {
-                            ["name"] = "👤 Pemain",
-                            ["value"] = player.Name,
+                            ["name"] = "** -> Profile : **",
+                            ["value"] = "> Username :`"..player.Name.."`",
                             ["inline"] = true
                         },
                         {
-                            ["name"] = "📍 Server",
-                            ["value"] = "JobId: " .. string.sub(game.JobId, 1, 8) .. "...",
-                            ["inline"] = true
-                        },
-                        {
-                            ["name"] = "🐟 " .. fullItemName,
-                            ["value"] = "⚖️ **Berat:** "..formatWeight(itemData.Weight, weight).."\n💰 **Harga Jual:** ".. (itemData.SellPrice or 0) .." 💎\n⭐ **Tier:** "..tierInfo.name .. " (T" .. (itemData.Tier or 1) .. ")\n🎯 **Kelangkaan:** " .. rarityText,
+                            ["name"] = "** -> Fishing : **\n > Fish: `" .. fullItemName.."`",
+                            ["value"] = "> Weight: `"..formatWeight(itemData.Weight, weight).."`\n > Price: ".. (itemData.SellPrice or 0) .."\n > Tier:` "..tierInfo.name .. "`",
                             ["inline"] = false
                         }
                     },
                     ["footer"] = {
-                        ["text"] = "Fish It Tracker • " .. os.date("%Y-%m-%d %H:%M:%S"),
-                        ["icon_url"] = "https://www.roblox.com/headshot-thumbnail/image?userId=" .. player.UserId .. "&width=32&height=32&format=png"
+                        ["text"] = os.date("%Y-%m-%d %H:%M:%S").."https://discord.gg/uwXYuxj6cF",
+                        ["icon_url"] = "https://i.imgur.com/0mURszZ.png"
                     }
                 }
                 if fishImageURL then

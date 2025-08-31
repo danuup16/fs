@@ -2366,32 +2366,39 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 
-local success, InventoryController = pcall(function()
-    return require(ReplicatedStorage.Controllers.InventoryController)
+local success, Client = pcall(function()
+    return require(ReplicatedStorage.Packages.Replion).Client
 end)
 
-if success and InventoryController and InventoryController.InventoryStateChanged then
-    InventoryController.InventoryStateChanged:Connect(function(itemData)
-        if itemData and itemData.Data and itemData.Data.Type == "Fishes" then
-            local username = LocalPlayer.Name
-            local fishName = itemData.Data.Name or "Unknown"
-            local weight = (itemData.Metadata and itemData.Metadata.Weight) or 0
-            local price = (itemData.Metadata and itemData.Metadata.Price) or 0
+if success and Client then
+    local Data = Client:WaitReplion("Data")
+    Data:OnChange("Inventory", function(oldInv, newInv)
+        -- cari perbedaan antara oldInv & newInv
+        if typeof(newInv) == "table" then
+            for k,v in pairs(newInv) do
+                if not oldInv or not oldInv[k] then
+                    -- Item baru terdeteksi
+                    if v.Data and v.Data.Type == "Fishes" then
+                        local username = LocalPlayer.Name
+                        local fishName = v.Data.Name or "Unknown"
+                        local weight = (v.Metadata and v.Metadata.Weight) or 0
+                        local price = (v.Metadata and v.Metadata.Price) or 0
 
-            local tierUtility = require(ReplicatedStorage.Shared.TierUtility)
-            local tierInfo = tierUtility:GetTier(itemData.Data.Tier)
-            local tier = tierInfo and (tierInfo.Name .. " (T" .. tostring(itemData.Data.Tier) .. ")") or tostring(itemData.Data.Tier)
+                        local tierUtility = require(ReplicatedStorage.Shared.TierUtility)
+                        local tierInfo = tierUtility:GetTier(v.Data.Tier)
+                        local tier = tierInfo and (tierInfo.Name .. " (T" .. tostring(v.Data.Tier) .. ")") or tostring(v.Data.Tier)
 
-            -- Debug print selalu aktif
-            print("[Webhook] Fish detected ->", "User:", username, "| Fish:", fishName, "| Weight:", weight, "| Price:", price, "| Tier:", tier)
-
-            -- Kirim ke Discord kalau toggle aktif
-            sendFishToDiscord(username, fishName, weight, price, tier)
+                        print("[Webhook] Fish detected ->", "User:", username, "| Fish:", fishName, "| Weight:", weight, "| Price:", price, "| Tier:", tier)
+                        sendFishToDiscord(username, fishName, weight, price, tier)
+                    end
+                end
+            end
         end
     end)
 else
-    warn("[Webhook] InventoryController tidak ditemukan!")
+    warn("[Webhook] Replion Client/Data tidak ditemukan!")
 end
+
 
 end
 Window:SelectTab(1)

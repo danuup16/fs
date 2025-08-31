@@ -2398,8 +2398,6 @@ if success and Client then
 else
     warn("[Webhook] Replion Client/Data tidak ditemukan!")
 end
-
-
 end
 Window:SelectTab(1)
 AutoConfig:Initialize(Fluent)

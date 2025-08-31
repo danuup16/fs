@@ -2989,47 +2989,86 @@ WebhookTab:AddButton({
 end
 do
     local inventoryTab = Tabs.Inventory
-    local isAutoFavoriteActive = false
-    local autoFavoriteConnection = nil
+
     -- Section Auto Favorite
-        inventoryTab:AddSection("Auto Favorite System")
+    inventoryTab:AddSection("Auto Favorite System")
     
     -- Info tentang sistem
     inventoryTab:AddParagraph({
         Title = "Info Auto Favorite",
-        Content = "Sistem ini akan otomatis mem-favorite ikan yang sesuai dengan kategori yang dipilih di tab Webhook. Pastikan sudah memilih kategori ikan di tab Webhook terlebih dahulu."
+        Content = "Sistem ini akan otomatis mem-favorite ikan yang sesuai dengan kategori yang dipilih dibawah ini. Pilih kategori ikan yang ingin di-favorite secara otomatis."
     })
+    
+    -- Multi-Dropdown untuk memilih tier ikan (khusus untuk inventory)
+    local InventoryFishDropdown = inventoryTab:AddDropdown("InventoryFishSelection", {
+        Title = "Pilih Kategori Ikan untuk Auto Favorite",
+        Description = "Pilih kategori ikan yang ingin di-favorite otomatis ketika tertangkap",
+        Values = {"Secret", "Mythic", "Uncommon"},
+        Multi = true,
+        Default = {},
+    })
+
+    -- Event handler untuk dropdown inventory
+    InventoryFishDropdown:OnChanged(function(selectedTiers)
+        -- Reset semua ikan ke false
+        for fishId, _ in pairs(inventoryFishEnabled) do
+            inventoryFishEnabled[fishId] = false
+        end
+        
+        -- Aktifkan semua ikan dari tier yang dipilih
+        for tierName, isSelected in pairs(selectedTiers) do
+            if isSelected then
+                for _, fish in pairs(fishList) do
+                    if fish.tier == tierName then
+                        inventoryFishEnabled[fish.id] = true
+                        print("✅ Mengaktifkan auto favorite untuk:", fish.name, "ID:", fish.id, "Tier:", fish.tier)
+                    end
+                end
+            end
+        end
+        
+        -- Debug: tampilkan ikan yang aktif per tier
+        local tierCounts = {Secret = 0, Mythic = 0, Uncommon = 0}
+        for fishId, enabled in pairs(inventoryFishEnabled) do
+            if enabled then
+                for _, fish in pairs(fishList) do
+                    if fish.id == fishId then
+                        tierCounts[fish.tier] = tierCounts[fish.tier] + 1
+                        break
+                    end
+                end
+            end
+        end
+        
+        print("📊 Ikan aktif per tier (Auto Favorite):")
+        for tier, count in pairs(tierCounts) do
+            if count > 0 then
+                print("  " .. tier .. ":", count, "ikan")
+            end
+        end
+        print("📊 Total ikan aktif:", tierCounts.Secret + tierCounts.Mythic + tierCounts.Uncommon)
+    end)
     
     -- Toggle Auto Favorite
     local AutoFavoriteToggle = inventoryTab:AddToggle("AutoFavorite", {
         Title = "🌟 Auto Favorite Fish",
-        Description = "Otomatis favorite ikan yang dipilih di kategori webhook",
+        Description = "Otomatis favorite ikan yang dipilih di kategori diatas",
         Default = false,
         Callback = function(Value)
             isAutoFavoriteActive = Value
             
             if Value then
-                -- Cek apakah specificFishEnabled sudah diinisialisasi
-                if not specificFishEnabled then
-                    print("❌ Sistem filter belum diinisialisasi!")
-                    print("💡 Buka tab Webhook terlebih dahulu untuk menginisialisasi sistem")
-                    if Options.AutoFavorite then
-                        Options.AutoFavorite:SetValue(false)
-                    end
-                    return
-                end
-                
                 -- Cek apakah ada ikan yang dipilih
                 local activeCount = 0
-                for fishId, enabled in pairs(specificFishEnabled) do
+                for fishId, enabled in pairs(inventoryFishEnabled) do
                     if enabled then
                         activeCount = activeCount + 1
                     end
                 end
                 
                 if activeCount == 0 then
-                    print("❌ Tidak ada ikan yang dipilih di tab Webhook!")
-                    print("💡 Pilih kategori ikan di tab Webhook terlebih dahulu")
+                    print("❌ Tidak ada ikan yang dipilih!")
+                    print("💡 Pilih kategori ikan di dropdown diatas terlebih dahulu")
                     if Options.AutoFavorite then
                         Options.AutoFavorite:SetValue(false)
                     end
@@ -3053,18 +3092,10 @@ do
         Callback = function()
             print("=== STATUS FILTER AUTO FAVORITE ===")
             
-            -- Cek apakah specificFishEnabled sudah diinisialisasi
-            if not specificFishEnabled then
-                print("❌ Sistem filter belum diinisialisasi!")
-                print("💡 Buka tab Webhook terlebih dahulu untuk menginisialisasi sistem")
-                print("=== AKHIR STATUS ===")
-                return
-            end
-            
             local tierCounts = {Secret = 0, Mythic = 0, Uncommon = 0}
             local totalActive = 0
             
-            for fishId, enabled in pairs(specificFishEnabled) do
+            for fishId, enabled in pairs(inventoryFishEnabled) do
                 if enabled then
                     totalActive = totalActive + 1
                     local itemData = getItemData(fishId)
@@ -3083,7 +3114,7 @@ do
             
             if totalActive == 0 then
                 print("❌ TIDAK ADA IKAN YANG AKTIF!")
-                print("💡 Pilih kategori ikan di tab Webhook terlebih dahulu")
+                print("💡 Pilih kategori ikan di dropdown diatas terlebih dahulu")
             else
                 print("📊 Ringkasan per tier:")
                 for tier, count in pairs(tierCounts) do
@@ -3104,15 +3135,8 @@ do
         Title = "🌟 Favorite Ikan Sekarang",
         Description = "Favorite semua ikan yang ada di inventory sesuai filter",
         Callback = function()
-            -- Cek apakah specificFishEnabled sudah diinisialisasi
-            if not specificFishEnabled then
-                print("❌ Sistem filter belum diinisialisasi!")
-                print("💡 Buka tab Webhook terlebih dahulu")
-                return
-            end
-            
             local activeCount = 0
-            for fishId, enabled in pairs(specificFishEnabled) do
+            for fishId, enabled in pairs(inventoryFishEnabled) do
                 if enabled then
                     activeCount = activeCount + 1
                 end
@@ -3120,6 +3144,7 @@ do
             
             if activeCount == 0 then
                 print("❌ Tidak ada ikan yang dipilih di filter!")
+                print("💡 Pilih kategori ikan di dropdown diatas terlebih dahulu")
                 return
             end
             
@@ -3152,7 +3177,7 @@ do
                                                         if itemData and itemData.Type == "Fishes" then
                                                             local fishId = itemInfo.Id
                                                             
-                                                            if specificFishEnabled[fishId] == true then
+                                                            if inventoryFishEnabled[fishId] == true then
                                                                 favoriteCount = favoriteCount + 1
                                                                 print("🌟 Favorite:", itemData.Name)
                                                                 
@@ -3290,18 +3315,11 @@ do
                 return
             end
             
-            -- Cek apakah specificFishEnabled sudah diinisialisasi
-            if not specificFishEnabled then
-                print("❌ Sistem filter belum diinisialisasi!")
-                print("💡 Buka tab Webhook terlebih dahulu")
-                return
-            end
-            
             print("🧪 Test Auto Favorite dimulai...")
             print("📋 Ikan yang akan di-favorite otomatis:")
             
             local activeCount = 0
-            for fishId, enabled in pairs(specificFishEnabled) do
+            for fishId, enabled in pairs(inventoryFishEnabled) do
                 if enabled then
                     activeCount = activeCount + 1
                     local itemData = getItemData(fishId)
@@ -3319,11 +3337,68 @@ do
             
             if activeCount == 0 then
                 print("❌ TIDAK ADA IKAN YANG AKTIF!")
-                print("💡 Pilih kategori ikan di tab Webhook terlebih dahulu")
+                print("💡 Pilih kategori ikan di dropdown diatas terlebih dahulu")
             else
                 print("✅ Total ikan yang akan di-favorite:", activeCount)
                 print("🎣 Tangkap ikan untuk melihat auto favorite bekerja!")
                 print("🔄 Status monitoring:", autoFavoriteConnection and "AKTIF" or "TIDAK AKTIF")
+            end
+        end
+    })
+    
+    -- Tombol preset untuk memilih semua ikan berdasarkan tier (khusus inventory)
+    inventoryTab:AddSection("Quick Selection")
+    
+    inventoryTab:AddButton({
+        Title = "🔥 Pilih Semua Secret",
+        Description = "Aktifkan auto favorite untuk semua ikan Secret",
+        Callback = function()
+            if Options.InventoryFishSelection then
+                Options.InventoryFishSelection:SetValue({Secret = true})
+            end
+        end
+    })
+
+    inventoryTab:AddButton({
+        Title = "⭐ Pilih Semua Mythic",
+        Description = "Aktifkan auto favorite untuk semua ikan Mythic",
+        Callback = function()
+            if Options.InventoryFishSelection then
+                Options.InventoryFishSelection:SetValue({Mythic = true})
+            end
+        end
+    })
+
+    inventoryTab:AddButton({
+        Title = "🟢 Pilih Semua Uncommon",
+        Description = "Aktifkan auto favorite untuk semua ikan Uncommon",
+        Callback = function()
+            if Options.InventoryFishSelection then
+                Options.InventoryFishSelection:SetValue({Uncommon = true})
+            end
+        end
+    })
+
+    inventoryTab:AddButton({
+        Title = "🌟 Pilih Semua Kategori",
+        Description = "Aktifkan auto favorite untuk semua kategori ikan",
+        Callback = function()
+            if Options.InventoryFishSelection then
+                Options.InventoryFishSelection:SetValue({
+                    Secret = true,
+                    Mythic = true,
+                    Uncommon = true
+                })
+            end
+        end
+    })
+
+    inventoryTab:AddButton({
+        Title = "❌ Hapus Semua Pilihan",
+        Description = "Nonaktifkan auto favorite untuk semua ikan",
+        Callback = function()
+            if Options.InventoryFishSelection then
+                Options.InventoryFishSelection:SetValue({})
             end
         end
     })
@@ -3388,7 +3463,7 @@ function startAutoFavoriteMonitoring()
                                                         if itemData and itemData.Type == "Fishes" then
                                                             local fishId = itemInfo.Id
                                                             
-                                                            if specificFishEnabled[fishId] == true then
+                                                            if inventoryFishEnabled[fishId] == true then
                                                                 print("🌟 Auto favorite ikan:", itemData.Name, "UUID:", uuid)
                                                                 
                                                                 -- Kirim favorite request

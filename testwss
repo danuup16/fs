@@ -3235,165 +3235,188 @@ do
         end
     })
     
-    -- Tombol untuk favorite semua ikan di inventory sekarang
-    inventoryTab:AddButton({
-        Title = "🌟 Favorite Ikan Sekarang",
-        Description = "Favorite semua ikan yang ada di inventory sesuai filter",
-        Callback = function()
-            local activeCount = 0
-            for fishId, enabled in pairs(inventoryFishEnabled) do
-                if enabled then
-                    activeCount = activeCount + 1
-                end
+    local function manualFavoriteItem(uuid, itemName)
+    local success, error = pcall(function()
+        local ReplicatedStorage = game:GetService("ReplicatedStorage")
+        local netFolder = ReplicatedStorage.Packages._Index:FindFirstChild("sleitnick_net@0.2.0")
+        if netFolder and netFolder:FindFirstChild("net") then
+            local FavoriteItemEvent = netFolder.net:FindFirstChild("RE/FavoriteItem")
+            if FavoriteItemEvent then
+                FavoriteItemEvent:FireServer(uuid)
+                print("✅ Manual favorite berhasil:", itemName or "Unknown Item")
+                return true
             end
-            
-            if activeCount == 0 then
-                print("❌ Tidak ada ikan yang dipilih di filter!")
-                return
+        end
+        return false
+    end)
+    
+    if not success then
+        warn("❌ Manual favorite gagal:", error)
+    end
+    return success
+end
+
+-- Update tombol "Favorite Ikan Sekarang" untuk menggunakan path yang benar
+-- Ganti bagian callback tombol "Favorite Ikan Sekarang" dengan ini:
+
+inventoryTab:AddButton({
+    Title = "🌟 Favorite Ikan Sekarang",
+    Description = "Favorite semua ikan yang ada di inventory sesuai filter",
+    Callback = function()
+        local activeCount = 0
+        for fishId, enabled in pairs(inventoryFishEnabled) do
+            if enabled then
+                activeCount = activeCount + 1
             end
+        end
+        
+        if activeCount == 0 then
+            print("❌ Tidak ada ikan yang dipilih di filter!")
+            return
+        end
+        
+        print("🔄 Mencari ikan di inventory untuk di-favorite...")
+        
+        local success, error = pcall(function()
+            local ReplicatedStorage = game:GetService("ReplicatedStorage")
+            local replionPackage = ReplicatedStorage:FindFirstChild("Packages")
             
-            print("🔄 Mencari ikan di inventory untuk di-favorite...")
-            
-            local success, error = pcall(function()
-                local ReplicatedStorage = game:GetService("ReplicatedStorage")
-                local replionPackage = ReplicatedStorage:FindFirstChild("Packages")
-                
+            if replionPackage then
+                replionPackage = replionPackage:FindFirstChild("_Index")
                 if replionPackage then
-                    replionPackage = replionPackage:FindFirstChild("_Index")
-                    if replionPackage then
-                        for _, folder in pairs(replionPackage:GetChildren()) do
-                            if string.find(folder.Name:lower(), "replion") then
-                                local replionModule = folder:FindFirstChild("replion")
-                                if replionModule then
-                                    local Replion = require(replionModule)
-                                    local Client = Replion.Client
-                                    local dataReplion = Client:WaitReplion("Data")
-                                    local inventory = dataReplion:Get("Inventory")
+                    for _, folder in pairs(replionPackage:GetChildren()) do
+                        if string.find(folder.Name:lower(), "replion") then
+                            local replionModule = folder:FindFirstChild("replion")
+                            if replionModule then
+                                local Replion = require(replionModule)
+                                local Client = Replion.Client
+                                local dataReplion = Client:WaitReplion("Data")
+                                local inventory = dataReplion:Get("Inventory")
+                                
+                                if inventory then
+                                    local favoriteCount = 0
+                                    local favoriteQueue = {} -- Queue untuk batch processing
                                     
-                                    if inventory then
-                                        local favoriteCount = 0
-                                        for category, items in pairs(inventory) do
-                                            if type(items) == "table" then
-                                                for uuid, itemInfo in pairs(items) do
-                                                    if itemInfo.Id and not itemInfo.Favorited then
-                                                        local itemData = getInventoryItemData(itemInfo.Id)
+                                    -- Kumpulkan semua ikan yang perlu di-favorite
+                                    for category, items in pairs(inventory) do
+                                        if type(items) == "table" then
+                                            for uuid, itemInfo in pairs(items) do
+                                                if itemInfo.Id and not itemInfo.Favorited then
+                                                    local itemData = getInventoryItemData(itemInfo.Id)
+                                                    
+                                                    if itemData and itemData.Type == "Fishes" then
+                                                        local fishId = itemInfo.Id
                                                         
-                                                        if itemData and itemData.Type == "Fishes" then
-                                                            local fishId = itemInfo.Id
-                                                            
-                                                            if inventoryFishEnabled[fishId] == true then
-                                                                favoriteCount = favoriteCount + 1
-                                                                print("🌟 Favorite:", itemData.Name or "Unknown Fish")
-                                                                
-                                                                spawn(function()
-                                                                    wait(favoriteCount * 0.2)
-                                                                    
-                                                                    -- Gunakan Net system yang sesuai InventoryController
-                                                                    local Net = require(ReplicatedStorage.Packages.Net)
-                                                                    local FavoriteItemEvent = Net:RemoteEvent("FavoriteItem")
-                                                                    if FavoriteItemEvent then
-                                                                        FavoriteItemEvent:FireServer(uuid)
-                                                                    end
-                                                                end)
-                                                            end
+                                                        if inventoryFishEnabled[fishId] == true then
+                                                            favoriteCount = favoriteCount + 1
+                                                            table.insert(favoriteQueue, {
+                                                                uuid = uuid,
+                                                                name = itemData.Name or "Unknown Fish"
+                                                            })
                                                         end
                                                     end
                                                 end
                                             end
                                         end
-                                        
-                                        if favoriteCount > 0 then
-                                            print("✅ Berhasil memproses", favoriteCount, "ikan untuk di-favorite")
-                                        else
-                                            print("ℹ️ Tidak ada ikan yang perlu di-favorite")
-                                        end
                                     end
-                                    break
+                                    
+                                    -- Process queue dengan delay
+                                    if #favoriteQueue > 0 then
+                                        print("🌟 Memproses", #favoriteQueue, "ikan untuk di-favorite...")
+                                        
+                                        for i, fishData in ipairs(favoriteQueue) do
+                                            spawn(function()
+                                                wait((i - 1) * 0.3) -- Delay 0.3 detik per ikan
+                                                manualFavoriteItem(fishData.uuid, fishData.name)
+                                            end)
+                                        end
+                                        
+                                        print("✅ Berhasil memproses", favoriteCount, "ikan untuk di-favorite")
+                                    else
+                                        print("ℹ️ Tidak ada ikan yang perlu di-favorite")
+                                    end
                                 end
+                                break
                             end
                         end
                     end
                 end
-            end)
-            
-            if not success then
-                warn("❌ Error saat favorite ikan:", error)
             end
+        end)
+        
+        if not success then
+            warn("❌ Error saat favorite ikan:", error)
         end
-    })
+    end
+})
+
     
     -- Section untuk management favorite
     inventoryTab:AddSection("Favorite Management")
-    
-    -- Tombol untuk unfavorite semua ikan
-    inventoryTab:AddButton({
-        Title = "💔 Unfavorite Semua Ikan",
-        Description = "Hapus favorite dari semua ikan di inventory",
-        Callback = function()
-            print("🔄 Mencari ikan yang di-favorite untuk dihapus...")
+   inventoryTab:AddButton({
+    Title = "💔 Unfavorite Semua Ikan",
+    Description = "Hapus favorite dari semua ikan di inventory",
+    Callback = function()
+        print("🔄 Mencari ikan yang di-favorite untuk dihapus...")
+        
+        local success, error = pcall(function()
+            local ReplicatedStorage = game:GetService("ReplicatedStorage")
+            local replionPackage = ReplicatedStorage:FindFirstChild("Packages")
             
-            local success, error = pcall(function()
-                local ReplicatedStorage = game:GetService("ReplicatedStorage")
-                local replionPackage = ReplicatedStorage:FindFirstChild("Packages")
-                
+            if replionPackage then
+                replionPackage = replionPackage:FindFirstChild("_Index")
                 if replionPackage then
-                    replionPackage = replionPackage:FindFirstChild("_Index")
-                    if replionPackage then
-                        for _, folder in pairs(replionPackage:GetChildren()) do
-                            if string.find(folder.Name:lower(), "replion") then
-                                local replionModule = folder:FindFirstChild("replion")
-                                if replionModule then
-                                    local Replion = require(replionModule)
-                                    local Client = Replion.Client
-                                    local dataReplion = Client:WaitReplion("Data")
-                                    local inventory = dataReplion:Get("Inventory")
+                    for _, folder in pairs(replionPackage:GetChildren()) do
+                        if string.find(folder.Name:lower(), "replion") then
+                            local replionModule = folder:FindFirstChild("replion")
+                            if replionModule then
+                                local Replion = require(replionModule)
+                                local Client = Replion.Client
+                                local dataReplion = Client:WaitReplion("Data")
+                                local inventory = dataReplion:Get("Inventory")
+                                
+                                if inventory then
+                                    local unfavoriteCount = 0
                                     
-                                    if inventory then
-                                        local unfavoriteCount = 0
-                                        for category, items in pairs(inventory) do
-                                            if type(items) == "table" then
-                                                for uuid, itemInfo in pairs(items) do
-                                                    if itemInfo.Id and itemInfo.Favorited then
-                                                        local itemData = getInventoryItemData(itemInfo.Id)
+                                    for category, items in pairs(inventory) do
+                                        if type(items) == "table" then
+                                            for uuid, itemInfo in pairs(items) do
+                                                if itemInfo.Id and itemInfo.Favorited then
+                                                    local itemData = getInventoryItemData(itemInfo.Id)
+                                                    
+                                                    if itemData and itemData.Type == "Fishes" then
+                                                        unfavoriteCount = unfavoriteCount + 1
+                                                        print("💔 Unfavorite:", itemData.Name or "Unknown Fish")
                                                         
-                                                        if itemData and itemData.Type == "Fishes" then
-                                                            unfavoriteCount = unfavoriteCount + 1
-                                                            print("💔 Unfavorite:", itemData.Name or "Unknown Fish")
-                                                            
-                                                            spawn(function()
-                                                                wait(unfavoriteCount * 0.1)
-                                                                
-                                                                local Net = require(ReplicatedStorage.Packages.Net)
-                                                                local FavoriteItemEvent = Net:RemoteEvent("FavoriteItem")
-                                                                if FavoriteItemEvent then
-                                                                    FavoriteItemEvent:FireServer(uuid)
-                                                                end
-                                                            end)
-                                                        end
+                                                        spawn(function()
+                                                            wait(unfavoriteCount * 0.2)
+                                                            manualFavoriteItem(uuid, itemData.Name or "Unknown Fish")
+                                                        end)
                                                     end
                                                 end
                                             end
                                         end
-                                        
-                                        if unfavoriteCount > 0 then
-                                            print("✅ Berhasil memproses", unfavoriteCount, "ikan untuk di-unfavorite")
-                                        else
-                                            print("ℹ️ Tidak ada ikan yang di-favorite")
-                                        end
                                     end
-                                    break
+                                    
+                                    if unfavoriteCount > 0 then
+                                        print("✅ Berhasil memproses", unfavoriteCount, "ikan untuk di-unfavorite")
+                                    else
+                                        print("ℹ️ Tidak ada ikan yang di-favorite")
+                                    end
                                 end
+                                break
                             end
                         end
                     end
                 end
-            end)
-            
-            if not success then
-                warn("❌ Error saat unfavorite ikan:", error)
             end
+        end)
+        
+        if not success then
+            warn("❌ Error saat unfavorite ikan:", error)
         end
-    })
+    end
+})
     
     -- Tombol test auto favorite
     inventoryTab:AddButton({
@@ -3585,7 +3608,8 @@ function startAutoFavoriteMonitoring()
                             local dataReplion = Client:WaitReplion("Data")
                             
                             local lastProcessTime = 0
-                            local processingCooldown = 3 -- Perpanjang ke 3 detik
+                            local processingCooldown = 1 -- Kembali ke 1 detik
+                            local pendingFavorites = {} -- Track UUID yang sedang diproses
                             
                             autoFavoriteConnection = dataReplion:OnChange("Inventory", function(newInventory, oldInventory)
                                 if not isAutoFavoriteActive or not newInventory then
@@ -3614,8 +3638,8 @@ function startAutoFavoriteMonitoring()
                                                         end
                                                     end
                                                     
-                                                    -- Jika item baru dan belum difavorite
-                                                    if isNewItem and itemInfo.Id and not itemInfo.Favorited then
+                                                    -- Jika item baru, belum difavorite, dan belum dalam pending
+                                                    if isNewItem and itemInfo.Id and not itemInfo.Favorited and not pendingFavorites[uuid] then
                                                         local itemData = getInventoryItemData(itemInfo.Id)
                                                         
                                                         -- Cek apakah ini ikan dan ada dalam filter yang aktif
@@ -3624,24 +3648,52 @@ function startAutoFavoriteMonitoring()
                                                             
                                                             if inventoryFishEnabled[fishId] == true then
                                                                 print("🌟 Auto favorite ikan:", itemData.Name or "Unknown Fish", "UUID:", uuid)
+                                                                pendingFavorites[uuid] = true -- Mark sebagai pending
                                                                 
-                                                                -- Kirim favorite request dengan Net system
+                                                                -- Kirim favorite request langsung tanpa delay
                                                                 spawn(function()
-                                                                    wait(2) -- Delay lebih lama
-                                                                    
                                                                     local favoriteSuccess, favoriteError = pcall(function()
-                                                                        local Net = require(ReplicatedStorage.Packages.Net)
-                                                                        local FavoriteItemEvent = Net:RemoteEvent("FavoriteItem")
-                                                                        if FavoriteItemEvent then
-                                                                            FavoriteItemEvent:FireServer(uuid)
-                                                                            print("✅ Berhasil favorite:", itemData.Name or "Unknown Fish")
+                                                                        -- Gunakan path yang sama dengan SimpleSpy
+                                                                        local netFolder = ReplicatedStorage.Packages._Index:FindFirstChild("sleitnick_net@0.2.0")
+                                                                        if netFolder and netFolder:FindFirstChild("net") then
+                                                                            local FavoriteItemEvent = netFolder.net:FindFirstChild("RE/FavoriteItem")
+                                                                            if FavoriteItemEvent then
+                                                                                FavoriteItemEvent:FireServer(uuid)
+                                                                                print("✅ Berhasil favorite:", itemData.Name or "Unknown Fish")
+                                                                                
+                                                                                -- Tunggu update dari server
+                                                                                spawn(function()
+                                                                                    wait(5) -- Tunggu 5 detik untuk server update
+                                                                                    pendingFavorites[uuid] = nil -- Remove from pending
+                                                                                    
+                                                                                    -- Cek apakah berhasil
+                                                                                    local currentInventory = dataReplion:Get("Inventory")
+                                                                                    if currentInventory then
+                                                                                        for cat, itms in pairs(currentInventory) do
+                                                                                            if type(itms) == "table" and itms[uuid] then
+                                                                                                if itms[uuid].Favorited then
+                                                                                                    print("✅ Konfirmasi: Ikan berhasil ter-favorite")
+                                                                                                else
+                                                                                                    print("⚠️ Warning: Ikan belum ter-favorite di server")
+                                                                                                end
+                                                                                                break
+                                                                                            end
+                                                                                        end
+                                                                                    end
+                                                                                end)
+                                                                            else
+                                                                                warn("❌ FavoriteItem RemoteEvent tidak ditemukan")
+                                                                                pendingFavorites[uuid] = nil
+                                                                            end
                                                                         else
-                                                                            warn("❌ FavoriteItem RemoteEvent tidak ditemukan")
+                                                                            warn("❌ Net folder tidak ditemukan")
+                                                                            pendingFavorites[uuid] = nil
                                                                         end
                                                                     end)
                                                                     
                                                                     if not favoriteSuccess then
                                                                         warn("❌ Gagal favorite ikan:", favoriteError)
+                                                                        pendingFavorites[uuid] = nil
                                                                     end
                                                                 end)
                                                             end
@@ -3676,6 +3728,7 @@ function startAutoFavoriteMonitoring()
         return false
     end
 end
+
 
 -- Fungsi untuk menghentikan monitoring auto favorite
 function stopAutoFavoriteMonitoring()

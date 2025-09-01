@@ -968,10 +968,10 @@ local function performNaturalFishingCycle()
             if currentGUID then
                 controller:RequestFishingMinigameClick()
             else
-                -- task.wait(0.5)
+                 task.wait(0.5)
                 --  print('ya')
                 local stillInFishing = controller:GetCurrentGUID()
-                if not stillInFishing and waitTime > 0 then
+                if not stillInFishing and waitTime > 1 then
                     break
                 end
             end

@@ -129,52 +129,97 @@ local function lDigest(input)
 end
 
 local host = "https://api.platoboost.com";
+local backupHosts = {
+    "https://api.platoboost.com",
+    "https://api.platoboost.net",
+    "https://platoboost.com/api",
+    "https://platoboost.net/api"
+}
 
--- Parallel host check
-task.spawn(function()
-    local hostResponse = fRequest({
-        Url = host .. "/public/connectivity",
-        Method = "GET",
-        Timeout = 3
-    });
-    if hostResponse.StatusCode ~= 200 and hostResponse.StatusCode ~= 429 then
-        host = "https://api.platoboost.net";
+-- Enhanced host check with multiple fallbacks
+local function findWorkingHost()
+    for _, testHost in ipairs(backupHosts) do
+        local success, response = pcall(function()
+            return fRequest({
+                Url = testHost .. "/public/connectivity",
+                Method = "GET",
+                Timeout = 8
+            });
+        end)
+        
+        if success and response and (response.StatusCode == 200 or response.StatusCode == 429) then
+            host = testHost
+            print("Using host:", host)
+            return true
+        end
     end
-end)
+    return false
+end
+
+-- Try to find working host in background
+task.spawn(findWorkingHost)
 
 function cacheLink()
     if cachedTime + (10*60) < fOsTime() then
-        local response = fRequest({
-            Url = host .. "/public/start",
-            Method = "POST",
-            Body = lEncode({
-                service = service,
-                identifier = lDigest(fGetHwid())
-            }),
-            Headers = {
-                ["Content-Type"] = "application/json"
-            },
-            Timeout = 5
-        });
+        -- Wait a bit for host check to complete
+        task.wait(1)
+        
+        local success, response = pcall(function()
+            return fRequest({
+                Url = host .. "/public/start",
+                Method = "POST",
+                Body = lEncode({
+                    service = service,
+                    identifier = lDigest(fGetHwid())
+                }),
+                Headers = {
+                    ["Content-Type"] = "application/json"
+                },
+                Timeout = 10
+            });
+        end)
 
-        if response.StatusCode == 200 then
-            local decoded = lDecode(response.Body);
+        if not success then
+            -- Try to find working host again
+            if findWorkingHost() then
+                success, response = pcall(function()
+                    return fRequest({
+                        Url = host .. "/public/start",
+                        Method = "POST",
+                        Body = lEncode({
+                            service = service,
+                            identifier = lDigest(fGetHwid())
+                        }),
+                        Headers = {
+                            ["Content-Type"] = "application/json"
+                        },
+                        Timeout = 10
+                    });
+                end)
+            end
+        end
 
-            if decoded.success == true then
+        if success and response and response.StatusCode == 200 then
+            local decodeSuccess, decoded = pcall(function()
+                return lDecode(response.Body);
+            end)
+
+            if decodeSuccess and decoded and decoded.success == true then
                 cachedLink = decoded.data.url;
                 cachedTime = fOsTime();
                 return true, cachedLink;
             else
-                onMessage(decoded.message);
-                return false, decoded.message;
+                local msg = decoded and decoded.message or "Failed to decode response";
+                onMessage(msg);
+                return false, msg;
             end
-        elseif response.StatusCode == 429 then
+        elseif success and response and response.StatusCode == 429 then
             local msg = "you are being rate limited, please wait 20 seconds and try again.";
             onMessage(msg);
             return false, msg;
         end
 
-        local msg = "Failed to cache link.";
+        local msg = "Failed to connect to server. Please check your internet connection.";
         onMessage(msg);
         return false, msg;
     else

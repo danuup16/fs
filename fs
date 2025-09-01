@@ -190,7 +190,7 @@ end
 
 -- Window Creation
 local Window = Fluent:CreateWindow({
-    Title = "#DJSTEST - FISH IT V.0.7",
+    Title = "#DJSTEST - FISH IT V.0.8",
     SubTitle = "  https://discord.gg/uwXYuxj6cF",
     TabWidth = 160,
     Size = UDim2.fromOffset(650, 400),

@@ -1163,7 +1163,8 @@ local function startAutoFarm()
       if selectedFarmMethodV1 == "V1" then
          Options.AutoFishing:SetValue(true)
       else
-         Options.AutoFishingV2:SetValue(true)
+          Options.AutoFishingV2:SetValue(true)
+          Options.AutoClickV2:SetValue(true)
       end
 
       spawn(function()
@@ -1198,7 +1199,9 @@ local function startAutoFarm()
 end
 local function stopAutoFarm()
    isAutoFarmActive = false
-   Options.AutoFishing:SetValue(false) 
+   Options.AutoFishing:SetValue(false)
+   Options.AutoFishingV2:SetValue(false)
+    Options.AutoClickV2:SetValue(false)
 end
 local FarmMethodV1Dropdown = Tabs.Fishing:AddDropdown("FarmMethodV1", {
     Title = "Select Auto Fishing",
@@ -1342,6 +1345,8 @@ end)
 local function stopAutoFarmV2()
     isAutoFarmV2Active = false
     Options.AutoFishing:SetValue(false)
+    Options.AutoFishingV2:SetValue(false)
+    Options.AutoClickV2:SetValue(false)
 end
 
 local AutoFarmV2Toggle = Tabs.Fishing:AddToggle("AutoFarmV2", {

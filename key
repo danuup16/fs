@@ -201,23 +201,11 @@ end
 local copyLink = function()
     local success, link = cacheLink();
     
-    if success and link then
-        if fSetClipboard then
-            pcall(function() fSetClipboard(link) end)
-            onMessage("Link copied! Paste in your browser.")
-            return true
-        else
-            -- fallback kalau executor tidak support clipboard
-            onMessage("Copy this link manually:\n" .. link)
-            return true
-        end
-    else
-        onMessage("Failed to generate link. Check connection / executor.")
-        return false
+    if success then
+        print("SetClipBoard")
+        fSetClipboard(link);
     end
 end
-
-
 
 local redeemKey = function(key)
     local nonce = generateNonce();
@@ -759,18 +747,21 @@ task.spawn(function()
         end	
     end)
 
-GetKeyBtn.MouseButton1Click:Connect(function() 
-    ResultText.Text = "Copying link to clipboard..."
-    local success = copyLink()
-    if success then
-        ResultText.Text = "Link copied! Paste in your browser."
-    else
-        ResultText.Text = "Failed to copy link! Try again."
-    end
-    task.wait(3)
-    ResultText.Text = ""
-end)
-
+    GetKeyBtn.MouseButton1Click:Connect(function() 
+        ResultText.Text = "Copying link to clipboard..."
+        local success, err = pcall(function()
+            copyLink()
+        end)
+        if success then
+            ResultText.Text = "Link copied! Paste in your browser."
+            task.wait(3)
+            ResultText.Text = ""
+        else
+            ResultText.Text = "Failed to copy link!"
+            task.wait(2)
+            ResultText.Text = ""
+        end
+    end)
 
     CloseBtn.MouseButton1Click:Connect(function()
         if KeySystemGui then

@@ -971,7 +971,7 @@ local function performNaturalFishingCycle()
                 -- task.wait(0.5)
                 -- print('yayaa')
                 local stillInFishing = controller:GetCurrentGUID()
-                if not stillInFishing and waitTime > 2 then
+                if not stillInFishing and waitTime > 1 then
                     break
                 end
             end

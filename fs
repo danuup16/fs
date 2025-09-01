@@ -2858,7 +2858,7 @@ WebhookTab:AddButton({
             Weight = {Default = {Min = 419600, Max = 486470}},
             Probability = {Chance = 0.05}
         }
-        sendWebhook("Robot Kraken", testData, 419600, false, nil)
+        sendWebhook("TEST Robot Kraken", testData, 419600, false, nil)
         end
     })
 end

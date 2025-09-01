@@ -1,0 +1,800 @@
+if game.PlaceId == 121864768012064 then ---ikan
+local service = "5692";--Set your Platoboost Id 
+local secret = "060a0918-7a9a-4ec4-9158-e9dbe780bedc"; --Set Your Platoboost Api key
+local useNonce = true; 
+local onMessage = function(message)  game:GetService("StarterGui"):SetCore("ChatMakeSystemMessage", { Text = message; }) end;
+
+-- Key Storage Configuration
+local STORAGE_FOLDER = "djsstore"
+local KEY_FILE = "djskey.txt"
+
+repeat task.wait(0.1) until game:IsLoaded() and game.Players.LocalPlayer;
+
+local requestSending = false;
+local fSetClipboard, fRequest, fStringChar, fToString, fStringSub, fOsTime, fMathRandom, fMathFloor, fGetHwid = setclipboard or toclipboard, request or http_request, string.char, tostring, string.sub, os.time, math.random, math.floor, gethwid or function() return game:GetService("Players").LocalPlayer.UserId end
+local cachedLink, cachedTime = "", 0;
+local HttpService = game:GetService("HttpService")
+
+-- Check if clipboard is available
+local function isClipboardAvailable()
+    return fSetClipboard ~= nil
+end
+
+-- File Management Functions
+local function ensureFolder()
+    if not isfolder then return false end
+    if not isfolder(STORAGE_FOLDER) then
+        makefolder(STORAGE_FOLDER)
+    end
+    return true
+end
+
+local function saveKeyToFile(key)
+    if not writefile then 
+        print("File system not supported")
+        return false 
+    end
+    
+    ensureFolder()
+    local filePath = STORAGE_FOLDER .. "/" .. KEY_FILE
+    
+    local success, err = pcall(function()
+        writefile(filePath, key)
+    end)
+    
+    if success then
+        print("Key saved successfully:", string.sub(key, 1, 8) .. "...")
+        return true
+    else
+        print("Failed to save key:", err)
+        return false
+    end
+end
+
+local function loadKeyFromFile()
+    if not readfile or not isfile then 
+        print("File system not supported")
+        return nil 
+    end
+    
+    local filePath = STORAGE_FOLDER .. "/" .. KEY_FILE
+    
+    if not isfile(filePath) then
+        print("No saved key found")
+        return nil
+    end
+    
+    local success, key = pcall(function()
+        return readfile(filePath)
+    end)
+    
+    if success and key and key ~= "" then
+        if #key > 5 then
+            print("Loaded saved key:", string.sub(key, 1, 8) .. "...")
+            return key
+        else
+            print("Invalid key format in file")
+            return nil
+        end
+    else
+        print("Failed to load key")
+        return nil
+    end
+end
+
+local function deleteKeyFile()
+    if not delfile or not isfile then return false end
+    
+    local filePath = STORAGE_FOLDER .. "/" .. KEY_FILE
+    
+    if isfile(filePath) then
+        local success, err = pcall(function()
+            delfile(filePath)
+        end)
+        
+        if success then
+            print("Key file deleted")
+            return true
+        else
+            print("Failed to delete key file:", err)
+            return false
+        end
+    end
+    
+    return false
+end
+
+function lEncode(data)
+    return HttpService:JSONEncode(data)
+end
+
+function lDecode(data)
+    return HttpService:JSONDecode(data)
+end
+
+local function lDigest(input)
+    local inputStr = tostring(input)
+    
+    local hash = {}
+    for i = 1, #inputStr do
+        table.insert(hash, string.byte(inputStr, i))
+    end
+
+    local hashHex = ""
+    for _, byte in ipairs(hash) do
+        hashHex = hashHex .. string.format("%02x", byte)
+    end
+    
+    return hashHex
+end
+
+local host = "https://api.platoboost.com";
+
+-- Parallel host check
+task.spawn(function()
+    local hostResponse = fRequest({
+        Url = host .. "/public/connectivity",
+        Method = "GET",
+        Timeout = 3
+    });
+    if hostResponse.StatusCode ~= 200 and hostResponse.StatusCode ~= 429 then
+        host = "https://api.platoboost.net";
+    end
+end)
+
+function cacheLink()
+    if cachedTime + (10*60) < fOsTime() then
+        local response = fRequest({
+            Url = host .. "/public/start",
+            Method = "POST",
+            Body = lEncode({
+                service = service,
+                identifier = lDigest(fGetHwid())
+            }),
+            Headers = {
+                ["Content-Type"] = "application/json"
+            },
+            Timeout = 5
+        });
+
+        if response.StatusCode == 200 then
+            local decoded = lDecode(response.Body);
+
+            if decoded.success == true then
+                cachedLink = decoded.data.url;
+                cachedTime = fOsTime();
+                return true, cachedLink;
+            else
+                onMessage(decoded.message);
+                return false, decoded.message;
+            end
+        elseif response.StatusCode == 429 then
+            local msg = "you are being rate limited, please wait 20 seconds and try again.";
+            onMessage(msg);
+            return false, msg;
+        end
+
+        local msg = "Failed to cache link.";
+        onMessage(msg);
+        return false, msg;
+    else
+        return true, cachedLink;
+    end
+end
+
+-- Start caching link in background
+task.spawn(cacheLink)
+
+local generateNonce = function()
+    local str = ""
+    for _ = 1, 16 do
+        str = str .. fStringChar(fMathFloor(fMathRandom() * (122 - 97 + 1)) + 97)
+    end
+    return str
+end
+
+-- Reduced nonce validation
+for _ = 1, 2 do
+    local oNonce = generateNonce();
+    task.wait(0.1)
+    if generateNonce() == oNonce then
+        local msg = "platoboost nonce error.";
+        onMessage(msg);
+        error(msg);
+    end
+end
+
+-- Modified copyLink function with better error handling
+local copyLink = function()
+    local success, link = cacheLink();
+    
+    if success then
+        if isClipboardAvailable() then
+            local clipboardSuccess, clipboardError = pcall(function()
+                fSetClipboard(link);
+            end)
+            
+            if clipboardSuccess then
+                return true, "Link copied successfully!"
+            else
+                return false, "Clipboard not working, here's the link: " .. link
+            end
+        else
+            -- For mobile/emulator, return the link directly
+            return false, "Copy this link: " .. link
+        end
+    else
+        return false, "Failed to get link: " .. (link or "Unknown error")
+    end
+end
+
+local redeemKey = function(key)
+    local nonce = generateNonce();
+    local endpoint = host .. "/public/redeem/" .. fToString(service);
+
+    local body = {
+        identifier = lDigest(fGetHwid()),
+        key = key
+    }
+
+    if useNonce then
+        body.nonce = nonce;
+    end
+
+    local response = fRequest({
+        Url = endpoint,
+        Method = "POST",
+        Body = lEncode(body),
+        Headers = {
+            ["Content-Type"] = "application/json"
+        },
+        Timeout = 5
+    });
+
+    if response.StatusCode == 200 then
+        local decoded = lDecode(response.Body);
+        if decoded.success == true then
+            if decoded.data.valid == true then
+                if useNonce then
+                    if decoded.data.hash == lDigest("true" .. "-" .. nonce .. "-" .. secret) then
+                        return true;
+                    else
+                        onMessage("failed to verify integrity.");
+                        return false;
+                    end    
+                else
+                    return true;
+                end
+            else
+                onMessage("key is invalid.");
+                return false;
+            end
+        else
+            if fStringSub(decoded.message, 1, 27) == "unique constraint violation" then
+                onMessage("you already have an active key, please wait for it to expire before redeeming it.");
+                return false;
+            else
+                onMessage(decoded.message);
+                return false;
+            end
+        end
+    elseif response.StatusCode == 429 then
+        onMessage("you are being rate limited, please wait 20 seconds and try again.");
+        return false;
+    else
+        onMessage("server returned an invalid status code, please try again later.");
+        return false; 
+    end
+end
+
+local verifyKey = function(key)
+    if requestSending == true then
+        onMessage("a request is already being sent, please slow down.");
+        return false;
+    else
+        requestSending = true;
+    end
+
+    local nonce = generateNonce();
+    local endpoint = host .. "/public/whitelist/" .. fToString(service) .. "?identifier=" .. lDigest(fGetHwid()) .. "&key=" .. key;
+
+    if useNonce then
+        endpoint = endpoint .. "&nonce=" .. nonce;
+    end
+    
+    local response = fRequest({
+        Url = endpoint,
+        Method = "GET",
+        Timeout = 5
+    });
+
+    requestSending = false;
+
+    if response.StatusCode == 200 then
+        local decoded = lDecode(response.Body);
+        if decoded.success == true then
+            if decoded.data.valid == true then
+                if useNonce then
+                    saveKeyToFile(key)
+                    return true;
+                else
+                    saveKeyToFile(key)
+                    return true;
+                end
+            else
+                -- Check for different key types (FREE, KEY for gifts, VIP, etc.)
+                local keyPrefix4 = fStringSub(key, 1, 4)
+                local keyPrefix5 = fStringSub(key, 1, 5)
+                if keyPrefix4 == "FREE_" or keyPrefix4 == "KEY_" or keyPrefix4 == "VIP_" then
+                    local redeemResult = redeemKey(key);
+                    if redeemResult then
+                        saveKeyToFile(key)
+                        if keyPrefix4 == "KEY_" then
+                            onMessage("Gift key redeemed successfully!")
+                        elseif keyPrefix4 == "FREE_" then
+                            onMessage("Free key redeemed successfully!")
+                        elseif keyPrefix4 == "VIP_" then
+                            onMessage("VIP key redeemed successfully!")
+                        end
+                    end
+                    return redeemResult;
+                else
+                    onMessage("key is invalid.");
+                    deleteKeyFile()
+                    return false;
+                end
+            end
+        else
+            onMessage(decoded.message);
+            return false;
+        end
+    elseif response.StatusCode == 429 then
+        onMessage("you are being rate limited, please wait 20 seconds and try again.");
+        return false;
+    else
+        onMessage("server returned an invalid status code, please try again later.");
+        return false;
+    end
+end
+
+local getFlag = function(name)
+    local nonce = generateNonce();
+    local endpoint = host .. "/public/flag/" .. fToString(service) .. "?name=" .. name;
+
+    if useNonce then
+        endpoint = endpoint .. "&nonce=" .. nonce;
+    end
+
+    local response = fRequest({
+        Url = endpoint,
+        Method = "GET",
+        Timeout = 5
+    });
+
+    if response.StatusCode == 200 then
+        local decoded = lDecode(response.Body);
+        if decoded.success == true then
+            if useNonce then
+                if decoded.data.hash == lDigest(fToString(decoded.data.value) .. "-" .. nonce .. "-" .. secret) then
+                    return decoded.data.value;
+                else
+                    onMessage("failed to verify integrity.");
+                    return nil;
+                end
+            else
+                return decoded.data.value;
+            end
+        else
+            onMessage(decoded.message);
+            return nil;
+        end
+    else
+        return nil;
+    end
+end
+
+local function autoCheckSavedKey()
+    local savedKey = loadKeyFromFile()
+    
+    if not savedKey then
+        return false
+    end
+    
+    onMessage("Checking saved key...")
+    
+    local success, result = pcall(function()
+        return verifyKey(savedKey)
+    end)
+    
+    if success and result then
+        onMessage("Loading script...")
+        
+        -- Load main script immediately
+        task.spawn(function()
+            local scriptSuccess, scriptError = pcall(function()
+                loadstring(game:HttpGet("https://raw.githubusercontent.com/danuup16/fs/refs/heads/main/fs"))()
+            end)
+            
+            if not scriptSuccess then
+                print("Error loading script:", scriptError)
+            end
+        end)
+        
+        return true
+    else
+        onMessage("Saved key expired or invalid. Please enter a new key.")
+        return false
+    end
+end
+
+if autoCheckSavedKey() then
+    return
+end
+
+task.spawn(function()
+    -- Create new UI with updated design
+    local KeySystemGui = Instance.new("ScreenGui")
+    local Frame = Instance.new("Frame")
+    local UICorner = Instance.new("UICorner")
+    local UIGradient = Instance.new("UIGradient")
+    local LogoKey = Instance.new("ImageLabel")
+    local UIAspectRatioConstraint = Instance.new("UIAspectRatioConstraint")
+    local GetKeyBtn = Instance.new("TextButton")
+    local UICorner_2 = Instance.new("UICorner")
+    local UIGradient_2 = Instance.new("UIGradient")
+    local TextLabel = Instance.new("TextLabel")
+    local UITextSizeConstraint = Instance.new("UITextSizeConstraint")
+    local UIAspectRatioConstraint_2 = Instance.new("UIAspectRatioConstraint")
+    local UITextSizeConstraint_2 = Instance.new("UITextSizeConstraint")
+    local UIAspectRatioConstraint_3 = Instance.new("UIAspectRatioConstraint")
+    local EnterBtn = Instance.new("TextButton")
+    local UICorner_3 = Instance.new("UICorner")
+    local UIGradient_3 = Instance.new("UIGradient")
+    local TextLabel_2 = Instance.new("TextLabel")
+    local UITextSizeConstraint_3 = Instance.new("UITextSizeConstraint")
+    local UIAspectRatioConstraint_4 = Instance.new("UIAspectRatioConstraint")
+    local UITextSizeConstraint_4 = Instance.new("UITextSizeConstraint")
+    local UIAspectRatioConstraint_5 = Instance.new("UIAspectRatioConstraint")
+    local InputBtn = Instance.new("TextButton")
+    local TextBox = Instance.new("TextBox")
+    local UITextSizeConstraint_5 = Instance.new("UITextSizeConstraint")
+    local UIAspectRatioConstraint_6 = Instance.new("UIAspectRatioConstraint")
+    local UIGradient_4 = Instance.new("UIGradient")
+    local UICorner_4 = Instance.new("UICorner")
+    local UITextSizeConstraint_6 = Instance.new("UITextSizeConstraint")
+    local UIAspectRatioConstraint_7 = Instance.new("UIAspectRatioConstraint")
+    local CloseBtn = Instance.new("TextButton")
+    local UICorner_5 = Instance.new("UICorner")
+    local UIGradient_5 = Instance.new("UIGradient")
+    local Img = Instance.new("ImageLabel")
+    local UIAspectRatioConstraint_8 = Instance.new("UIAspectRatioConstraint")
+    local UITextSizeConstraint_7 = Instance.new("UITextSizeConstraint")
+    local UIAspectRatioConstraint_9 = Instance.new("UIAspectRatioConstraint")
+    local ResultText = Instance.new("TextLabel")
+    local UITextSizeConstraint_8 = Instance.new("UITextSizeConstraint")
+    local UIAspectRatioConstraint_10 = Instance.new("UIAspectRatioConstraint")
+    local UIAspectRatioConstraint_11 = Instance.new("UIAspectRatioConstraint")
+
+    -- Properties:
+    KeySystemGui.Name = "KeySystemGui"
+    KeySystemGui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
+    KeySystemGui.ResetOnSpawn = false
+
+    Frame.Parent = KeySystemGui
+    Frame.AnchorPoint = Vector2.new(0.5, 0.5)
+    Frame.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    Frame.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    Frame.BorderSizePixel = 0
+    Frame.Position = UDim2.new(0.5, 0, 0.5, 0)
+    Frame.Size = UDim2.new(0.303174615, 0, 0.166112959, 0)
+
+    UICorner.CornerRadius = UDim.new(0, 10)
+    UICorner.Parent = Frame
+
+    UIGradient.Color = ColorSequence.new{ColorSequenceKeypoint.new(0.00, Color3.fromRGB(53, 53, 53)), ColorSequenceKeypoint.new(0.50, Color3.fromRGB(50, 50, 50)), ColorSequenceKeypoint.new(1.00, Color3.fromRGB(53, 53, 53))}
+    UIGradient.Transparency = NumberSequence.new{NumberSequenceKeypoint.new(0.00, 0.24), NumberSequenceKeypoint.new(0.47, 0.00), NumberSequenceKeypoint.new(1.00, 0.24)}
+    UIGradient.Parent = Frame
+
+    LogoKey.Name = "LogoKey"
+    LogoKey.Parent = Frame
+    LogoKey.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    LogoKey.BackgroundTransparency = 1.000
+    LogoKey.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    LogoKey.BorderSizePixel = 0
+    LogoKey.Position = UDim2.new(0.386999995, 0, -0.0820000023, 0)
+    LogoKey.Size = UDim2.new(0.225130886, 0, 0.573333323, 0)
+    LogoKey.Image = "rbxassetid://125181034874810"
+    LogoKey.ImageTransparency = 0.190
+
+    UIAspectRatioConstraint.Parent = LogoKey
+
+    GetKeyBtn.Name = "GetKeyBtn"
+    GetKeyBtn.Parent = Frame
+    GetKeyBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    GetKeyBtn.BackgroundTransparency = 0.650
+    GetKeyBtn.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    GetKeyBtn.BorderSizePixel = 0
+    GetKeyBtn.Position = UDim2.new(0.300999999, 0, 0.699999988, 0)
+    GetKeyBtn.Size = UDim2.new(0.188481674, 0, 0.186666667, 0)
+    GetKeyBtn.Font = Enum.Font.SourceSans
+    GetKeyBtn.Text = ""
+    GetKeyBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    GetKeyBtn.TextScaled = true
+    GetKeyBtn.TextSize = 18.000
+    GetKeyBtn.TextWrapped = true
+
+    UICorner_2.CornerRadius = UDim.new(0, 10)
+    UICorner_2.Parent = GetKeyBtn
+
+    UIGradient_2.Color = ColorSequence.new{ColorSequenceKeypoint.new(0.00, Color3.fromRGB(140, 140, 140)), ColorSequenceKeypoint.new(0.50, Color3.fromRGB(129, 129, 129)), ColorSequenceKeypoint.new(1.00, Color3.fromRGB(140, 140, 140))}
+    UIGradient_2.Parent = GetKeyBtn
+
+    TextLabel.Parent = GetKeyBtn
+    TextLabel.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    TextLabel.BackgroundTransparency = 1.000
+    TextLabel.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    TextLabel.BorderSizePixel = 0
+    TextLabel.Position = UDim2.new(0, 0, -0.0714285746, 0)
+    TextLabel.Size = UDim2.new(1, 0, 1.07142854, 0)
+    TextLabel.Font = Enum.Font.Cartoon
+    TextLabel.Text = "Get Key"
+    TextLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    TextLabel.TextScaled = true
+    TextLabel.TextSize = 15.000
+    TextLabel.TextTransparency = 0.350
+    TextLabel.TextWrapped = true
+
+    UITextSizeConstraint.Parent = TextLabel
+    UITextSizeConstraint.MaxTextSize = 15
+
+    UIAspectRatioConstraint_2.Parent = TextLabel
+    UIAspectRatioConstraint_2.AspectRatio = 2.400
+
+    UITextSizeConstraint_2.Parent = GetKeyBtn
+    UITextSizeConstraint_2.MaxTextSize = 18
+
+    UIAspectRatioConstraint_3.Parent = GetKeyBtn
+    UIAspectRatioConstraint_3.AspectRatio = 2.571
+
+    EnterBtn.Name = "EnterBtn"
+    EnterBtn.Parent = Frame
+    EnterBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    EnterBtn.BackgroundTransparency = 0.650
+    EnterBtn.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    EnterBtn.BorderSizePixel = 0
+    EnterBtn.Position = UDim2.new(0.521000028, 0, 0.699999988, 0)
+    EnterBtn.Size = UDim2.new(0.188481674, 0, 0.186666667, 0)
+    EnterBtn.Font = Enum.Font.SourceSans
+    EnterBtn.Text = ""
+    EnterBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    EnterBtn.TextScaled = true
+    EnterBtn.TextSize = 18.000
+    EnterBtn.TextWrapped = true
+
+    UICorner_3.CornerRadius = UDim.new(0, 10)
+    UICorner_3.Parent = EnterBtn
+
+    UIGradient_3.Color = ColorSequence.new{ColorSequenceKeypoint.new(0.00, Color3.fromRGB(140, 140, 140)), ColorSequenceKeypoint.new(0.50, Color3.fromRGB(129, 129, 129)), ColorSequenceKeypoint.new(1.00, Color3.fromRGB(140, 140, 140))}
+    UIGradient_3.Parent = EnterBtn
+
+    TextLabel_2.Parent = EnterBtn
+    TextLabel_2.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    TextLabel_2.BackgroundTransparency = 1.000
+    TextLabel_2.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    TextLabel_2.BorderSizePixel = 0
+    TextLabel_2.Position = UDim2.new(0, 0, -0.0714285746, 0)
+    TextLabel_2.Size = UDim2.new(1, 0, 1.07142854, 0)
+    TextLabel_2.Font = Enum.Font.Cartoon
+    TextLabel_2.Text = "Enter"
+    TextLabel_2.TextColor3 = Color3.fromRGB(255, 255, 255)
+    TextLabel_2.TextScaled = true
+    TextLabel_2.TextSize = 15.000
+    TextLabel_2.TextTransparency = 0.350
+    TextLabel_2.TextWrapped = true
+
+    UITextSizeConstraint_3.Parent = TextLabel_2
+    UITextSizeConstraint_3.MaxTextSize = 15
+
+    UIAspectRatioConstraint_4.Parent = TextLabel_2
+    UIAspectRatioConstraint_4.AspectRatio = 2.400
+
+    UITextSizeConstraint_4.Parent = EnterBtn
+    UITextSizeConstraint_4.MaxTextSize = 18
+
+    UIAspectRatioConstraint_5.Parent = EnterBtn
+    UIAspectRatioConstraint_5.AspectRatio = 2.571
+
+    InputBtn.Name = "InputBtn"
+    InputBtn.Parent = Frame
+    InputBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    InputBtn.BackgroundTransparency = 0.650
+    InputBtn.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    InputBtn.BorderSizePixel = 0
+    InputBtn.Position = UDim2.new(0.170214593, 0, 0.454311937, 0)
+    InputBtn.Size = UDim2.new(0.65968585, 0, 0.186666667, 0)
+    InputBtn.Font = Enum.Font.SourceSans
+    InputBtn.Text = ""
+    InputBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    InputBtn.TextScaled = true
+    InputBtn.TextSize = 18.000
+    InputBtn.TextWrapped = true
+
+    TextBox.Parent = InputBtn
+    TextBox.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    TextBox.BackgroundTransparency = 1.000
+    TextBox.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    TextBox.BorderSizePixel = 0
+    TextBox.ClipsDescendants = true
+    TextBox.Position = UDim2.new(0.00704326341, 0, -0.0074441093, 0)
+    TextBox.Size = UDim2.new(0.992063463, 0, 1.03571427, 0)
+    TextBox.Font = Enum.Font.SourceSans
+    TextBox.PlaceholderColor3 = Color3.fromRGB(143, 143, 145)
+    TextBox.PlaceholderText = "Enter your key here"
+    TextBox.Text = ""
+    TextBox.TextColor3 = Color3.fromRGB(187, 188, 190)
+    TextBox.TextScaled = true
+    TextBox.TextSize = 20.000
+    TextBox.TextWrapped = true
+
+    UITextSizeConstraint_5.Parent = TextBox
+    UITextSizeConstraint_5.MaxTextSize = 20
+
+    UIAspectRatioConstraint_6.Parent = TextBox
+    UIAspectRatioConstraint_6.AspectRatio = 8.621
+
+    UIGradient_4.Color = ColorSequence.new{ColorSequenceKeypoint.new(0.00, Color3.fromRGB(140, 140, 140)), ColorSequenceKeypoint.new(0.50, Color3.fromRGB(129, 129, 129)), ColorSequenceKeypoint.new(1.00, Color3.fromRGB(140, 140, 140))}
+    UIGradient_4.Parent = InputBtn
+
+    UICorner_4.CornerRadius = UDim.new(0, 10)
+    UICorner_4.Parent = InputBtn
+
+    UITextSizeConstraint_6.Parent = InputBtn
+    UITextSizeConstraint_6.MaxTextSize = 18
+
+    UIAspectRatioConstraint_7.Parent = InputBtn
+    UIAspectRatioConstraint_7.AspectRatio = 9.000
+
+    CloseBtn.Name = "CloseBtn"
+    CloseBtn.Parent = Frame
+    CloseBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    CloseBtn.BackgroundTransparency = 0.650
+    CloseBtn.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    CloseBtn.BorderSizePixel = 0
+    CloseBtn.Position = UDim2.new(0.89200002, 0, 0.0549999997, 0)
+    CloseBtn.Size = UDim2.new(0.0732984319, 0, 0.186666667, 0)
+    CloseBtn.Font = Enum.Font.SourceSans
+    CloseBtn.Text = ""
+    CloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    CloseBtn.TextScaled = true
+    CloseBtn.TextSize = 18.000
+    CloseBtn.TextWrapped = true
+
+    UICorner_5.CornerRadius = UDim.new(0, 10)
+    UICorner_5.Parent = CloseBtn
+
+    UIGradient_5.Color = ColorSequence.new{ColorSequenceKeypoint.new(0.00, Color3.fromRGB(140, 140, 140)), ColorSequenceKeypoint.new(0.50, Color3.fromRGB(129, 129, 129)), ColorSequenceKeypoint.new(1.00, Color3.fromRGB(140, 140, 140))}
+    UIGradient_5.Parent = CloseBtn
+
+    Img.Name = "Img"
+    Img.Parent = CloseBtn
+    Img.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    Img.BackgroundTransparency = 1.000
+    Img.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    Img.BorderSizePixel = 0
+    Img.Position = UDim2.new(0.107142858, 0, 0.107142858, 0)
+    Img.Size = UDim2.new(0.75, 0, 0.75, 0)
+    Img.Image = "rbxassetid://10747384394"
+    Img.ImageTransparency = 0.300
+
+    UIAspectRatioConstraint_8.Parent = Img
+
+    UITextSizeConstraint_7.Parent = CloseBtn
+    UITextSizeConstraint_7.MaxTextSize = 18
+
+    UIAspectRatioConstraint_9.Parent = CloseBtn
+
+    ResultText.Name = "ResultText"
+    ResultText.Parent = Frame
+    ResultText.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    ResultText.BackgroundTransparency = 1.000
+    ResultText.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    ResultText.BorderSizePixel = 0
+    ResultText.Position = UDim2.new(0.170157075, 0, 0.293333322, 0)
+    ResultText.Size = UDim2.new(0.65968585, 0, 0.159999996, 0)
+    ResultText.Font = Enum.Font.Cartoon
+    ResultText.Text = ""
+    ResultText.TextColor3 = Color3.fromRGB(255, 255, 255)
+    ResultText.TextScaled = true
+    ResultText.TextSize = 15.000
+    ResultText.TextTransparency = 0.350
+    ResultText.TextWrapped = true
+
+    UITextSizeConstraint_8.Parent = ResultText
+    UITextSizeConstraint_8.MaxTextSize = 15
+
+    UIAspectRatioConstraint_10.Parent = ResultText
+    UIAspectRatioConstraint_10.AspectRatio = 10.500
+
+    UIAspectRatioConstraint_11.Parent = Frame
+    UIAspectRatioConstraint_11.AspectRatio = 2.547
+
+    -- Event Connections
+    TextBox:GetPropertyChangedSignal("Text"):Connect(function()
+        if TextBox.Text == "" then
+            ResultText.Text = ""
+        else
+            ResultText.Text = ""
+        end
+    end)
+
+    EnterBtn.MouseButton1Click:Connect(function() 
+        if TextBox and TextBox.Text ~= "" then
+            ResultText.Text = "Verifying key..."
+            
+            local success, result = pcall(function()
+                return verifyKey(TextBox.Text)
+            end)
+            
+            if success and result then
+                ResultText.Text = "Key valid! Loading..."
+                
+                -- Destroy GUI before loading main script
+                task.spawn(function()
+                    task.wait(0.5)
+                    if KeySystemGui then
+                        KeySystemGui:Destroy()
+                    end
+                end)
+                
+                -- Load main script immediately
+                task.spawn(function()
+                    local scriptSuccess, scriptError = pcall(function()
+                        loadstring(game:HttpGet("https://raw.githubusercontent.com/danuup16/fs/refs/heads/main/fs"))()
+                    end)
+                    
+                    if not scriptSuccess then
+                        print("Error loading script:", scriptError)
+                    end
+                end)
+            else
+                ResultText.Text = "Invalid key! Please try again."
+                task.wait(2)
+                ResultText.Text = ""
+            end 
+        else
+            ResultText.Text = "Please enter a key first!"
+            task.wait(2)
+            ResultText.Text = ""
+        end	
+    end)
+
+    -- Modified GetKey button click event with better mobile support
+    GetKeyBtn.MouseButton1Click:Connect(function() 
+        ResultText.Text = "Getting link..."
+        
+        local success, message = copyLink()
+        
+        if success then
+            ResultText.Text = message or "Link copied!"
+        else
+            -- For mobile/emulator, show the link in the result text
+            ResultText.Text = message or "Failed to get link!"
+            
+            -- If we have a link but clipboard failed, try to show it in chat
+            if string.find(message or "", "Copy this link:") then
+                onMessage(message)
+                ResultText.Text = "Link sent to chat! Check above."
+            end
+        end
+        
+        task.wait(5) -- Show message longer for mobile users to read/copy
+        ResultText.Text = ""
+    end)
+
+    CloseBtn.MouseButton1Click:Connect(function()
+        if KeySystemGui then
+            KeySystemGui:Destroy()
+        end
+    end)
+end)
+end

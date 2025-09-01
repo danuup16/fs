@@ -206,7 +206,6 @@ local Tabs = {
     Teleport = Window:AddTab({ Title = "Teleport", Icon = "map-pin" }),
     Buy = Window:AddTab({ Title = "Buy", Icon = "shopping-cart" }),
     Webhook = Window:AddTab({ Title = "Webhook", Icon = "bell-ring" }),
-    Inventory = Window:AddTab({ Title = "Inventory", Icon = "package" }),
     Settings = Window:AddTab({ Title = "Settings", Icon = "settings" })
 }
 
@@ -804,7 +803,7 @@ local FishingDelaySlider = Tabs.Fishing:AddSlider("FishingDelay", {
     Title = "Fishing Delay V1",
     Description = "Adjust delay between fishing cycles, Default 2.3",
     Default = 2.3,
-    Min = 2,
+    Min = 2.3,
     Max = 10,
     Rounding = 1,
     Callback = function(Value)
@@ -891,6 +890,8 @@ Tabs.Fishing:AddSection("Auto Fishing V2")
 local isAutoFishV2Active = false
 local fishingV2DelayTime = 3
 local fishingControllerModule = nil
+local lastToolRefreshTimeV2 = 0
+local toolRefreshIntervalV2 = 300
 local function getFishingController()
     if fishingControllerModule then
         return fishingControllerModule
@@ -931,20 +932,32 @@ local function canStartFishing()
     
     return false, "Error checking cooldown"
 end
+local function ensureFishingToolEquipped()
+    local currentTime = tick()
+    if currentTime - lastToolRefreshTimeV2 >= toolRefreshIntervalV2 then
+        lastToolRefreshTimeV2 = currentTime
+        return equipFishingTool()
+    end
+    return true
+end
+
 local function performNaturalFishingCycle()
     local success, error = pcall(function()
+        -- pastikan tool sudah equip
+        if not ensureFishingToolEquipped() then
+            warn("[AUTO FISHING V2] Gagal equip tool")
+            return false
+        end
+
         local controller = getFishingController()
         if not controller then
             warn("[AUTO FISHING V2] Controller not found")
             return false
         end
         
-        local Players = game:GetService("Players")
         local camera = workspace.CurrentCamera
-        local screenCenter = Vector2.new(
-            camera.ViewportSize.X / 2,
-            camera.ViewportSize.Y / 2
-        )
+        local screenCenter = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2)
+
         local canFish, reason = canStartFishing()
         if not canFish then
             warn("[AUTO FISHING V2] Cannot fish: " .. reason)
@@ -953,7 +966,7 @@ local function performNaturalFishingCycle()
         controller:RequestChargeFishingRod(screenCenter, true, true)
         local waitTime = 0
         local maxWait = 15
-        
+
         while waitTime < maxWait and isAutoFishV2Active do
             local currentGUID = controller:GetCurrentGUID()
             if currentGUID then
@@ -965,44 +978,50 @@ local function performNaturalFishingCycle()
                     break
                 end
             end
-            
             task.wait(0.1)
             waitTime = waitTime + 0.1
         end
-        
         return true
     end)
     if not success then
-        warn("[AUTO FISHING V2] Error in fishing cycle: " .. tostring(error))
+        warn("[AUTO FISHING V2] Error: " .. tostring(error))
         return false
     end
     return success
 end
 local autoFishV2Toggle = Tabs.Fishing:AddToggle("AutoFishingV2", {
     Title = "Auto Fishing V2",
-    Description = "testt",
+    Description = "test",
     Default = false,
     Callback = function(Value)
         isAutoFishV2Active = Value
         if Value then
-            local controller = getFishingController()
-            if not controller then
-                Options.AutoFishingV2:SetValue(false)
-                return
-            end
-            spawn(function()
-                while isAutoFishV2Active do
-                    if not isAutoFishV2Active then break end
-                    local cycleSuccess = performNaturalFishingCycle()
-                    for i = 1, fishingV2DelayTime * 10 do
-                        if not isAutoFishV2Active then break end
-                        task.wait(0.1)
-                    end
+            if equipFishingTool() then
+                local controller = getFishingController()
+                if not controller then
+                    Options.AutoFishingV2:SetValue(false)
+                    unequipFishingTool()
+                    return
                 end
-            end)
+                spawn(function()
+                    while isAutoFishV2Active do
+                        if not isAutoFishV2Active then break end
+                        local cycleSuccess = performNaturalFishingCycle()
+                        for i = 1, fishingV2DelayTime * 10 do
+                            if not isAutoFishV2Active then break end
+                            task.wait(0.1)
+                        end
+                    end
+                end)
+            else
+                Options.AutoFishingV2:SetValue(false)
+            end
+        else
+            unequipFishingTool()
         end
     end
 })
+
 local fishingV2DelaySlider = Tabs.Fishing:AddSlider("FishingV2Delay", {
     Title = "Fishing Delay V2",
     Description = "Delay between fishing cycles (seconds)",
@@ -1163,8 +1182,11 @@ local function startAutoFarm()
                      Options.AutoFishing:SetValue(true)
                   else
                      Options.AutoFishingV2:SetValue(false)
+                     Options.AutoClickV2:SetValue(false)
                      wait(1)
                      Options.AutoFishingV2:SetValue(true)
+                     Options.AutoClickV2:SetValue(true)
+                     
                   end
                end
             end
@@ -1179,8 +1201,8 @@ local function stopAutoFarm()
    Options.AutoFishing:SetValue(false) 
 end
 local FarmMethodV1Dropdown = Tabs.Fishing:AddDropdown("FarmMethodV1", {
-    Title = "Auto Farm V1 - Select Method",
-    Description = "Choose fishing method for Auto Farm V1",
+    Title = "Select Auto Fishing",
+    Description = "for Auto Farm V1",
     Values = {"V1", "V2"},
     Multi = false,
     Default = 1,
@@ -1276,6 +1298,7 @@ local function startAutoFarmV2()
         Options.AutoFishing:SetValue(true)
     else
         Options.AutoFishingV2:SetValue(true)
+        Options.AutoClickV2:SetValue(true)
     end
 
     spawn(function()
@@ -1294,8 +1317,10 @@ local function startAutoFarmV2()
                         Options.AutoFishing:SetValue(true)
                     else
                         Options.AutoFishingV2:SetValue(false)
+                        Options.AutoClickV2:SetValue(false)
                         wait(1)
                         Options.AutoFishingV2:SetValue(true)
+                        Options.AutoClickV2:SetValue(true)
                     end
                 end
             end
@@ -1305,7 +1330,7 @@ local function startAutoFarmV2()
 end
 
 local FarmMethodV2Dropdown = Tabs.Fishing:AddDropdown("FarmMethodV2", {
-    Title = "Auto Farm V2 - Select Method",
+    Title = "Select Auto Fishing",
     Description = "Choose fishing method for Auto Farm V2",
     Values = {"V1", "V2"},
     Multi = false,
@@ -2454,8 +2479,8 @@ for _, fish in pairs(fishList) do
     specificFishEnabled[fish.id] = false
 end
 local WebhookInput = WebhookTab:AddInput("Input", {
-    Title = "URL Webhook Discord",
-    Description = "Input Description",
+    Title = "URL Webhook",
+    Description = "",
     Default = "",
     Placeholder = "https://discord.com/api/webhooks/...",
     Numeric = false,
@@ -2470,8 +2495,8 @@ local WebhookInput = WebhookTab:AddInput("Input", {
 
 -- Multi-Dropdown untuk memilih tier ikan
 local FishDropdown = WebhookTab:AddDropdown("FishSelection", {
-    Title = "Pilih Kategori Ikan untuk Dilacak",
-    Description = "Pilih kategori ikan yang ingin dikirim ke webhook ketika tertangkap",
+    Title = "Select Fish",
+    Description = "",
     Values = {"Secret", "Mythic", "Uncommon"},
     Multi = true,
     Default = {},
@@ -2485,7 +2510,6 @@ FishDropdown:OnChanged(function(selectedTiers)
             for _, fish in pairs(fishList) do
                 if fish.tier == tierName then
                     specificFishEnabled[fish.id] = true
-                    print("✅ Mengaktifkan tracking untuk:", fish.name, "ID:", fish.id, "Tier:", fish.tier)
                 end
             end
         end
@@ -2501,14 +2525,10 @@ FishDropdown:OnChanged(function(selectedTiers)
             end
         end
     end
-    
-    print("📊 Ikan aktif per tier:")
     for tier, count in pairs(tierCounts) do
         if count > 0 then
-            print("  " .. tier .. ":", count, "ikan")
         end
     end
-    print("📊 Total ikan aktif:", tierCounts.Secret + tierCounts.Mythic + tierCounts.Uncommon)
 end)
 
 -- Fungsi untuk mendapatkan data ikan dari ReplicatedStorage
@@ -2567,17 +2587,14 @@ local function formatWeight(weight, actualWeight)
     
     return weightText
 end
--- Fungsi untuk mendapatkan URL gambar ikan
 local function getFishImageURL(fishId)
     local imageUrl = fishImages[fishId]
     if imageUrl and imageUrl ~= "" then
-        return imageUrl -- langsung pakai link dari fishImages (Imgur)
+        return imageUrl 
     end
     return nil
 end
 
-
--- Fungsi untuk mendapatkan info tier
 local function getTierInfo(tier)
     local tierColors = {
         [1] = {name = "Common", color = 0x808080},
@@ -2586,7 +2603,7 @@ local function getTierInfo(tier)
         [4] = {name = "Epic", color = 0x8000FF},
         [5] = {name = "Legendary", color = 0xFF8000},
         [6] = {name = "Mythic", color = 0xFF0080},
-        [7] = {name = "Divine", color = 0xFFD700},
+        [7] = {name = "Secret", color = 0xFFD700},
         [8] = {name = "Exotic", color = 0xFF69B4}
     }
     return tierColors[tier] or {name = "Unknown", color = 0x808080}
@@ -2622,7 +2639,7 @@ local function sendWebhook(itemName, itemData, weight, isVariant, variantName)
                     ["fields"] = {
                        {
                             ["name"] = "**Profile : **",
-                            ["value"] = "> Username :`"..player.Name.."`",
+                            ["value"] = "> Username :||`"..player.Name.."`||",
                             ["inline"] = true
                         },
                         {
@@ -2639,13 +2656,11 @@ local function sendWebhook(itemName, itemData, weight, isVariant, variantName)
                     embedData["thumbnail"] = {
                         ["url"] = fishImageURL
                     }
-                    
                 end
                 local data = {
                     ["username"] = "Fish It Tracker",
                     ["embeds"] = {embedData}
                 }
-                
                 local headers = {["Content-Type"] = "application/json"}
                 local body = game:GetService("HttpService"):JSONEncode(data)
                 
@@ -2653,7 +2668,6 @@ local function sendWebhook(itemName, itemData, weight, isVariant, variantName)
                 if fluxus and fluxus.request then
                     req = fluxus.request
                 end
-                
                 if req then
                     local response = req({
                         Url = webhookURL,
@@ -2661,10 +2675,8 @@ local function sendWebhook(itemName, itemData, weight, isVariant, variantName)
                         Headers = headers,
                         Body = body
                     })
-                    
                     if response and (response.StatusCode == 200 or response.StatusCode == 204) then
                         success = true
-                        print("Webhook berhasil dikirim dengan gambar ikan!")
                     else
                         error("HTTP Error: " .. (response and response.StatusCode or "Unknown"))
                     end
@@ -2672,13 +2684,11 @@ local function sendWebhook(itemName, itemData, weight, isVariant, variantName)
                     error("Tidak ada fungsi HTTP request yang tersedia")
                 end
             end)
-            
             if sendSuccess then
                 success = true
                 httpRetryCount = 0
             else
                 warn("Percobaan webhook " .. retryAttempt .. " gagal:", sendError)
-                
                 if retryAttempt < maxRetries then
                     wait(retryAttempt * 2)
                 else
@@ -2697,12 +2707,9 @@ local function sendWebhook(itemName, itemData, weight, isVariant, variantName)
         end
     end)
 end
-
--- Fungsi monitoring Replion
 local function startReplionMonitoring()
     local success, error = pcall(function()
         local ReplicatedStorage = game:GetService("ReplicatedStorage")
-        
         local replionPackage = ReplicatedStorage:FindFirstChild("Packages")
         if replionPackage then
             replionPackage = replionPackage:FindFirstChild("_Index")
@@ -2713,33 +2720,24 @@ local function startReplionMonitoring()
                         if replionModule then
                             local Replion = require(replionModule)
                             local Client = Replion.Client
-                            
                             local dataReplion = Client:WaitReplion("Data")
-                            
                             local lastProcessTime = 0
                             local processingCooldown = 2
-                            
                             dataReplion:OnChange("Inventory", function(newInventory, oldInventory)
                                 if not isWebhookActive or not newInventory then
                                     return
                                 end
-                                
                                 local currentTime = tick()
                                 if currentTime - lastProcessTime < processingCooldown then
-                                    print("Melewati perubahan inventory - terlalu cepat (anti-spam)")
                                     return
                                 end
                                 lastProcessTime = currentTime
-                                
                                 task.defer(function()
                                     local processSuccess, processError = pcall(function()
-                                        print("Memproses perubahan inventory...")
-                                        
                                         for category, items in pairs(newInventory) do
                                             if type(items) == "table" then
                                                 for uuid, itemInfo in pairs(items) do
                                                     local isNewItem = false
-                                                    
                                                     if not oldInventory or not oldInventory[category] or not oldInventory[category][uuid] then
                                                         isNewItem = true
                                                     elseif oldInventory[category][uuid].Quantity and itemInfo.Quantity then
@@ -2747,21 +2745,13 @@ local function startReplionMonitoring()
                                                             isNewItem = true
                                                         end
                                                     end
-                                                    
                                                     if isNewItem and itemInfo.Id then
                                                         local itemData = getItemData(itemInfo.Id)
-                                                        
                                                         if itemData and itemData.Type == "Fishes" then
-                                                            print("🐟 Ikan terdeteksi:", itemData.Name, "ID:", itemInfo.Id, "itemData.Id:", itemData.Id)
-                                                            
                                                             local fishId = itemInfo.Id
-                                                            
                                                             if specificFishEnabled[fishId] == true then
-                                                                print("✅ Ikan lolos filter:", itemData.Name, "ID:", fishId)
-                                                                
                                                                 local isVariant = false
                                                                 local variantName = nil
-                                                                
                                                                 if itemInfo.Metadata and itemInfo.Metadata.VariantId then
                                                                     local variantSuccess, variantData = pcall(function()
                                                                         local ItemUtility = require(ReplicatedStorage.Shared.ItemUtility)
@@ -2778,10 +2768,7 @@ local function startReplionMonitoring()
                                                                 if itemInfo.Metadata and itemInfo.Metadata.Weight then
                                                                     weight = itemInfo.Metadata.Weight
                                                                 end
-                                                                
                                                                 sendWebhook(itemData.Name, itemData, weight, isVariant, variantName)
-                                                            else
-                                                                print("❌ Ikan difilter:", itemData.Name, "ID:", fishId, "Status toggle:", specificFishEnabled[fishId])
                                                             end
                                                         end
                                                     end
@@ -2789,49 +2776,36 @@ local function startReplionMonitoring()
                                             end
                                         end
                                     end)
-                                    
                                     if not processSuccess then
                                         warn("Error memproses perubahan inventory:", processError)
                                     end
                                 end)
                             end)
-                            
                             return true
                         end
                     end
                 end
             end
         end
-        
         return false
     end)
-    
     if success then
-        print("Monitoring Replion dimulai dengan sukses")
         return true
     else
         warn("Gagal memulai monitoring Replion:", error)
         return false
     end
 end
-
 -- Fungsi untuk memulai monitoring inventory
 local function startInventoryMonitoring()
-    print("Memulai monitoring inventory...")
-    
     httpRetryCount = 0
-    
     if startReplionMonitoring() then
-        print("Menggunakan metode monitoring Replion")
         return
     end
-    
-    print("Menggunakan metode pengecekan berkala")
     if inventoryConnection then
         inventoryConnection:Disconnect()
     end
 end
-
 -- Fungsi untuk menghentikan monitoring
 local function stopInventoryMonitoring()
     if inventoryConnection then
@@ -2840,9 +2814,7 @@ local function stopInventoryMonitoring()
     end
     lastInventoryState = {}
     httpRetryCount = 0
-    print("Monitoring inventory dihentikan")
 end
-
 local WebhookToggle = WebhookTab:AddToggle("webhooktracking", 
 {
     Title = "Enable Webhook", 
@@ -2853,7 +2825,7 @@ local WebhookToggle = WebhookTab:AddToggle("webhooktracking",
         
         if Value then
             if webhookURL == "" then
-                WebhookToggle:Set(false)
+                WebhookToggle:SetValue(false)
                 return
             end
             startInventoryMonitoring()
@@ -2863,1028 +2835,32 @@ local WebhookToggle = WebhookTab:AddToggle("webhooktracking",
     end 
 })
 
--- Fungsi helper untuk preset ikan berdasarkan tier
-local function selectFishByTier(tier)
-    local tiersToSelect = {}
-    tiersToSelect[tier] = true
-    FishDropdown:SetValue(tiersToSelect)
-end
-
--- Tombol preset untuk memilih semua ikan berdasarkan tier
 WebhookTab:AddButton({
-    Title = "🔥 Pilih Semua Secret",
-    Description = "Aktifkan tracking untuk semua ikan Secret",
-    Callback = function()
-        selectFishByTier("Secret")
-    end
-})
-
-WebhookTab:AddButton({
-    Title = "⭐ Pilih Semua Mythic",
-    Description = "Aktifkan tracking untuk semua ikan Mythic",
-    Callback = function()
-        selectFishByTier("Mythic")
-    end
-})
-
-WebhookTab:AddButton({
-    Title = "🟢 Pilih Semua Uncommon",
-    Description = "Aktifkan tracking untuk semua ikan Uncommon",
-    Callback = function()
-        selectFishByTier("Uncommon")
-    end
-})
-
-WebhookTab:AddButton({
-    Title = "🌟 Pilih Semua Kategori",
-    Description = "Aktifkan tracking untuk semua kategori ikan",
-    Callback = function()
-        FishDropdown:SetValue({
-            Secret = true,
-            Mythic = true,
-            Uncommon = true
-        })
-    end
-})
-
-WebhookTab:AddButton({
-    Title = "❌ Hapus Semua Pilihan",
-    Description = "Nonaktifkan tracking untuk semua ikan",
+    Title = "Clear Select",
+    Description = "",
     Callback = function()
         FishDropdown:SetValue({})
     end
 })
 WebhookTab:AddButton({
-        Title = "🧪 Test Webhook",
+        Title = "Test Webhook",
         Description = "",
         Callback = function()
             if webhookURL == "" then
             return
         end
         local testData = {
-            Id = 139, -- Silver Tuna ID untuk testing
-            Name = "Test Fish (Silver Tuna)",
+            Id = 159, -- Silver Tuna ID untuk testing
+            Name = "Robot Kraken",
             Type = "Fishes",
-            Tier = 2,
-            SellPrice = 150,
-            Weight = {Default = {Min = 2, Max = 5}},
+            Tier = 7,
+            SellPrice = 387500,
+            Weight = {Default = {Min = 419600, Max = 486470}},
             Probability = {Chance = 0.05}
         }
-        sendWebhook("Test Fish (Silver Tuna)", testData, 3.5, false, nil)
+        sendWebhook("Robot Kraken", testData, 419600, false, nil)
         end
     })
-
-WebhookTab:AddButton({
-        Title = "🔍 Debug Filter Ikan",
-        Description = "",
-        Callback = function()
-            print("=== DEBUG FILTER IKAN ===")
-        print("Toggle yang aktif:")
-        
-        local activeCount = 0
-        for fishId, enabled in pairs(specificFishEnabled) do
-            if enabled then
-                activeCount = activeCount + 1
-                local itemData = getItemData(fishId)
-                if itemData then
-                    print("  ✅", itemData.Name, "(ID:", fishId .. ")")
-                else
-                    print("  ❓ Ikan ID tidak dikenal:", fishId)
-                end
-            end
-        end
-        if activeCount == 0 then
-            print("  ❌ TIDAK ADA IKAN YANG AKTIF - Webhook tidak akan mengirim apapun!")
-        else
-            print("  Total ikan yang aktif:", activeCount)
-        end
-        print("=== AKHIR DEBUG ===")
-        end
-    })
-    WebhookTab:AddButton({
-        Title = "🔄 Reset Sistem Webhook",
-        Description = "",
-        Callback = function()
-        if isWebhookActive then
-            WebhookToggle:Set(false)
-        end
-        httpRetryCount = 0
-        lastInventoryState = {}
-        wait(1)
-        if webhookURL ~= "" then
-            WebhookToggle:Set(true)
-        end
-        end
-    })
-WebhookTab:AddButton({
-        Title = "🔄 Hapus URL Webhook",
-        Description = "",
-        Callback = function()
-        webhookURL = ""
-        WebhookInput:Set("")
-        if isWebhookActive then
-            WebhookToggle:Set(false)
-        end
-        httpRetryCount = 0
-        end
-    })
-
-end
--- Tambahkan variabel untuk auto favorite di bagian atas file
-local isAutoFavoriteActive = false
-local autoFavoriteConnection = nil
-
--- Variabel untuk filter ikan di tab Inventory
-local inventoryFishEnabled = {}
-
--- Queue system variables
-local favoriteQueue = {}
-local isProcessingFavorites = false
-
--- Daftar ikan yang tersedia dengan nama dan ID
-local fishList = {
-    -- Secret Fish
-    {name = "Giant Squid", id = 156, tier = "Secret"},
-    {name = "Frostborn Shark", id = 136, tier = "Secret"},
-    {name = "Great Christmas Whale", id = 99, tier = "Secret"},
-    {name = "Great Whale", id = 141, tier = "Secret"},
-    {name = "Robot Kraken", id = 159, tier = "Secret"},
-    {name = "Worm Fish", id = 145, tier = "Secret"},
-    {name = "Ghost Worm Fish", id = 176, tier = "Secret"},
-    {name = "Ghost Shark", id = 83, tier = "Secret"},
-    
-    -- Mythic Fish
-    {name = "Lined Cardinal Fish", id = 110, tier = "Mythic"},
-    {name = "Gingerbread Turtle", id = 97, tier = "Mythic"},
-    {name = "Loggerhead Turtle", id = 34, tier = "Mythic"},
-    {name = "Hawks Turtle", id = 21, tier = "Mythic"},
-    {name = "Blob Fish", id = 150, tier = "Mythic"},
-    {name = "Abyss Seahorse", id = 15, tier = "Mythic"},
-    {name = "Prismy Seahorse", id = 35, tier = "Mythic"},
-    {name = "Strippled Seahorse", id = 146, tier = "Mythic"},
-    {name = "Blueflame Ray", id = 47, tier = "Mythic"},
-    {name = "Dotted Stingray", id = 75, tier = "Mythic"},
-    {name = "Manta Ray", id = 54, tier = "Mythic"},
-    {name = "Hammerhead Shark", id = 52, tier = "Mythic"},
-    {name = "Gingerbread Shark", id = 98, tier = "Mythic"},
-    {name = "Loving Shark", id = 122, tier = "Mythic"},
-    {name = "Plasma Shark", id = 137, tier = "Mythic"},
-    {name = "Thresher Shark", id = 147, tier = "Mythic"},
-    
-    -- Uncommon Fish
-    {name = "Silver Tuna", id = 139, tier = "Uncommon"},
-    {name = "Parrot Fish", id = 186, tier = "Uncommon"},
-    {name = "Blackcap Basslet", id = 182, tier = "Uncommon"},
-    {name = "Pilot Fish", id = 140, tier = "Uncommon"}
-}
-
--- Inisialisasi semua ikan sebagai false
-for _, fish in pairs(fishList) do
-    inventoryFishEnabled[fish.id] = false
-end
-
--- Fungsi untuk mendapatkan data ikan dengan fallback
-local function getInventoryItemData(itemId)
-    local success, itemData = pcall(function()
-        local ReplicatedStorage = game:GetService("ReplicatedStorage")
-        local itemsFolder = ReplicatedStorage:FindFirstChild("Items")
-        
-        if not itemsFolder then
-            return nil
-        end
-        
-        for _, itemModule in pairs(itemsFolder:GetChildren()) do
-            if itemModule:IsA("ModuleScript") then
-                local success2, data = pcall(function()
-                    return require(itemModule)
-                end)
-                
-                if success2 and data and data.Data and data.Data.Id == itemId then
-                    return {
-                        Id = data.Data.Id,
-                        Name = data.Data.Name,
-                        Type = data.Data.Type,
-                        Tier = data.Data.Tier
-                    }
-                end
-            end
-        end
-        return nil
-    end)
-    
-    if success and itemData then
-        return itemData
-    else
-        for _, fish in pairs(fishList) do
-            if fish.id == itemId then
-                return {
-                    Id = fish.id,
-                    Name = fish.name,
-                    Type = "Fishes",
-                    Tier = fish.tier == "Secret" and 8 or (fish.tier == "Mythic" and 6 or 2)
-                }
-            end
-        end
-        return nil
-    end
-end
-
--- Fungsi untuk mengirim favorite request dengan retry mechanism
-local function sendFavoriteRequest(uuid, itemName, maxRetries)
-    maxRetries = maxRetries or 3
-    local success = false
-    local attempts = 0
-    
-    while not success and attempts < maxRetries do
-        attempts = attempts + 1
-        
-        local requestSuccess, requestError = pcall(function()
-            local ReplicatedStorage = game:GetService("ReplicatedStorage")
-            local netFolder = ReplicatedStorage.Packages._Index:FindFirstChild("sleitnick_net@0.2.0")
-            if netFolder and netFolder:FindFirstChild("net") then
-                local FavoriteItemEvent = netFolder.net:FindFirstChild("RE/FavoriteItem")
-                if FavoriteItemEvent then
-                    FavoriteItemEvent:FireServer(uuid)
-                    return true
-                end
-            end
-            return false
-        end)
-        
-        if requestSuccess then
-            print("✅ Request favorite berhasil (attempt " .. attempts .. "):", itemName)
-            success = true
-        else
-            warn("❌ Request favorite gagal (attempt " .. attempts .. "):", requestError)
-            if attempts < maxRetries then
-                wait(1)
-            end
-        end
-    end
-    
-    return success
-end
-
--- Fungsi untuk verify apakah item benar-benar ter-favorite di server
-local function verifyFavoriteStatus(uuid, itemName, maxWaitTime)
-    maxWaitTime = maxWaitTime or 10
-    local startTime = tick()
-    
-    while (tick() - startTime) < maxWaitTime do
-        local verifySuccess, isFavorited = pcall(function()
-            local ReplicatedStorage = game:GetService("ReplicatedStorage")
-            local replionPackage = ReplicatedStorage:FindFirstChild("Packages")
-            
-            if replionPackage then
-                replionPackage = replionPackage:FindFirstChild("_Index")
-                if replionPackage then
-                    for _, folder in pairs(replionPackage:GetChildren()) do
-                        if string.find(folder.Name:lower(), "replion") then
-                            local replionModule = folder:FindFirstChild("replion")
-                            if replionModule then
-                                local Replion = require(replionModule)
-                                local Client = Replion.Client
-                                local dataReplion = Client:WaitReplion("Data")
-                                local inventory = dataReplion:Get("Inventory")
-                                
-                                if inventory then
-                                    for category, items in pairs(inventory) do
-                                        if type(items) == "table" and items[uuid] then
-                                            return items[uuid].Favorited or false
-                                        end
-                                    end
-                                end
-                                break
-                            end
-                        end
-                    end
-                end
-            end
-            return false
-        end)
-        
-        if verifySuccess and isFavorited then
-            print("✅ Konfirmasi: Ikan ter-favorite di server:", itemName)
-            return true
-        end
-        
-        wait(0.5)
-    end
-    
-    print("⚠️ Warning: Timeout verifying favorite status:", itemName)
-    return false
-end
-
--- Fungsi untuk process queue favorite secara sequential
-local function processFavoriteQueue()
-    if isProcessingFavorites then
-        return
-    end
-    
-    isProcessingFavorites = true
-    
-    while #favoriteQueue > 0 do
-        local item = table.remove(favoriteQueue, 1)
-        local uuid = item.uuid
-        local itemName = item.name
-        
-        print("🔄 Processing favorite untuk:", itemName, "UUID:", uuid)
-        
-        if sendFavoriteRequest(uuid, itemName, 3) then
-            spawn(function()
-                verifyFavoriteStatus(uuid, itemName, 10)
-            end)
-        end
-        
-        wait(0.5)
-    end
-    
-    isProcessingFavorites = false
-end
-
--- Fungsi untuk add item ke favorite queue
-local function addToFavoriteQueue(uuid, itemName)
-    table.insert(favoriteQueue, {uuid = uuid, name = itemName})
-    
-    if not isProcessingFavorites then
-        spawn(processFavoriteQueue)
-    end
-end
-
--- Tab Inventory lengkap
-do
-    local inventoryTab = Tabs.Inventory
-    
-    -- Section Auto Favorite
-    inventoryTab:AddSection("Auto Favorite System")
-    
-    inventoryTab:AddParagraph({
-        Title = "Info Auto Favorite",
-        Content = "Sistem ini akan otomatis mem-favorite ikan yang sesuai dengan kategori yang dipilih dibawah ini. Sistem menggunakan queue dan verification untuk memastikan favorite berhasil."
-    })
-    
-    -- Multi-Dropdown untuk memilih tier ikan
-    local InventoryFishDropdown = inventoryTab:AddDropdown("InventoryFishSelection", {
-        Title = "Pilih Kategori Ikan untuk Auto Favorite",
-        Description = "Pilih kategori ikan yang ingin di-favorite otomatis ketika tertangkap",
-        Values = {"Secret", "Mythic", "Uncommon"},
-        Multi = true,
-        Default = {},
-    })
-
-    InventoryFishDropdown:OnChanged(function(selectedTiers)
-        for fishId, _ in pairs(inventoryFishEnabled) do
-            inventoryFishEnabled[fishId] = false
-        end
-        
-        for tierName, isSelected in pairs(selectedTiers) do
-            if isSelected then
-                for _, fish in pairs(fishList) do
-                    if fish.tier == tierName then
-                        inventoryFishEnabled[fish.id] = true
-                        print("✅ Mengaktifkan auto favorite untuk:", fish.name, "ID:", fish.id, "Tier:", fish.tier)
-                    end
-                end
-            end
-        end
-        
-        local tierCounts = {Secret = 0, Mythic = 0, Uncommon = 0}
-        for fishId, enabled in pairs(inventoryFishEnabled) do
-            if enabled then
-                for _, fish in pairs(fishList) do
-                    if fish.id == fishId then
-                        tierCounts[fish.tier] = tierCounts[fish.tier] + 1
-                        break
-                    end
-                end
-            end
-        end
-        
-        print("📊 Ikan aktif per tier (Auto Favorite):")
-        for tier, count in pairs(tierCounts) do
-            if count > 0 then
-                print("  " .. tier .. ":", count, "ikan")
-            end
-        end
-        print("📊 Total ikan aktif:", tierCounts.Secret + tierCounts.Mythic + tierCounts.Uncommon)
-    end)
-    
-    -- Toggle Auto Favorite
-    inventoryTab:AddToggle("AutoFavorite", {
-        Title = "🌟 Auto Favorite Fish",
-        Description = "Otomatis favorite ikan yang dipilih di kategori diatas",
-        Default = false,
-        Callback = function(Value)
-            isAutoFavoriteActive = Value
-            
-            if Value then
-                local activeCount = 0
-                for fishId, enabled in pairs(inventoryFishEnabled) do
-                    if enabled then
-                        activeCount = activeCount + 1
-                    end
-                end
-                
-                if activeCount == 0 then
-                    print("❌ Tidak ada ikan yang dipilih!")
-                    print("💡 Pilih kategori ikan di dropdown diatas terlebih dahulu")
-                    if Options.AutoFavorite then
-                        Options.AutoFavorite:SetValue(false)
-                    end
-                    return
-                end
-                
-                print("✅ Auto Favorite diaktifkan untuk", activeCount, "jenis ikan")
-                startAutoFavoriteMonitoring()
-            else
-                print("❌ Auto Favorite dinonaktifkan")
-                stopAutoFavoriteMonitoring()
-            end
-        end
-    })
-    
-    -- Tombol untuk cek status filter ikan
-    inventoryTab:AddButton({
-        Title = "📋 Cek Filter Ikan Aktif",
-        Description = "Lihat ikan mana saja yang akan di-favorite otomatis",
-        Callback = function()
-            print("=== STATUS FILTER AUTO FAVORITE ===")
-            
-            local tierCounts = {Secret = 0, Mythic = 0, Uncommon = 0}
-            local totalActive = 0
-            
-            for fishId, enabled in pairs(inventoryFishEnabled) do
-                if enabled then
-                    totalActive = totalActive + 1
-                    local itemData = getInventoryItemData(fishId)
-                    if itemData then
-                        for _, fish in pairs(fishList) do
-                            if fish.id == fishId then
-                                tierCounts[fish.tier] = tierCounts[fish.tier] + 1
-                                print("  ⭐", itemData.Name or fish.name, "(ID:", fishId, "- Tier:", fish.tier .. ")")
-                                break
-                            end
-                        end
-                    else
-                        for _, fish in pairs(fishList) do
-                            if fish.id == fishId then
-                                tierCounts[fish.tier] = tierCounts[fish.tier] + 1
-                                print("  ⭐", fish.name, "(ID:", fishId, "- Tier:", fish.tier .. ")")
-                                break
-                            end
-                        end
-                    end
-                end
-            end
-            
-            if totalActive == 0 then
-                print("❌ TIDAK ADA IKAN YANG AKTIF!")
-            else
-                print("📊 Ringkasan per tier:")
-                for tier, count in pairs(tierCounts) do
-                    if count > 0 then
-                        print("  " .. tier .. ":", count, "ikan")
-                    end
-                end
-                print("📊 Total ikan yang akan di-favorite:", totalActive)
-            end
-            
-            print("🔄 Status Auto Favorite:", isAutoFavoriteActive and "AKTIF" or "TIDAK AKTIF")
-            print("=== AKHIR STATUS ===")
-        end
-    })
-    
-    -- Tombol favorite dengan queue system
-    inventoryTab:AddButton({
-        Title = "🌟 Favorite Ikan Sekarang (V2)",
-        Description = "Favorite semua ikan dengan verification system",
-        Callback = function()
-            local activeCount = 0
-            for fishId, enabled in pairs(inventoryFishEnabled) do
-                if enabled then
-                    activeCount = activeCount + 1
-                end
-            end
-            
-            if activeCount == 0 then
-                print("❌ Tidak ada ikan yang dipilih di filter!")
-                return
-            end
-            
-            print("🔄 Mencari ikan di inventory untuk di-favorite (V2)...")
-            
-            local success, error = pcall(function()
-                local ReplicatedStorage = game:GetService("ReplicatedStorage")
-                local replionPackage = ReplicatedStorage:FindFirstChild("Packages")
-                
-                if replionPackage then
-                    replionPackage = replionPackage:FindFirstChild("_Index")
-                    if replionPackage then
-                        for _, folder in pairs(replionPackage:GetChildren()) do
-                            if string.find(folder.Name:lower(), "replion") then
-                                local replionModule = folder:FindFirstChild("replion")
-                                if replionModule then
-                                    local Replion = require(replionModule)
-                                    local Client = Replion.Client
-                                    local dataReplion = Client:WaitReplion("Data")
-                                    local inventory = dataReplion:Get("Inventory")
-                                    
-                                    if inventory then
-                                        local queueCount = 0
-                                        
-                                        for category, items in pairs(inventory) do
-                                            if type(items) == "table" then
-                                                for uuid, itemInfo in pairs(items) do
-                                                    if itemInfo.Id and not itemInfo.Favorited then
-                                                        local itemData = getInventoryItemData(itemInfo.Id)
-                                                        
-                                                        if itemData and itemData.Type == "Fishes" then
-                                                            local fishId = itemInfo.Id
-                                                            
-                                                            if inventoryFishEnabled[fishId] == true then
-                                                                queueCount = queueCount + 1
-                                                                addToFavoriteQueue(uuid, itemData.Name or "Unknown Fish")
-                                                            end
-                                                        end
-                                                    end
-                                                end
-                                            end
-                                        end
-                                        
-                                        if queueCount > 0 then
-                                            print("✅ Added", queueCount, "ikan ke favorite queue")
-                                        else
-                                            print("ℹ️ Tidak ada ikan yang perlu di-favorite")
-                                        end
-                                    end
-                                    break
-                                end
-                            end
-                        end
-                    end
-                end
-            end)
-            
-            if not success then
-                warn("❌ Error saat setup favorite queue:", error)
-            end
-        end
-    })
-    
-    -- Section untuk management favorite
-    inventoryTab:AddSection("Favorite Management")
-    
-    -- Tombol untuk unfavorite semua ikan
-    inventoryTab:AddButton({
-        Title = "💔 Unfavorite Semua Ikan",
-        Description = "Hapus favorite dari semua ikan di inventory",
-        Callback = function()
-            print("🔄 Mencari ikan yang di-favorite untuk dihapus...")
-            
-            local success, error = pcall(function()
-                local ReplicatedStorage = game:GetService("ReplicatedStorage")
-                local replionPackage = ReplicatedStorage:FindFirstChild("Packages")
-                
-                if replionPackage then
-                    replionPackage = replionPackage:FindFirstChild("_Index")
-                    if replionPackage then
-                        for _, folder in pairs(replionPackage:GetChildren()) do
-                            if string.find(folder.Name:lower(), "replion") then
-                                local replionModule = folder:FindFirstChild("replion")
-                                if replionModule then
-                                    local Replion = require(replionModule)
-                                    local Client = Replion.Client
-                                    local dataReplion = Client:WaitReplion("Data")
-                                    local inventory = dataReplion:Get("Inventory")
-                                    
-                                    if inventory then
-                                        local unfavoriteCount = 0
-                                        
-                                        for category, items in pairs(inventory) do
-                                            if type(items) == "table" then
-                                                for uuid, itemInfo in pairs(items) do
-                                                    if itemInfo.Id and itemInfo.Favorited then
-                                                        local itemData = getInventoryItemData(itemInfo.Id)
-                                                        
-                                                        if itemData and itemData.Type == "Fishes" then
-                                                            unfavoriteCount = unfavoriteCount + 1
-                                                            addToFavoriteQueue(uuid, itemData.Name or "Unknown Fish")
-                                                        end
-                                                    end
-                                                end
-                                            end
-                                        end
-                                        
-                                        if unfavoriteCount > 0 then
-                                            print("✅ Added", unfavoriteCount, "ikan ke unfavorite queue")
-                                        else
-                                            print("ℹ️ Tidak ada ikan yang di-favorite")
-                                        end
-                                    end
-                                    break
-                                end
-                            end
-                        end
-                    end
-                end
-            end)
-            
-            if not success then
-                warn("❌ Error saat unfavorite ikan:", error)
-            end
-        end
-    })
-    
-    -- Tombol untuk check queue status
-    inventoryTab:AddButton({
-        Title = "📊 Check Favorite Queue",
-        Description = "Lihat status queue dan statistik favorite",
-        Callback = function()
-            print("=== FAVORITE QUEUE STATUS ===")
-            print("Queue size:", #favoriteQueue)
-            print("Is processing:", isProcessingFavorites and "YES" or "NO")
-            
-            if #favoriteQueue > 0 then
-                print("Items in queue:")
-                for i, item in ipairs(favoriteQueue) do
-                    print("  " .. i .. ".", item.name, "(UUID: " .. item.uuid .. ")")
-                end
-            end
-            
-            local success, error = pcall(function()
-                local ReplicatedStorage = game:GetService("ReplicatedStorage")
-                local replionPackage = ReplicatedStorage:FindFirstChild("Packages")
-                
-                if replionPackage then
-                    replionPackage = replionPackage:FindFirstChild("_Index")
-                    if replionPackage then
-                        for _, folder in pairs(replionPackage:GetChildren()) do
-                            if string.find(folder.Name:lower(), "replion") then
-                                local replionModule = folder:FindFirstChild("replion")
-                                if replionModule then
-                                    local Replion = require(replionModule)
-                                    local Client = Replion.Client
-                                    local dataReplion = Client:WaitReplion("Data")
-                                    local inventory = dataReplion:Get("Inventory")
-                                    
-                                    if inventory then
-                                        local totalFish = 0
-                                        local favoritedFish = 0
-                                        local targetFish = 0
-                                        
-                                        for category, items in pairs(inventory) do
-                                            if type(items) == "table" then
-                                                for uuid, itemInfo in pairs(items) do
-                                                    if itemInfo.Id then
-                                                        local itemData = getInventoryItemData(itemInfo.Id)
-                                                        if itemData and itemData.Type == "Fishes" then
-                                                            totalFish = totalFish + 1
-                                                            
-                                                            if itemInfo.Favorited then
-                                                                favoritedFish = favoritedFish + 1
-                                                            end
-                                                            
-                                                            if inventoryFishEnabled[itemInfo.Id] then
-                                                                targetFish = targetFish + 1
-                                                            end
-                                                        end
-                                                    end
-                                                end
-                                            end
-                                        end
-                                        
-                                        print("📊 Statistik Inventory:")
-                                        print("  Total ikan:", totalFish)
-                                        print("  Ikan ter-favorite:", favoritedFish)
-                                        print("  Ikan target filter:", targetFish)
-                                    end
-                                    break
-                                end
-                            end
-                        end
-                    end
-                end
-            end)
-            
-            print("=== END STATUS ===")
-        end
-    })
-    
-    -- Quick Selection Section
-    inventoryTab:AddSection("Quick Selection")
-    
-    inventoryTab:AddButton({
-        Title = "🔥 Pilih Semua Secret",
-        Description = "Aktifkan auto favorite untuk semua ikan Secret",
-        Callback = function()
-            if Options.InventoryFishSelection then
-                Options.InventoryFishSelection:SetValue({Secret = true})
-            end
-        end
-    })
-
-    inventoryTab:AddButton({
-        Title = "⭐ Pilih Semua Mythic",
-        Description = "Aktifkan auto favorite untuk semua ikan Mythic",
-        Callback = function()
-            if Options.InventoryFishSelection then
-                Options.InventoryFishSelection:SetValue({Mythic = true})
-            end
-        end
-    })
-
-    inventoryTab:AddButton({
-        Title = "🟢 Pilih Semua Uncommon",
-        Description = "Aktifkan auto favorite untuk semua ikan Uncommon",
-        Callback = function()
-            if Options.InventoryFishSelection then
-                Options.InventoryFishSelection:SetValue({Uncommon = true})
-            end
-        end
-    })
-
-    inventoryTab:AddButton({
-        Title = "🌟 Pilih Semua Kategori",
-        Description = "Aktifkan auto favorite untuk semua kategori ikan",
-        Callback = function()
-            if Options.InventoryFishSelection then
-                Options.InventoryFishSelection:SetValue({
-                    Secret = true,
-                    Mythic = true,
-                    Uncommon = true
-                })
-            end
-        end
-    })
-
-    inventoryTab:AddButton({
-        Title = "❌ Hapus Semua Pilihan",
-        Description = "Nonaktifkan auto favorite untuk semua ikan",
-        Callback = function()
-            if Options.InventoryFishSelection then
-                Options.InventoryFishSelection:SetValue({})
-            end
-        end
-    })
-    
-    -- Debug Section
-    inventoryTab:AddSection("Debug & Troubleshooting")
-
-    inventoryTab:AddButton({
-        Title = "🔍 Debug Inventory Data",
-        Description = "Cek data inventory langsung dari server",
-        Callback = function()
-            local success, error = pcall(function()
-                local ReplicatedStorage = game:GetService("ReplicatedStorage")
-                local replionPackage = ReplicatedStorage:FindFirstChild("Packages")
-                
-                if replionPackage then
-                    replionPackage = replionPackage:FindFirstChild("_Index")
-                    if replionPackage then
-                        for _, folder in pairs(replionPackage:GetChildren()) do
-                            if string.find(folder.Name:lower(), "replion") then
-                                local replionModule = folder:FindFirstChild("replion")
-                                if replionModule then
-                                    local Replion = require(replionModule)
-                                    local Client = Replion.Client
-                                    local dataReplion = Client:WaitReplion("Data")
-                                    local inventory = dataReplion:Get("Inventory")
-                                    
-                                    print("=== DEBUG INVENTORY DATA ===")
-                                    if inventory then
-                                        local fishCount = 0
-                                        local favoritedCount = 0
-                                        
-                                        for category, items in pairs(inventory) do
-                                            if type(items) == "table" then
-                                                for uuid, itemInfo in pairs(items) do
-                                                    if itemInfo.Id then
-                                                        local itemData = getInventoryItemData(itemInfo.Id)
-                                                        if itemData and itemData.Type == "Fishes" then
-                                                            fishCount = fishCount + 1
-                                                            if itemInfo.Favorited then
-                                                                favoritedCount = favoritedCount + 1
-                                                                print("⭐ FAVORITED:", itemData.Name or "Unknown Fish", "UUID:", uuid)
-                                                            else
-                                                                print("⚪ NOT FAVORITED:", itemData.Name or "Unknown Fish", "UUID:", uuid)
-                                                            end
-                                                        end
-                                                    end
-                                                end
-                                            end
-                                        end
-                                        
-                                        print("📊 Total ikan:", fishCount)
-                                        print("⭐ Ikan ter-favorite:", favoritedCount)
-                                    else
-                                        print("❌ Inventory data tidak ditemukan")
-                                    end
-                                    print("=== AKHIR DEBUG ===")
-                                    break
-                                end
-                            end
-                        end
-                    end
-                end
-            end)
-            
-            if not success then
-                warn("❌ Error debug inventory:", error)
-            end
-        end
-    })
-
-    inventoryTab:AddButton({
-        Title = "🧪 Test Auto Favorite",
-        Description = "Test sistem auto favorite",
-        Callback = function()
-            if not isAutoFavoriteActive then
-                print("❌ Auto Favorite tidak aktif")
-                return
-            end
-            
-            print("🧪 Test Auto Favorite dimulai...")
-            print("📋 Ikan yang akan di-favorite otomatis:")
-            
-            local activeCount = 0
-            for fishId, enabled in pairs(inventoryFishEnabled) do
-                if enabled then
-                    activeCount = activeCount + 1
-                    local itemData = getInventoryItemData(fishId)
-                    if itemData then
-                        for _, fish in pairs(fishList) do
-                            if fish.id == fishId then
-                                print("  ⭐", itemData.Name or fish.name, "(ID:", fishId, "- Tier:", fish.tier .. ")")
-                                break
-                            end
-                        end
-                    else
-                        for _, fish in pairs(fishList) do
-                            if fish.id == fishId then
-                                print("  ⭐", fish.name, "(ID:", fishId, "- Tier:", fish.tier .. ")")
-                                break
-                            end
-                        end
-                    end
-                end
-            end
-            
-            if activeCount == 0 then
-                print("❌ TIDAK ADA IKAN YANG AKTIF!")
-            else
-                print("✅ Total ikan yang akan di-favorite:", activeCount)
-                print("🔄 Status monitoring:", autoFavoriteConnection and "AKTIF" or "TIDAK AKTIF")
-            end
-        end
-    })
-
-    inventoryTab:AddButton({
-        Title = "🗑️ Clear Queue",
-        Description = "Bersihkan queue jika ada masalah",
-        Callback = function()
-            clearFavoriteQueue()
-        end
-    })
-
-    inventoryTab:AddButton({
-        Title = "🛑 Force Stop",
-        Description = "Emergency stop semua proses favorite",
-        Callback = function()
-            forceStopProcessing()
-        end
-    })
-end
-
--- Fungsi monitoring yang diperbaiki
-function startAutoFavoriteMonitoring()
-    local success, error = pcall(function()
-        local ReplicatedStorage = game:GetService("ReplicatedStorage")
-        
-        local replionPackage = ReplicatedStorage:FindFirstChild("Packages")
-        if replionPackage then
-            replionPackage = replionPackage:FindFirstChild("_Index")
-            if replionPackage then
-                for _, folder in pairs(replionPackage:GetChildren()) do
-                    if string.find(folder.Name:lower(), "replion") then
-                        local replionModule = folder:FindFirstChild("replion")
-                        if replionModule then
-                            local Replion = require(replionModule)
-                            local Client = Replion.Client
-                            
-                            local dataReplion = Client:WaitReplion("Data")
-                            
-                            local lastProcessTime = 0
-                            local processingCooldown = 2
-                            local processedItems = {}
-                            
-                            autoFavoriteConnection = dataReplion:OnChange("Inventory", function(newInventory, oldInventory)
-                                if not isAutoFavoriteActive or not newInventory then
-                                    return
-                                end
-                                
-                                local currentTime = tick()
-                                if currentTime - lastProcessTime < processingCooldown then
-                                    return
-                                end
-                                lastProcessTime = currentTime
-                                
-                                task.defer(function()
-                                    local processSuccess, processError = pcall(function()
-                                        for category, items in pairs(newInventory) do
-                                            if type(items) == "table" then
-                                                for uuid, itemInfo in pairs(items) do
-                                                    local isNewItem = false
-                                                    
-                                                    -- Cek apakah ini item baru
-                                                    if not oldInventory or not oldInventory[category] or not oldInventory[category][uuid] then
-                                                        isNewItem = true
-                                                    elseif oldInventory[category][uuid].Quantity and itemInfo.Quantity then
-                                                        if itemInfo.Quantity > oldInventory[category][uuid].Quantity then
-                                                            isNewItem = true
-                                                        end
-                                                    end
-                                                    
-                                                    -- Jika item baru, belum difavorite, dan belum diproses
-                                                    if isNewItem and itemInfo.Id and not itemInfo.Favorited and not processedItems[uuid] then
-                                                        local itemData = getInventoryItemData(itemInfo.Id)
-                                                        
-                                                        -- Cek apakah ini ikan dan ada dalam filter yang aktif
-                                                        if itemData and itemData.Type == "Fishes" then
-                                                            local fishId = itemInfo.Id
-                                                            
-                                                            if inventoryFishEnabled[fishId] == true then
-                                                                print("🌟 Auto favorite ikan:", itemData.Name or "Unknown Fish", "UUID:", uuid)
-                                                                processedItems[uuid] = true -- Mark sebagai sudah diproses
-                                                                
-                                                                -- Add ke queue untuk diproses
-                                                                addToFavoriteQueue(uuid, itemData.Name or "Unknown Fish")
-                                                            end
-                                                        end
-                                                    end
-                                                end
-                                            end
-                                        end
-                                    end)
-                                    
-                                    if not processSuccess then
-                                        warn("Error auto favorite:", processError)
-                                    end
-                                end)
-                            end)
-                            
-                            return true
-                        end
-                    end
-                end
-            end
-        end
-        
-        return false
-    end)
-    
-    if success then
-        print("🔄 Auto Favorite monitoring dimulai (dengan queue system)")
-        return true
-    else
-        warn("❌ Gagal memulai Auto Favorite monitoring:", error)
-        return false
-    end
-end
-
--- Fungsi untuk menghentikan monitoring auto favorite
-function stopAutoFavoriteMonitoring()
-    if autoFavoriteConnection then
-        autoFavoriteConnection:Disconnect()
-        autoFavoriteConnection = nil
-        print("🔄 Auto Favorite monitoring dihentikan")
-    end
-end
-
--- Fungsi tambahan untuk clear queue jika diperlukan
-function clearFavoriteQueue()
-    favoriteQueue = {}
-    isProcessingFavorites = false
-    print("🗑️ Favorite queue dibersihkan")
-end
-
--- Fungsi untuk mendapatkan status queue
-function getFavoriteQueueStatus()
-    return {
-        queueSize = #favoriteQueue,
-        isProcessing = isProcessingFavorites,
-        items = favoriteQueue
-    }
-end
-
--- Fungsi untuk force stop processing (emergency)
-function forceStopProcessing()
-    isProcessingFavorites = false
-    favoriteQueue = {}
-    if autoFavoriteConnection then
-        autoFavoriteConnection:Disconnect()
-        autoFavoriteConnection = nil
-    end
-    print("🛑 Auto Favorite system force stopped")
 end
 end
 Window:SelectTab(1)

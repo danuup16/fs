@@ -2864,6 +2864,6 @@ WebhookTab:AddButton({
         end
     })
 end
-end
 Window:SelectTab(1)
 AutoConfig:Initialize(Fluent)
+end

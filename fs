@@ -888,7 +888,7 @@ local SellFishButton = Tabs.Fishing:AddButton({
 })
 Tabs.Fishing:AddSection("Auto Fishing V2")
 local isAutoFishV2Active = false
-local fishingV2DelayTime = 3
+local fishingV2DelayTime = 0
 local fishingControllerModule = nil
 local lastToolRefreshTimeV2 = 0
 local toolRefreshIntervalV2 = 300
@@ -943,24 +943,20 @@ end
 
 local function performNaturalFishingCycle()
     local success, error = pcall(function()
-        -- pastikan tool sudah equip
         if not ensureFishingToolEquipped() then
             warn("[AUTO FISHING V2] Gagal equip tool")
             return false
         end
-
         local controller = getFishingController()
         if not controller then
             warn("[AUTO FISHING V2] Controller not found")
             return false
         end
-        
         local camera = workspace.CurrentCamera
         local screenCenter = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2)
-
         local canFish, reason = canStartFishing()
         if not canFish then
-            warn("[AUTO FISHING V2] Cannot fish: " .. reason)
+            -- warn("[AUTO FISHING V2] Cannot fish: " .. reason)
             return false
         end
         controller:RequestChargeFishingRod(screenCenter, true, true)
@@ -972,9 +968,10 @@ local function performNaturalFishingCycle()
             if currentGUID then
                 controller:RequestFishingMinigameClick()
             else
-                task.wait(0.5)
+                -- task.wait(0.5)
+                --  print('ya')
                 local stillInFishing = controller:GetCurrentGUID()
-                if not stillInFishing and waitTime > 2 then
+                if not stillInFishing and waitTime > 0 then
                     break
                 end
             end
@@ -1007,7 +1004,7 @@ local autoFishV2Toggle = Tabs.Fishing:AddToggle("AutoFishingV2", {
                     while isAutoFishV2Active do
                         if not isAutoFishV2Active then break end
                         local cycleSuccess = performNaturalFishingCycle()
-                        for i = 1, fishingV2DelayTime * 10 do
+                        for i = 1, fishingV2DelayTime do
                             if not isAutoFishV2Active then break end
                             task.wait(0.1)
                         end
@@ -1025,10 +1022,10 @@ local autoFishV2Toggle = Tabs.Fishing:AddToggle("AutoFishingV2", {
 local fishingV2DelaySlider = Tabs.Fishing:AddSlider("FishingV2Delay", {
     Title = "Fishing Delay V2",
     Description = "Delay between fishing cycles (seconds)",
-    Default = 2,
-    Min = 1.5,
+    Default = 0,
+    Min = 0,
     Max = 10,
-    Rounding = 1,
+    Rounding = 0.1,
     Callback = function(Value)
         fishingV2DelayTime = Value
     end
@@ -2867,6 +2864,6 @@ WebhookTab:AddButton({
         end
     })
 end
-end
 Window:SelectTab(1)
 AutoConfig:Initialize(Fluent)
+end

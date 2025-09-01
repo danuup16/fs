@@ -15,6 +15,11 @@ local fSetClipboard, fRequest, fStringChar, fToString, fStringSub, fOsTime, fMat
 local cachedLink, cachedTime = "", 0;
 local HttpService = game:GetService("HttpService")
 
+-- Check if clipboard is available
+local function isClipboardAvailable()
+    return fSetClipboard ~= nil
+end
+
 -- File Management Functions
 local function ensureFolder()
     if not isfolder then return false end
@@ -23,6 +28,7 @@ local function ensureFolder()
     end
     return true
 end
+
 local function saveKeyToFile(key)
     if not writefile then 
         --print("File system not supported")
@@ -123,61 +129,43 @@ local function lDigest(input)
 end
 
 local host = "https://api.platoboost.com";
+local backupHosts = {
+    "https://api.platoboost.com",
+    "https://api.platoboost.net",
+    "https://platoboost.com/api",
+    "https://platoboost.net/api"
+}
 
--- Parallel host check
-task.spawn(function()
-    local hostResponse = fRequest({
-        Url = host .. "/public/connectivity",
-        Method = "GET",
-        Timeout = 3
-    });
-    if hostResponse.StatusCode ~= 200 and hostResponse.StatusCode ~= 429 then
-        host = "https://api.platoboost.net";
-    end
-end)
-
-function cacheLink()
-    if cachedTime + (10*60) < fOsTime() then
-        local response = fRequest({
-            Url = host .. "/public/start",
-            Method = "POST",
-            Body = lEncode({
-                service = service,
-                identifier = lDigest(fGetHwid())
-            }),
-            Headers = {
-                ["Content-Type"] = "application/json"
-            },
-            Timeout = 5
-        });
-
-        if response.StatusCode == 200 then
-            local decoded = lDecode(response.Body);
-
-            if decoded.success == true then
-                cachedLink = decoded.data.url;
-                cachedTime = fOsTime();
-                return true, cachedLink;
-            else
-                onMessage(decoded.message);
-                return false, decoded.message;
-            end
-        elseif response.StatusCode == 429 then
-            local msg = "you are being rate limited, please wait 20 seconds and try again.";
-            onMessage(msg);
-            return false, msg;
+-- Enhanced host check with multiple fallbacks
+local function findWorkingHost()
+    for _, testHost in ipairs(backupHosts) do
+        local success, response = pcall(function()
+            return fRequest({
+                Url = testHost .. "/public/connectivity",
+                Method = "GET",
+                Timeout = 8
+            });
+        end)
+        
+        if success and response and (response.StatusCode == 200 or response.StatusCode == 429) then
+            host = testHost
+            --print("Using host:", host)
+            return true
         end
-
-        local msg = "Failed to cache link.";
-        onMessage(msg);
-        return false, msg;
-    else
-        return true, cachedLink;
     end
+    return false
 end
 
--- Start caching link in background
-task.spawn(cacheLink)
+-- Try to find working host in background
+task.spawn(findWorkingHost)
+
+-- We can remove the old cacheLink and related server functions since we're going direct
+-- Keep the verification functions as they still need to work
+
+-- Remove these lines as they're no longer needed
+-- function cacheLink() ... (removed)
+-- Start caching link in background (removed)
+-- task.spawn(cacheLink) (removed)
 
 local generateNonce = function()
     local str = ""
@@ -198,12 +186,62 @@ for _ = 1, 2 do
     end
 end
 
-local copyLink = function()
-    local success, link = cacheLink();
+-- Generate direct link without server request
+local function generateDirectLink()
+    local baseUrl = "https://platoboost.com/a/"
+    local identifier = lDigest(fGetHwid())
+    local directUrl = baseUrl .. service .. "?id=" .. identifier
+    return directUrl
+end
+
+-- Alternative link generation method
+local function getKeyLink()
+    -- Try multiple approaches
+    local methods = {
+        function() return "https://platoboost.com/a/" .. service .. "?hwid=" .. lDigest(fGetHwid()) end,
+        function() return "https://platoboost.com/getkey?service=" .. service .. "&hwid=" .. lDigest(fGetHwid()) end,
+        function() return "https://platoboost.com/key/" .. service .. "/" .. lDigest(fGetHwid()) end,
+        function() return "https://gateway.platoboost.com/a/" .. service .. "?identifier=" .. lDigest(fGetHwid()) end
+    }
     
-    if success then
-        --print("SetClipBoard")
-        fSetClipboard(link);
+    return methods[1]() -- Use first method as primary
+end
+
+-- Modified copyLink function that opens browser directly
+local copyLink = function()
+    local directLink = getKeyLink()
+    
+    -- Try to copy to clipboard first
+    if isClipboardAvailable() then
+        local clipboardSuccess, clipboardError = pcall(function()
+            fSetClipboard(directLink);
+        end)
+        
+        if clipboardSuccess then
+            -- Also try to open in browser
+            pcall(function()
+                if game:GetService("GuiService").OpenBrowserWindow then
+                    game:GetService("GuiService"):OpenBrowserWindow(directLink)
+                end
+            end)
+            return true, "Link copied and opened in browser!"
+        end
+    end
+    
+    -- Try to open browser even if clipboard failed
+    local browserSuccess = pcall(function()
+        if game:GetService("GuiService").OpenBrowserWindow then
+            game:GetService("GuiService"):OpenBrowserWindow(directLink)
+            return true
+        end
+        return false
+    end)
+    
+    if browserSuccess then
+        return false, "Browser opened! Link: " .. directLink
+    else
+        -- Fallback: just show the link
+        return false, "Copy this link: " .. directLink
     end
 end
 
@@ -747,20 +785,22 @@ task.spawn(function()
         end	
     end)
 
+    -- Modified GetKey button click event - now opens browser directly
     GetKeyBtn.MouseButton1Click:Connect(function() 
-        ResultText.Text = "Copying link to clipboard..."
-        local success, err = pcall(function()
-            copyLink()
-        end)
-        if success then
-            ResultText.Text = "Link copied! Paste in your browser."
-            task.wait(3)
-            ResultText.Text = ""
-        else
-            ResultText.Text = "Failed to copy link!"
-            task.wait(2)
-            ResultText.Text = ""
+        ResultText.Text = "Opening browser..."
+        
+        local success, message = copyLink()
+        
+        ResultText.Text = message or "Browser opened!"
+        
+        -- If we have a link but clipboard/browser failed, try to show it in chat
+        if string.find(message or "", "Copy this link:") then
+            onMessage(message)
+            ResultText.Text = "Link sent to chat! Check above."
         end
+        
+        task.wait(3) -- Show message for 3 seconds
+        ResultText.Text = ""
     end)
 
     CloseBtn.MouseButton1Click:Connect(function()

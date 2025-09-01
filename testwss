@@ -953,10 +953,10 @@ local function performNaturalFishingCycle()
             return false
         end
         local camera = workspace.CurrentCamera
-        local screenCenter = Vector2.new(camera.ViewportSize.X / 12, camera.ViewportSize.Y / 12)
+        local screenCenter = Vector2.new(camera.ViewportSize.X / 10000000, camera.ViewportSize.Y / 10000000)
         local canFish, reason = canStartFishing()
         if not canFish then
-            warn("[AUTO FISHING V2] Cannot fish: " .. reason)
+            -- warn("[AUTO FISHING V2] Cannot fish: " .. reason)
             return false
         end
         controller:RequestChargeFishingRod(screenCenter, true, true)
@@ -969,7 +969,7 @@ local function performNaturalFishingCycle()
                 controller:RequestFishingMinigameClick()
             else
                 -- task.wait(0.5)
-                 print('yayaa')
+                 print('ya')
                 local stillInFishing = controller:GetCurrentGUID()
                 if not stillInFishing and waitTime > 0 then
                     break

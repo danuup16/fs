@@ -201,20 +201,22 @@ end
 local copyLink = function()
     local success, link = cacheLink();
     
-    if not fSetClipboard then
-        onMessage("Your executor does not support setclipboard. Please copy manually:\n" .. tostring(link))
-        return false
-    end
-
-    if success and link and link ~= "" then
-        print("SetClipBoard:", link)
-        fSetClipboard(link);
-        return true
+    if success and link then
+        if fSetClipboard then
+            pcall(function() fSetClipboard(link) end)
+            onMessage("Link copied! Paste in your browser.")
+            return true
+        else
+            -- fallback kalau executor tidak support clipboard
+            onMessage("Copy this link manually:\n" .. link)
+            return true
+        end
     else
-        onMessage("Failed to generate link, check your internet connection.")
+        onMessage("Failed to generate link. Check connection / executor.")
         return false
     end
 end
+
 
 
 local redeemKey = function(key)

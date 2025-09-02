@@ -1,16 +1,14 @@
 if game.PlaceId == 121864768012064 then ---ikan
 
--- KeyGuardian Configuration
+-- KeyGuardian Configuration (Updated to match working example)
 local publicToken = "5eabb6ca962c4acbb6c2a0c99b0d4637" -- Public Token dari KeyGuardian
 local privateToken = "d3289eee7f4147fab9d22347a98b8dc7" -- Private Token dari KeyGuardian
-local trueData = "67f0cd78c1a248d2b22138275054523e"
-local falseData = "5deb34e46dff430e9ce5b66175b06329"
+local trueData = "f6b6b79e29ba4103a91cf856a0f39d07" -- Updated to match working example
+local falseData = "869236c58d7d4b8a92bd568b24be49a3" -- Updated to match working example
 
 local onMessage = function(message)  
     game:GetService("StarterGui"):SetCore("ChatMakeSystemMessage", { Text = message; }) 
 end
-
--- Key Storage Configuration
 local STORAGE_FOLDER = "djsstore"
 local KEY_FILE = "djskey.txt"
 
@@ -128,11 +126,17 @@ end
 local function copyLink()
     local link = getKeyLink()
     if link then
-        fSetClipboard(link)
+        if fSetClipboard then
+            fSetClipboard(link)
+        else
+            onMessage("Clipboard function not available")
+        end
     else
         onMessage("Failed to get link")
     end
 end
+
+-- FIXED: Use the correct KeyGuardian method like in the working example
 local function verifyKey(key)
     if requestSending == true then
         onMessage("A request is already being sent, please slow down.")
@@ -140,72 +144,63 @@ local function verifyKey(key)
     else
         requestSending = true
     end
-    if not key or key == "" or #key < 5 then
+    
+    -- Clean and validate the key
+    if not key or key == "" then
         requestSending = false
-        onMessage("Invalid key format.")
+        onMessage("Please enter a key.")
         return false
     end
+    
+    -- Remove any whitespace and invisible characters
+    key = key:gsub("%s+", ""):gsub("[\r\n\t]", "")
+    
+    if #key < 5 then
+        requestSending = false
+        onMessage("Key is too short. Please check your key.")
+        return false
+    end
+    
+    -- Debug: Show key length for troubleshooting
+    onMessage("Verifying key (Length: " .. #key .. ")...")
+    
     local success, result = pcall(function()
-        -- Try different verification methods
-        if KeyGuardLibrary.verify then
-            return KeyGuardLibrary.verify(key)
-        elseif KeyGuardLibrary.validateKey then
-            return KeyGuardLibrary.validateKey(key)
-        elseif KeyGuardLibrary.checkKey then
-            return KeyGuardLibrary.checkKey(key)
-        else
-            -- Fallback: manual HTTP request
-            local response = fRequest({
-                Url = "https://api.keyguardian.org/v1/verify",
-                Method = "POST",
-                Headers = {
-                    ["Content-Type"] = "application/json"
-                },
-                Body = HttpService:JSONEncode({
-                    key = key,
-                    publicToken = publicToken,
-                    privateToken = privateToken
-                })
-            })
-            
-            if response and response.Body then
-                local data = HttpService:JSONDecode(response.Body)
-                return data.valid and trueData or falseData
-            end
-            
-            return falseData
-        end
+        -- Use the EXACT same method as the working example
+        return KeyGuardLibrary.validateDefaultKey(key)
     end)
+    
     requestSending = false
+    
     if success then
-        -- Check if the result matches our expected trueData
-        if result == trueData or result == true or (type(result) == "table" and result.success == true) then
+        onMessage("Server response received. Processing...")
+        
+        -- Use the EXACT same comparison as the working example
+        if result == trueData then
             saveKeyToFile(key)
-            onMessage("Key verified successfully!")
+            onMessage("✅ Key verified successfully!")
             return true
-        elseif result == falseData or result == false then
-            onMessage("Key is invalid or expired.")
+        else
+            onMessage("❌ Key is invalid or expired. Response: " .. tostring(result))
             deleteKeyFile()
             return false
-        else
-            -- Handle string responses or other formats
-            local resultStr = tostring(result):lower()
-            if resultStr:find("valid") or resultStr:find("success") or resultStr:find("true") then
-                saveKeyToFile(key)
-                onMessage("Key verified successfully!")
-                return true
-            else
-                onMessage("Key verification failed: " .. tostring(result))
-                return false
-            end
         end
     else
-        onMessage("Error verifying key: " .. tostring(result))
+        -- Enhanced error handling
+        local errorMsg = tostring(result)
+        if errorMsg:find("HTTP 403") or errorMsg:find("Forbidden") then
+            onMessage("❌ Key is invalid or expired. Please get a new key.")
+        elseif errorMsg:find("HTTP 429") or errorMsg:find("rate") then
+            onMessage("⚠️ Too many requests. Please wait a moment and try again.")
+        elseif errorMsg:find("timeout") or errorMsg:find("network") then
+            onMessage("⚠️ Network error. Please check your connection and try again.")
+        else
+            onMessage("❌ Verification error: " .. errorMsg)
+        end
         return false
     end
 end
 
--- FIXED: Auto check function with proper verification
+-- FIXED: Improved auto check function
 local function autoCheckSavedKey()
     local savedKey = loadKeyFromFile()
     
@@ -213,13 +208,12 @@ local function autoCheckSavedKey()
         return false
     end
     
-    onMessage("Checking saved key...")
+    onMessage("Found saved key. Verifying...")
     
-    local success, result = pcall(function()
-        return verifyKey(savedKey)
-    end)
+    -- Use the same verification logic as manual entry
+    local isValid = verifyKey(savedKey)
     
-    if success and result then
+    if isValid then
         onMessage("Loading script...")
         
         -- Load main script immediately
@@ -230,13 +224,13 @@ local function autoCheckSavedKey()
             end)
             
             if not scriptSuccess then
-                onMessage("Error loading main script.")
+                onMessage("Error loading main script: " .. tostring(scriptError))
             end
         end)
         
         return true
     else
-        onMessage("Saved key expired or invalid. Please enter a new key.")
+        onMessage("Saved key is no longer valid. Please enter a new key.")
         deleteKeyFile() -- Remove invalid saved key
         return false
     end
@@ -544,78 +538,167 @@ task.spawn(function()
         end
     end)
 
-    -- FIXED: Enhanced Enter button logic with debugging
+    -- FIXED: Enhanced Enter button with comprehensive debugging and error handling
     EnterBtn.MouseButton1Click:Connect(function() 
-        if not TextBox then
+        if requestSending then
+            ResultText.Text = "⏳ Please wait, verification in progress..."
             return
         end
+        
+        if not TextBox then
+            ResultText.Text = "❌ Input error!"
+            return
+        end
+        
         local inputText = TextBox.Text
-        if inputText and inputText ~= "" then
-            local inputKey = inputText:gsub("%s+", "") -- Remove whitespaces
-            if #inputKey < 5 then
-                ResultText.Text = "Key too short! Please check your key."
+        if not inputText or inputText == "" then
+            ResultText.Text = "⚠️ Please enter a key first!"
+            task.wait(2)
+            ResultText.Text = ""
+            return
+        end
+        
+        -- Clean the input more thoroughly
+        local inputKey = inputText:gsub("%s+", ""):gsub("[\r\n\t]", ""):gsub("^%s*(.-)%s*$", "%1")
+        
+        if #inputKey < 5 then
+            ResultText.Text = "⚠️ Key too short! Please check your key."
+            task.wait(2)
+            ResultText.Text = ""
+            return
+        end
+        
+        -- Visual feedback
+        ResultText.Text = "🔑 Verifying key (Length: " .. #inputKey .. ")..."
+        
+        task.spawn(function()
+            local verificationResult = verifyKey(inputKey)
+            
+            if verificationResult then
+                ResultText.Text = "✅ Key valid! Loading script..."
+                TextBox.Text = ""
+                
+                -- Load script with error handling
+                task.spawn(function()
+                    task.wait(1)
+                    local scriptSuccess, scriptError = pcall(function()
+                        loadstring(game:HttpGet("https://raw.githubusercontent.com/danuup16/fs/refs/heads/main/fs"))()
+                    end)
+                    
+                    if scriptSuccess then
+                        onMessage("✅ Script loaded successfully!")
+                        -- Close GUI after successful load
+                        task.wait(0.5)
+                        if KeySystemGui then
+                            KeySystemGui:Destroy()
+                        end
+                    else
+                        ResultText.Text = "❌ Error loading script!"
+                        onMessage("❌ Script loading error: " .. tostring(scriptError))
+                        task.wait(3)
+                        ResultText.Text = ""
+                    end
+                end)
+            else
+                ResultText.Text = "❌ Invalid or expired key!"
+                TextBox.Text = "" -- Clear invalid key
+                task.wait(3)
+                ResultText.Text = ""
+            end
+        end)
+    end)
+
+    -- FIXED: Enhanced Get Key button with better feedback
+    GetKeyBtn.MouseButton1Click:Connect(function() 
+        if requestSending then
+            ResultText.Text = "⏳ Please wait..."
+            return
+        end
+        
+        ResultText.Text = "📋 Getting key link..."
+        
+        task.spawn(function()
+            local success, err = pcall(function()
+                copyLink()
+            end)
+            
+            if success then
+                ResultText.Text = "✅ Link copied! Paste in browser to get key."
+                task.wait(4)
+                ResultText.Text = ""
+            else
+                ResultText.Text = "❌ Failed to get key link!"
+                onMessage("Error getting link: " .. tostring(err))
                 task.wait(2)
                 ResultText.Text = ""
-                return
             end
-            ResultText.Text = "Verifying key..."
-            task.spawn(function()
-                local success, result = pcall(function()
-                    return verifyKey(inputKey)
-                end)
-                if success and result then
-                    ResultText.Text = "✓ Key valid! Loading script..."
-                    TextBox.Text = ""
-                    task.spawn(function()
-                        task.wait(1)
-                        local scriptSuccess, scriptError = pcall(function()
-                            loadstring(game:HttpGet("https://raw.githubusercontent.com/danuup16/fs/refs/heads/main/fs"))()
-                        end)
-                        
-                        if scriptSuccess then
-                            -- Close GUI after successful load
-                            task.wait(0.5)
-                            if KeySystemGui then
-                                KeySystemGui:Destroy()
-                            end
-                        else
-                            ResultText.Text = "Error loading script!"
-                            task.wait(3)
-                            ResultText.Text = ""
-                        end
-                    end)
-                else
-                    ResultText.Text = "✗ Invalid key! Get a new key first."
-                    TextBox.Text = "" -- Clear invalid key
-                    task.wait(3)
-                    ResultText.Text = ""
-                end
-            end)
-        else
-            ResultText.Text = "⚠ Please enter a key first!"
-            task.wait(2)
-            ResultText.Text = ""
-        end	
-    end)
-    GetKeyBtn.MouseButton1Click:Connect(function() 
-        ResultText.Text = "Getting key link..."
-        local success, err = pcall(function()
-            copyLink()
         end)
-        if success then
-            ResultText.Text = "✓ Link copied! Paste in browser to get key."
-            task.wait(4)
-            ResultText.Text = ""
-        else
-            ResultText.Text = "✗ Failed to get key link!"
-            task.wait(2)
-            ResultText.Text = ""
-        end
     end)
+    
+    -- Enhanced Close button
     CloseBtn.MouseButton1Click:Connect(function()
         if KeySystemGui then
             KeySystemGui:Destroy()
         end
     end)
+    
+    -- ADDED: Enter key support for TextBox
+    TextBox.FocusLost:Connect(function(enterPressed)
+        if enterPressed then
+            -- Simulate Enter button click when Enter key is pressed
+            EnterBtn.MouseButton1Click:Fire()
+        end
+    end)
+    
+    -- ADDED: Visual feedback for buttons
+    local function addButtonEffect(button)
+        button.MouseEnter:Connect(function()
+            button.BackgroundTransparency = 0.5
+        end)
+        
+        button.MouseLeave:Connect(function()
+            button.BackgroundTransparency = 0.65
+        end)
+    end
+    
+    addButtonEffect(GetKeyBtn)
+    addButtonEffect(EnterBtn)
+    addButtonEffect(CloseBtn)
 end)
+
+-- ADDED: Additional debugging function to test KeyGuardian connection
+local function testKeyGuardianConnection()
+    task.spawn(function()
+        task.wait(2) -- Wait for UI to load
+        
+        local success, result = pcall(function()
+            if KeyGuardLibrary then
+                onMessage("🔗 KeyGuardian library loaded successfully!")
+                
+                -- Test getLink function
+                if KeyGuardLibrary.getLink then
+                    local link = KeyGuardLibrary.getLink()
+                    if link then
+                        onMessage("✅ KeyGuardian link generation working!")
+                        return true
+                    else
+                        onMessage("⚠️ KeyGuardian link generation returned nil!")
+                        return false
+                    end
+                else
+                    onMessage("⚠️ KeyGuardLibrary.getLink function not found!")
+                    return false
+                end
+            else
+                onMessage("❌ KeyGuardian library is nil!")
+                return false
+            end
+        end)
+        
+        if not success then
+            onMessage("❌ KeyGuardian connection error: " .. tostring(result))
+        end
+    end)
+end
+testKeyGuardianConnection()
 end

@@ -48,7 +48,6 @@ end
 
 local function saveKeyToFile(key)
     if not writefile then 
-        print("File system not supported")
         return false 
     end
     
@@ -60,24 +59,20 @@ local function saveKeyToFile(key)
     end)
     
     if success then
-        print("Key saved successfully:", string.sub(key, 1, 8) .. "...")
         return true
     else
-        print("Failed to save key:", err)
         return false
     end
 end
 
 local function loadKeyFromFile()
     if not readfile or not isfile then 
-        print("File system not supported")
         return nil 
     end
     
     local filePath = STORAGE_FOLDER .. "/" .. KEY_FILE
     
     if not isfile(filePath) then
-        print("No saved key found")
         return nil
     end
     
@@ -87,14 +82,11 @@ local function loadKeyFromFile()
     
     if success and key and key ~= "" then
         if #key > 5 then
-            print("Loaded saved key:", string.sub(key, 1, 8) .. "...")
             return key
         else
-            print("Invalid key format in file")
             return nil
         end
     else
-        print("Failed to load key")
         return nil
     end
 end
@@ -110,10 +102,8 @@ local function deleteKeyFile()
         end)
         
         if success then
-            print("Key file deleted")
             return true
         else
-            print("Failed to delete key file:", err)
             return false
         end
     end
@@ -138,14 +128,11 @@ end
 local function copyLink()
     local link = getKeyLink()
     if link then
-        print("SetClipBoard")
         fSetClipboard(link)
     else
         onMessage("Failed to get link")
     end
 end
-
--- FIXED: Proper key verification function
 local function verifyKey(key)
     if requestSending == true then
         onMessage("A request is already being sent, please slow down.")
@@ -153,17 +140,11 @@ local function verifyKey(key)
     else
         requestSending = true
     end
-    
-    -- Basic key format validation
     if not key or key == "" or #key < 5 then
         requestSending = false
         onMessage("Invalid key format.")
         return false
     end
-    
-    -- Debug print
-    print("Verifying key:", string.sub(key, 1, 8) .. "...")
-    
     local success, result = pcall(function()
         -- Try different verification methods
         if KeyGuardLibrary.verify then
@@ -195,12 +176,7 @@ local function verifyKey(key)
             return falseData
         end
     end)
-    
     requestSending = false
-    
-    -- Debug print
-    print("Verification result:", success, result)
-    
     if success then
         -- Check if the result matches our expected trueData
         if result == trueData or result == true or (type(result) == "table" and result.success == true) then
@@ -254,7 +230,6 @@ local function autoCheckSavedKey()
             end)
             
             if not scriptSuccess then
-                print("Error loading script:", scriptError)
                 onMessage("Error loading main script.")
             end
         end)
@@ -571,45 +546,26 @@ task.spawn(function()
 
     -- FIXED: Enhanced Enter button logic with debugging
     EnterBtn.MouseButton1Click:Connect(function() 
-        print("Enter button clicked") -- Debug
-        
         if not TextBox then
-            print("TextBox not found!")
             return
         end
-        
         local inputText = TextBox.Text
-        print("Input text:", inputText) -- Debug
-        
         if inputText and inputText ~= "" then
             local inputKey = inputText:gsub("%s+", "") -- Remove whitespaces
-            print("Cleaned key:", string.sub(inputKey, 1, 8) .. "...") -- Debug
-            
             if #inputKey < 5 then
                 ResultText.Text = "Key too short! Please check your key."
                 task.wait(2)
                 ResultText.Text = ""
                 return
             end
-            
             ResultText.Text = "Verifying key..."
-            print("Starting verification...") -- Debug
-            
-            -- Use spawn to prevent UI freezing
             task.spawn(function()
                 local success, result = pcall(function()
                     return verifyKey(inputKey)
                 end)
-                
-                print("Verification completed:", success, result) -- Debug
-                
                 if success and result then
                     ResultText.Text = "✓ Key valid! Loading script..."
-                    
-                    -- Clear TextBox
                     TextBox.Text = ""
-                    
-                    -- Load main script
                     task.spawn(function()
                         task.wait(1)
                         local scriptSuccess, scriptError = pcall(function()
@@ -623,7 +579,6 @@ task.spawn(function()
                                 KeySystemGui:Destroy()
                             end
                         else
-                            print("Error loading script:", scriptError)
                             ResultText.Text = "Error loading script!"
                             task.wait(3)
                             ResultText.Text = ""
@@ -642,7 +597,6 @@ task.spawn(function()
             ResultText.Text = ""
         end	
     end)
-
     GetKeyBtn.MouseButton1Click:Connect(function() 
         ResultText.Text = "Getting key link..."
         local success, err = pcall(function()
@@ -658,7 +612,6 @@ task.spawn(function()
             ResultText.Text = ""
         end
     end)
-
     CloseBtn.MouseButton1Click:Connect(function()
         if KeySystemGui then
             KeySystemGui:Destroy()

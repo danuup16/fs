@@ -3,8 +3,8 @@ if game.PlaceId == 121864768012064 then ---ikan
 -- KeyGuardian Configuration
 local publicToken = "5eabb6ca962c4acbb6c2a0c99b0d4637" -- Public Token dari KeyGuardian
 local privateToken = "d3289eee7f4147fab9d22347a98b8dc7" -- Private Token dari KeyGuardian
-local trueData = "access_granted" -- Data ketika key valid
-local falseData = "access_denied" -- Data ketika key tidak valid
+local trueData = "67f0cd78c1a248d2b22138275054523e"
+local falseData = "5deb34e46dff430e9ce5b66175b06329"
 
 local onMessage = function(message)  
     game:GetService("StarterGui"):SetCore("ChatMakeSystemMessage", { Text = message; }) 
@@ -30,8 +30,6 @@ if not success then
     onMessage("Failed to load KeyGuardian library: " .. tostring(err))
     return
 end
-
--- Configure KeyGuardian
 KeyGuardLibrary.Set({
     publicToken = publicToken,
     privateToken = privateToken,
@@ -147,6 +145,7 @@ local function copyLink()
     end
 end
 
+-- FIXED: Proper key verification function
 local function verifyKey(key)
     if requestSending == true then
         onMessage("A request is already being sent, please slow down.")
@@ -155,38 +154,74 @@ local function verifyKey(key)
         requestSending = true
     end
     
+    -- Basic key format validation
+    if not key or key == "" or #key < 5 then
+        requestSending = false
+        onMessage("Invalid key format.")
+        return false
+    end
+    
+    -- Debug print
+    print("Verifying key:", string.sub(key, 1, 8) .. "...")
+    
     local success, result = pcall(function()
-        -- Check if it's a default key
-        if KeyGuardLibrary.validateDefaultKey(key) then
-            return true, "default"
-        -- Check if it's a premium key  
-        elseif KeyGuardLibrary.validatePremiumKey(key) then
-            return true, "premium"
+        -- Try different verification methods
+        if KeyGuardLibrary.verify then
+            return KeyGuardLibrary.verify(key)
+        elseif KeyGuardLibrary.validateKey then
+            return KeyGuardLibrary.validateKey(key)
+        elseif KeyGuardLibrary.checkKey then
+            return KeyGuardLibrary.checkKey(key)
         else
-            return false, "invalid"
+            -- Fallback: manual HTTP request
+            local response = fRequest({
+                Url = "https://api.keyguardian.org/v1/verify",
+                Method = "POST",
+                Headers = {
+                    ["Content-Type"] = "application/json"
+                },
+                Body = HttpService:JSONEncode({
+                    key = key,
+                    publicToken = publicToken,
+                    privateToken = privateToken
+                })
+            })
+            
+            if response and response.Body then
+                local data = HttpService:JSONDecode(response.Body)
+                return data.valid and trueData or falseData
+            end
+            
+            return falseData
         end
     end)
     
     requestSending = false
     
-    if success and result then
-        local isValid, keyType = result, "default"
-        if type(result) == "table" then
-            isValid, keyType = result[1], result[2] or "default"
-        end
-        
-        if isValid then
+    -- Debug print
+    print("Verification result:", success, result)
+    
+    if success then
+        -- Check if the result matches our expected trueData
+        if result == trueData or result == true or (type(result) == "table" and result.success == true) then
             saveKeyToFile(key)
-            if keyType == "premium" then
-                onMessage("Premium key verified successfully!")
-            else
-                onMessage("Key verified successfully!")
-            end
+            onMessage("Key verified successfully!")
             return true
-        else
-            onMessage("Key is invalid.")
+        elseif result == falseData or result == false then
+            onMessage("Key is invalid or expired.")
             deleteKeyFile()
             return false
+        else
+            -- Handle string responses or other formats
+            local resultStr = tostring(result):lower()
+            if resultStr:find("valid") or resultStr:find("success") or resultStr:find("true") then
+                saveKeyToFile(key)
+                onMessage("Key verified successfully!")
+                return true
+            else
+                onMessage("Key verification failed: " .. tostring(result))
+                return false
+            end
         end
     else
         onMessage("Error verifying key: " .. tostring(result))
@@ -194,6 +229,7 @@ local function verifyKey(key)
     end
 end
 
+-- FIXED: Auto check function with proper verification
 local function autoCheckSavedKey()
     local savedKey = loadKeyFromFile()
     
@@ -212,18 +248,21 @@ local function autoCheckSavedKey()
         
         -- Load main script immediately
         task.spawn(function()
+            task.wait(0.5) -- Small delay to show message
             local scriptSuccess, scriptError = pcall(function()
                 loadstring(game:HttpGet("https://raw.githubusercontent.com/danuup16/fs/refs/heads/main/fs"))()
             end)
             
             if not scriptSuccess then
                 print("Error loading script:", scriptError)
+                onMessage("Error loading main script.")
             end
         end)
         
         return true
     else
         onMessage("Saved key expired or invalid. Please enter a new key.")
+        deleteKeyFile() -- Remove invalid saved key
         return false
     end
 end
@@ -235,7 +274,7 @@ end
 
 -- Create Key System UI
 task.spawn(function()
-    -- Create UI elements (sama seperti kode asli)
+    -- Create UI elements
     local KeySystemGui = Instance.new("ScreenGui")
     local Frame = Instance.new("Frame")
     local UICorner = Instance.new("UICorner")
@@ -278,7 +317,7 @@ task.spawn(function()
     local UIAspectRatioConstraint_10 = Instance.new("UIAspectRatioConstraint")
     local UIAspectRatioConstraint_11 = Instance.new("UIAspectRatioConstraint")
 
-    -- Properties (sama seperti kode asli)
+    -- Properties
     KeySystemGui.Name = "KeySystemGui"
     KeySystemGui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
     KeySystemGui.ResetOnSpawn = false
@@ -530,58 +569,91 @@ task.spawn(function()
         end
     end)
 
+    -- FIXED: Enhanced Enter button logic with debugging
     EnterBtn.MouseButton1Click:Connect(function() 
-        if TextBox and TextBox.Text ~= "" then
-            ResultText.Text = "Verifying key..."
+        print("Enter button clicked") -- Debug
+        
+        if not TextBox then
+            print("TextBox not found!")
+            return
+        end
+        
+        local inputText = TextBox.Text
+        print("Input text:", inputText) -- Debug
+        
+        if inputText and inputText ~= "" then
+            local inputKey = inputText:gsub("%s+", "") -- Remove whitespaces
+            print("Cleaned key:", string.sub(inputKey, 1, 8) .. "...") -- Debug
             
-            local success, result = pcall(function()
-                return verifyKey(TextBox.Text)
-            end)
-            
-            if success and result then
-                ResultText.Text = "Key valid! Loading..."
-                
-                -- Destroy GUI before loading main script
-                task.spawn(function()
-                    task.wait(0.5)
-                    if KeySystemGui then
-                        KeySystemGui:Destroy()
-                    end
-                end)
-                
-                -- Load main script immediately
-                task.spawn(function()
-                    local scriptSuccess, scriptError = pcall(function()
-                        loadstring(game:HttpGet("https://raw.githubusercontent.com/danuup16/fs/refs/heads/main/fs"))()
-                    end)
-                    
-                    if not scriptSuccess then
-                        print("Error loading script:", scriptError)
-                    end
-                end)
-            else
-                ResultText.Text = "Invalid key! Please try again."
+            if #inputKey < 5 then
+                ResultText.Text = "Key too short! Please check your key."
                 task.wait(2)
                 ResultText.Text = ""
-            end 
+                return
+            end
+            
+            ResultText.Text = "Verifying key..."
+            print("Starting verification...") -- Debug
+            
+            -- Use spawn to prevent UI freezing
+            task.spawn(function()
+                local success, result = pcall(function()
+                    return verifyKey(inputKey)
+                end)
+                
+                print("Verification completed:", success, result) -- Debug
+                
+                if success and result then
+                    ResultText.Text = "✓ Key valid! Loading script..."
+                    
+                    -- Clear TextBox
+                    TextBox.Text = ""
+                    
+                    -- Load main script
+                    task.spawn(function()
+                        task.wait(1)
+                        local scriptSuccess, scriptError = pcall(function()
+                            loadstring(game:HttpGet("https://raw.githubusercontent.com/danuup16/fs/refs/heads/main/fs"))()
+                        end)
+                        
+                        if scriptSuccess then
+                            -- Close GUI after successful load
+                            task.wait(0.5)
+                            if KeySystemGui then
+                                KeySystemGui:Destroy()
+                            end
+                        else
+                            print("Error loading script:", scriptError)
+                            ResultText.Text = "Error loading script!"
+                            task.wait(3)
+                            ResultText.Text = ""
+                        end
+                    end)
+                else
+                    ResultText.Text = "✗ Invalid key! Get a new key first."
+                    TextBox.Text = "" -- Clear invalid key
+                    task.wait(3)
+                    ResultText.Text = ""
+                end
+            end)
         else
-            ResultText.Text = "Please enter a key first!"
+            ResultText.Text = "⚠ Please enter a key first!"
             task.wait(2)
             ResultText.Text = ""
         end	
     end)
 
     GetKeyBtn.MouseButton1Click:Connect(function() 
-        ResultText.Text = "Copying link to clipboard..."
+        ResultText.Text = "Getting key link..."
         local success, err = pcall(function()
             copyLink()
         end)
         if success then
-            ResultText.Text = "Link copied! Paste in your browser."
-            task.wait(3)
+            ResultText.Text = "✓ Link copied! Paste in browser to get key."
+            task.wait(4)
             ResultText.Text = ""
         else
-            ResultText.Text = "Failed to copy link!"
+            ResultText.Text = "✗ Failed to get key link!"
             task.wait(2)
             ResultText.Text = ""
         end

@@ -1,19 +1,43 @@
 if game.PlaceId == 121864768012064 then ---ikan
-local service = "5692";--Set your Platoboost Id 
-local secret = "060a0918-7a9a-4ec4-9158-e9dbe780bedc"; --Set Your Platoboost Api key
-local useNonce = true; 
-local onMessage = function(message)  game:GetService("StarterGui"):SetCore("ChatMakeSystemMessage", { Text = message; }) end;
+
+-- KeyGuardian Configuration
+local publicToken = "5eabb6ca962c4acbb6c2a0c99b0d4637" -- Public Token dari KeyGuardian
+local privateToken = "d3289eee7f4147fab9d22347a98b8dc7" -- Private Token dari KeyGuardian
+local trueData = "access_granted" -- Data ketika key valid
+local falseData = "access_denied" -- Data ketika key tidak valid
+
+local onMessage = function(message)  
+    game:GetService("StarterGui"):SetCore("ChatMakeSystemMessage", { Text = message; }) 
+end
 
 -- Key Storage Configuration
 local STORAGE_FOLDER = "djsstore"
 local KEY_FILE = "djskey.txt"
 
-repeat task.wait(0.1) until game:IsLoaded() and game.Players.LocalPlayer;
+repeat task.wait(0.1) until game:IsLoaded() and game.Players.LocalPlayer
 
-local requestSending = false;
-local fSetClipboard, fRequest, fStringChar, fToString, fStringSub, fOsTime, fMathRandom, fMathFloor, fGetHwid = setclipboard or toclipboard, request or http_request, string.char, tostring, string.sub, os.time, math.random, math.floor, gethwid or function() return game:GetService("Players").LocalPlayer.UserId end
-local cachedLink, cachedTime = "", 0;
+local requestSending = false
+local fSetClipboard, fRequest = setclipboard or toclipboard, request or http_request
 local HttpService = game:GetService("HttpService")
+
+-- Load KeyGuardian Library
+local KeyGuardLibrary
+local success, err = pcall(function()
+    KeyGuardLibrary = loadstring(game:HttpGet("https://cdn.keyguardian.org/library/v1.0.0.lua"))()
+end)
+
+if not success then
+    onMessage("Failed to load KeyGuardian library: " .. tostring(err))
+    return
+end
+
+-- Configure KeyGuardian
+KeyGuardLibrary.Set({
+    publicToken = publicToken,
+    privateToken = privateToken,
+    trueData = trueData,
+    falseData = falseData,
+})
 
 -- File Management Functions
 local function ensureFolder()
@@ -23,6 +47,7 @@ local function ensureFolder()
     end
     return true
 end
+
 local function saveKeyToFile(key)
     if not writefile then 
         print("File system not supported")
@@ -98,277 +123,74 @@ local function deleteKeyFile()
     return false
 end
 
-function lEncode(data)
-    return HttpService:JSONEncode(data)
-end
-
-function lDecode(data)
-    return HttpService:JSONDecode(data)
-end
-
-local function lDigest(input)
-    local inputStr = tostring(input)
+-- KeyGuardian Functions
+local function getKeyLink()
+    local success, link = pcall(function()
+        return KeyGuardLibrary.getLink()
+    end)
     
-    local hash = {}
-    for i = 1, #inputStr do
-        table.insert(hash, string.byte(inputStr, i))
-    end
-
-    local hashHex = ""
-    for _, byte in ipairs(hash) do
-        hashHex = hashHex .. string.format("%02x", byte)
-    end
-    
-    return hashHex
-end
-
-local host = "https://api.platoboost.com";
-
--- Parallel host check
-task.spawn(function()
-    local hostResponse = fRequest({
-        Url = host .. "/public/connectivity",
-        Method = "GET",
-        Timeout = 3
-    });
-    if hostResponse.StatusCode ~= 200 and hostResponse.StatusCode ~= 429 then
-        host = "https://api.platoboost.net";
-    end
-end)
-
-function cacheLink()
-    if cachedTime + (10*60) < fOsTime() then
-        local response = fRequest({
-            Url = host .. "/public/start",
-            Method = "POST",
-            Body = lEncode({
-                service = service,
-                identifier = lDigest(fGetHwid())
-            }),
-            Headers = {
-                ["Content-Type"] = "application/json"
-            },
-            Timeout = 5
-        });
-
-        if response.StatusCode == 200 then
-            local decoded = lDecode(response.Body);
-
-            if decoded.success == true then
-                cachedLink = decoded.data.url;
-                cachedTime = fOsTime();
-                return true, cachedLink;
-            else
-                onMessage(decoded.message);
-                return false, decoded.message;
-            end
-        elseif response.StatusCode == 429 then
-            local msg = "you are being rate limited, please wait 20 seconds and try again.";
-            onMessage(msg);
-            return false, msg;
-        end
-
-        local msg = "Failed to cache link.";
-        onMessage(msg);
-        return false, msg;
+    if success and link then
+        return link
     else
-        return true, cachedLink;
+        onMessage("Failed to get key link from KeyGuardian")
+        return nil
     end
 end
 
--- Start caching link in background
-task.spawn(cacheLink)
-
-local generateNonce = function()
-    local str = ""
-    for _ = 1, 16 do
-        str = str .. fStringChar(fMathFloor(fMathRandom() * (122 - 97 + 1)) + 97)
-    end
-    return str
-end
-
--- Reduced nonce validation
-for _ = 1, 2 do
-    local oNonce = generateNonce();
-    task.wait(0.1)
-    if generateNonce() == oNonce then
-        local msg = "platoboost nonce error.";
-        onMessage(msg);
-        error(msg);
-    end
-end
-
-local copyLink = function()
-    local success, link = cacheLink();
-    
-    if success then
+local function copyLink()
+    local link = getKeyLink()
+    if link then
         print("SetClipBoard")
-        fSetClipboard(link);
-    end
-end
-
-local redeemKey = function(key)
-    local nonce = generateNonce();
-    local endpoint = host .. "/public/redeem/" .. fToString(service);
-
-    local body = {
-        identifier = lDigest(fGetHwid()),
-        key = key
-    }
-
-    if useNonce then
-        body.nonce = nonce;
-    end
-
-    local response = fRequest({
-        Url = endpoint,
-        Method = "POST",
-        Body = lEncode(body),
-        Headers = {
-            ["Content-Type"] = "application/json"
-        },
-        Timeout = 5
-    });
-
-    if response.StatusCode == 200 then
-        local decoded = lDecode(response.Body);
-        if decoded.success == true then
-            if decoded.data.valid == true then
-                if useNonce then
-                    if decoded.data.hash == lDigest("true" .. "-" .. nonce .. "-" .. secret) then
-                        return true;
-                    else
-                        onMessage("failed to verify integrity.");
-                        return false;
-                    end    
-                else
-                    return true;
-                end
-            else
-                onMessage("key is invalid.");
-                return false;
-            end
-        else
-            if fStringSub(decoded.message, 1, 27) == "unique constraint violation" then
-                onMessage("you already have an active key, please wait for it to expire before redeeming it.");
-                return false;
-            else
-                onMessage(decoded.message);
-                return false;
-            end
-        end
-    elseif response.StatusCode == 429 then
-        onMessage("you are being rate limited, please wait 20 seconds and try again.");
-        return false;
+        fSetClipboard(link)
     else
-        onMessage("server returned an invalid status code, please try again later.");
-        return false; 
+        onMessage("Failed to get link")
     end
 end
 
-local verifyKey = function(key)
+local function verifyKey(key)
     if requestSending == true then
-        onMessage("a request is already being sent, please slow down.");
-        return false;
+        onMessage("A request is already being sent, please slow down.")
+        return false
     else
-        requestSending = true;
-    end
-
-    local nonce = generateNonce();
-    local endpoint = host .. "/public/whitelist/" .. fToString(service) .. "?identifier=" .. lDigest(fGetHwid()) .. "&key=" .. key;
-
-    if useNonce then
-        endpoint = endpoint .. "&nonce=" .. nonce;
+        requestSending = true
     end
     
-    local response = fRequest({
-        Url = endpoint,
-        Method = "GET",
-        Timeout = 5
-    });
-
-    requestSending = false;
-
-    if response.StatusCode == 200 then
-        local decoded = lDecode(response.Body);
-        if decoded.success == true then
-            if decoded.data.valid == true then
-                if useNonce then
-                    saveKeyToFile(key)
-                    return true;
-                else
-                    saveKeyToFile(key)
-                    return true;
-                end
-            else
-                -- Check for different key types (FREE, KEY for gifts, VIP, etc.)
-                local keyPrefix4 = fStringSub(key, 1, 4)
-                local keyPrefix5 = fStringSub(key, 1, 5)
-                if keyPrefix4 == "FREE_" or keyPrefix4 == "KEY_" or keyPrefix4 == "VIP_" then
-                    local redeemResult = redeemKey(key);
-                    if redeemResult then
-                        saveKeyToFile(key)
-                        if keyPrefix4 == "KEY_" then
-                            onMessage("Gift key redeemed successfully!")
-                        elseif keyPrefix4 == "FREE_" then
-                            onMessage("Free key redeemed successfully!")
-                        elseif keyPrefix4 == "VIP_" then
-                            onMessage("VIP key redeemed successfully!")
-                        end
-                    end
-                    return redeemResult;
-                else
-                    onMessage("key is invalid.");
-                    deleteKeyFile()
-                    return false;
-                end
-            end
+    local success, result = pcall(function()
+        -- Check if it's a default key
+        if KeyGuardLibrary.validateDefaultKey(key) then
+            return true, "default"
+        -- Check if it's a premium key  
+        elseif KeyGuardLibrary.validatePremiumKey(key) then
+            return true, "premium"
         else
-            onMessage(decoded.message);
-            return false;
+            return false, "invalid"
         end
-    elseif response.StatusCode == 429 then
-        onMessage("you are being rate limited, please wait 20 seconds and try again.");
-        return false;
-    else
-        onMessage("server returned an invalid status code, please try again later.");
-        return false;
-    end
-end
-
-local getFlag = function(name)
-    local nonce = generateNonce();
-    local endpoint = host .. "/public/flag/" .. fToString(service) .. "?name=" .. name;
-
-    if useNonce then
-        endpoint = endpoint .. "&nonce=" .. nonce;
-    end
-
-    local response = fRequest({
-        Url = endpoint,
-        Method = "GET",
-        Timeout = 5
-    });
-
-    if response.StatusCode == 200 then
-        local decoded = lDecode(response.Body);
-        if decoded.success == true then
-            if useNonce then
-                if decoded.data.hash == lDigest(fToString(decoded.data.value) .. "-" .. nonce .. "-" .. secret) then
-                    return decoded.data.value;
-                else
-                    onMessage("failed to verify integrity.");
-                    return nil;
-                end
+    end)
+    
+    requestSending = false
+    
+    if success and result then
+        local isValid, keyType = result, "default"
+        if type(result) == "table" then
+            isValid, keyType = result[1], result[2] or "default"
+        end
+        
+        if isValid then
+            saveKeyToFile(key)
+            if keyType == "premium" then
+                onMessage("Premium key verified successfully!")
             else
-                return decoded.data.value;
+                onMessage("Key verified successfully!")
             end
+            return true
         else
-            onMessage(decoded.message);
-            return nil;
+            onMessage("Key is invalid.")
+            deleteKeyFile()
+            return false
         end
     else
-        return nil;
+        onMessage("Error verifying key: " .. tostring(result))
+        return false
     end
 end
 
@@ -406,12 +228,14 @@ local function autoCheckSavedKey()
     end
 end
 
+-- Check saved key first
 if autoCheckSavedKey() then
     return
 end
 
+-- Create Key System UI
 task.spawn(function()
-    -- Create new UI with updated design
+    -- Create UI elements (sama seperti kode asli)
     local KeySystemGui = Instance.new("ScreenGui")
     local Frame = Instance.new("Frame")
     local UICorner = Instance.new("UICorner")
@@ -454,7 +278,7 @@ task.spawn(function()
     local UIAspectRatioConstraint_10 = Instance.new("UIAspectRatioConstraint")
     local UIAspectRatioConstraint_11 = Instance.new("UIAspectRatioConstraint")
 
-    -- Properties:
+    -- Properties (sama seperti kode asli)
     KeySystemGui.Name = "KeySystemGui"
     KeySystemGui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
     KeySystemGui.ResetOnSpawn = false

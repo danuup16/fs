@@ -553,8 +553,6 @@ task.spawn(function()
         local inputText = TextBox.Text
         if not inputText or inputText == "" then
             ResultText.Text = "⚠️ Please enter a key first!"
-            task.wait(2)
-            ResultText.Text = ""
             return
         end
         
@@ -563,8 +561,6 @@ task.spawn(function()
         
         if #inputKey < 5 then
             ResultText.Text = "⚠️ Key too short! Please check your key."
-            task.wait(2)
-            ResultText.Text = ""
             return
         end
         
@@ -595,15 +591,11 @@ task.spawn(function()
                     else
                         ResultText.Text = "❌ Error loading script!"
                         onMessage("❌ Script loading error: " .. tostring(scriptError))
-                        task.wait(3)
-                        ResultText.Text = ""
                     end
                 end)
             else
                 ResultText.Text = "❌ Invalid or expired key!"
                 TextBox.Text = "" -- Clear invalid key
-                task.wait(3)
-                ResultText.Text = ""
             end
         end)
     end)
@@ -624,13 +616,9 @@ task.spawn(function()
             
             if success then
                 ResultText.Text = "✅ Link copied! Paste in browser to get key."
-                task.wait(4)
-                ResultText.Text = ""
             else
                 ResultText.Text = "❌ Failed to get key link!"
                 onMessage("Error getting link: " .. tostring(err))
-                task.wait(2)
-                ResultText.Text = ""
             end
         end)
     end)

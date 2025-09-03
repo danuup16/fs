@@ -177,10 +177,10 @@ local function verifyKey(key)
         -- Use the EXACT same comparison as the working example
         if result == trueData then
             saveKeyToFile(key)
-            onMessage("✅ Key verified successfully!")
+            onMessage("Key verified successfully!")
             return true
         else
-            onMessage("❌ Key is invalid or expired. Response: " .. tostring(result))
+            onMessage("Key is invalid or expired. Response: " .. tostring(result))
             deleteKeyFile()
             return false
         end
@@ -188,13 +188,13 @@ local function verifyKey(key)
         -- Enhanced error handling
         local errorMsg = tostring(result)
         if errorMsg:find("HTTP 403") or errorMsg:find("Forbidden") then
-            onMessage("❌ Key is invalid or expired. Please get a new key.")
+            onMessage("Key is invalid or expired. Please get a new key.")
         elseif errorMsg:find("HTTP 429") or errorMsg:find("rate") then
-            onMessage("⚠️ Too many requests. Please wait a moment and try again.")
+            onMessage("Too many requests. Please wait a moment and try again.")
         elseif errorMsg:find("timeout") or errorMsg:find("network") then
-            onMessage("⚠️ Network error. Please check your connection and try again.")
+            onMessage("Network error. Please check your connection and try again.")
         else
-            onMessage("❌ Verification error: " .. errorMsg)
+            onMessage("Verification error: " .. errorMsg)
         end
         return false
     end
@@ -241,340 +241,410 @@ if autoCheckSavedKey() then
     return
 end
 
--- Create Key System UI
+-- Create Key System UI with Error Handling
 task.spawn(function()
-    -- Create UI elements
+    local Players = game:GetService("Players")
+    local TweenService = game:GetService("TweenService")
+    local player = Players.LocalPlayer
+    
+    -- Wait for PlayerGui
+    local playerGui = player:WaitForChild("PlayerGui")
+    
+    -- Create main GUI
     local KeySystemGui = Instance.new("ScreenGui")
-    local Frame = Instance.new("Frame")
-    local UICorner = Instance.new("UICorner")
-    local UIGradient = Instance.new("UIGradient")
-    local LogoKey = Instance.new("ImageLabel")
-    local UIAspectRatioConstraint = Instance.new("UIAspectRatioConstraint")
-    local GetKeyBtn = Instance.new("TextButton")
-    local UICorner_2 = Instance.new("UICorner")
-    local UIGradient_2 = Instance.new("UIGradient")
-    local TextLabel = Instance.new("TextLabel")
-    local UITextSizeConstraint = Instance.new("UITextSizeConstraint")
-    local UIAspectRatioConstraint_2 = Instance.new("UIAspectRatioConstraint")
-    local UITextSizeConstraint_2 = Instance.new("UITextSizeConstraint")
-    local UIAspectRatioConstraint_3 = Instance.new("UIAspectRatioConstraint")
-    local EnterBtn = Instance.new("TextButton")
-    local UICorner_3 = Instance.new("UICorner")
-    local UIGradient_3 = Instance.new("UIGradient")
-    local TextLabel_2 = Instance.new("TextLabel")
-    local UITextSizeConstraint_3 = Instance.new("UITextSizeConstraint")
-    local UIAspectRatioConstraint_4 = Instance.new("UIAspectRatioConstraint")
-    local UITextSizeConstraint_4 = Instance.new("UITextSizeConstraint")
-    local UIAspectRatioConstraint_5 = Instance.new("UIAspectRatioConstraint")
-    local InputBtn = Instance.new("TextButton")
-    local TextBox = Instance.new("TextBox")
-    local UITextSizeConstraint_5 = Instance.new("UITextSizeConstraint")
-    local UIAspectRatioConstraint_6 = Instance.new("UIAspectRatioConstraint")
-    local UIGradient_4 = Instance.new("UIGradient")
-    local UICorner_4 = Instance.new("UICorner")
-    local UITextSizeConstraint_6 = Instance.new("UITextSizeConstraint")
-    local UIAspectRatioConstraint_7 = Instance.new("UIAspectRatioConstraint")
-    local CloseBtn = Instance.new("TextButton")
-    local UICorner_5 = Instance.new("UICorner")
-    local UIGradient_5 = Instance.new("UIGradient")
-    local Img = Instance.new("ImageLabel")
-    local UIAspectRatioConstraint_8 = Instance.new("UIAspectRatioConstraint")
-    local UITextSizeConstraint_7 = Instance.new("UITextSizeConstraint")
-    local UIAspectRatioConstraint_9 = Instance.new("UIAspectRatioConstraint")
-    local ResultText = Instance.new("TextLabel")
-    local UITextSizeConstraint_8 = Instance.new("UITextSizeConstraint")
-    local UIAspectRatioConstraint_10 = Instance.new("UIAspectRatioConstraint")
-    local UIAspectRatioConstraint_11 = Instance.new("UIAspectRatioConstraint")
-
-    -- Properties
     KeySystemGui.Name = "KeySystemGui"
-    KeySystemGui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
+    KeySystemGui.Parent = playerGui
     KeySystemGui.ResetOnSpawn = false
-
-    Frame.Parent = KeySystemGui
-    Frame.AnchorPoint = Vector2.new(0.5, 0.5)
-    Frame.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    Frame.BorderColor3 = Color3.fromRGB(0, 0, 0)
-    Frame.BorderSizePixel = 0
-    Frame.Position = UDim2.new(0.5, 0, 0.5, 0)
-    Frame.Size = UDim2.new(0.303174615, 0, 0.166112959, 0)
-
-    UICorner.CornerRadius = UDim.new(0, 10)
-    UICorner.Parent = Frame
-
-    UIGradient.Color = ColorSequence.new{ColorSequenceKeypoint.new(0.00, Color3.fromRGB(53, 53, 53)), ColorSequenceKeypoint.new(0.50, Color3.fromRGB(50, 50, 50)), ColorSequenceKeypoint.new(1.00, Color3.fromRGB(53, 53, 53))}
-    UIGradient.Transparency = NumberSequence.new{NumberSequenceKeypoint.new(0.00, 0.24), NumberSequenceKeypoint.new(0.47, 0.00), NumberSequenceKeypoint.new(1.00, 0.24)}
-    UIGradient.Parent = Frame
-
-    LogoKey.Name = "LogoKey"
-    LogoKey.Parent = Frame
-    LogoKey.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    LogoKey.BackgroundTransparency = 1.000
-    LogoKey.BorderColor3 = Color3.fromRGB(0, 0, 0)
-    LogoKey.BorderSizePixel = 0
-    LogoKey.Position = UDim2.new(0.386999995, 0, -0.0820000023, 0)
-    LogoKey.Size = UDim2.new(0.225130886, 0, 0.573333323, 0)
-    LogoKey.Image = "rbxassetid://125181034874810"
-    LogoKey.ImageTransparency = 0.190
-
-    UIAspectRatioConstraint.Parent = LogoKey
-
-    GetKeyBtn.Name = "GetKeyBtn"
-    GetKeyBtn.Parent = Frame
-    GetKeyBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    GetKeyBtn.BackgroundTransparency = 0.650
-    GetKeyBtn.BorderColor3 = Color3.fromRGB(0, 0, 0)
-    GetKeyBtn.BorderSizePixel = 0
-    GetKeyBtn.Position = UDim2.new(0.300999999, 0, 0.699999988, 0)
-    GetKeyBtn.Size = UDim2.new(0.188481674, 0, 0.186666667, 0)
-    GetKeyBtn.Font = Enum.Font.SourceSans
-    GetKeyBtn.Text = ""
-    GetKeyBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    GetKeyBtn.TextScaled = true
-    GetKeyBtn.TextSize = 18.000
-    GetKeyBtn.TextWrapped = true
-
-    UICorner_2.CornerRadius = UDim.new(0, 10)
-    UICorner_2.Parent = GetKeyBtn
-
-    UIGradient_2.Color = ColorSequence.new{ColorSequenceKeypoint.new(0.00, Color3.fromRGB(140, 140, 140)), ColorSequenceKeypoint.new(0.50, Color3.fromRGB(129, 129, 129)), ColorSequenceKeypoint.new(1.00, Color3.fromRGB(140, 140, 140))}
-    UIGradient_2.Parent = GetKeyBtn
-
-    TextLabel.Parent = GetKeyBtn
-    TextLabel.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    TextLabel.BackgroundTransparency = 1.000
-    TextLabel.BorderColor3 = Color3.fromRGB(0, 0, 0)
-    TextLabel.BorderSizePixel = 0
-    TextLabel.Position = UDim2.new(0, 0, -0.0714285746, 0)
-    TextLabel.Size = UDim2.new(1, 0, 1.07142854, 0)
-    TextLabel.Font = Enum.Font.Cartoon
-    TextLabel.Text = "Get Key"
-    TextLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-    TextLabel.TextScaled = true
-    TextLabel.TextSize = 15.000
-    TextLabel.TextTransparency = 0.350
-    TextLabel.TextWrapped = true
-
-    UITextSizeConstraint.Parent = TextLabel
-    UITextSizeConstraint.MaxTextSize = 15
-
-    UIAspectRatioConstraint_2.Parent = TextLabel
-    UIAspectRatioConstraint_2.AspectRatio = 2.400
-
-    UITextSizeConstraint_2.Parent = GetKeyBtn
-    UITextSizeConstraint_2.MaxTextSize = 18
-
-    UIAspectRatioConstraint_3.Parent = GetKeyBtn
-    UIAspectRatioConstraint_3.AspectRatio = 2.571
-
-    EnterBtn.Name = "EnterBtn"
-    EnterBtn.Parent = Frame
-    EnterBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    EnterBtn.BackgroundTransparency = 0.650
-    EnterBtn.BorderColor3 = Color3.fromRGB(0, 0, 0)
-    EnterBtn.BorderSizePixel = 0
-    EnterBtn.Position = UDim2.new(0.521000028, 0, 0.699999988, 0)
-    EnterBtn.Size = UDim2.new(0.188481674, 0, 0.186666667, 0)
-    EnterBtn.Font = Enum.Font.SourceSans
-    EnterBtn.Text = ""
-    EnterBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    EnterBtn.TextScaled = true
-    EnterBtn.TextSize = 18.000
-    EnterBtn.TextWrapped = true
-
-    UICorner_3.CornerRadius = UDim.new(0, 10)
-    UICorner_3.Parent = EnterBtn
-
-    UIGradient_3.Color = ColorSequence.new{ColorSequenceKeypoint.new(0.00, Color3.fromRGB(140, 140, 140)), ColorSequenceKeypoint.new(0.50, Color3.fromRGB(129, 129, 129)), ColorSequenceKeypoint.new(1.00, Color3.fromRGB(140, 140, 140))}
-    UIGradient_3.Parent = EnterBtn
-
-    TextLabel_2.Parent = EnterBtn
-    TextLabel_2.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    TextLabel_2.BackgroundTransparency = 1.000
-    TextLabel_2.BorderColor3 = Color3.fromRGB(0, 0, 0)
-    TextLabel_2.BorderSizePixel = 0
-    TextLabel_2.Position = UDim2.new(0, 0, -0.0714285746, 0)
-    TextLabel_2.Size = UDim2.new(1, 0, 1.07142854, 0)
-    TextLabel_2.Font = Enum.Font.Cartoon
-    TextLabel_2.Text = "Enter"
-    TextLabel_2.TextColor3 = Color3.fromRGB(255, 255, 255)
-    TextLabel_2.TextScaled = true
-    TextLabel_2.TextSize = 15.000
-    TextLabel_2.TextTransparency = 0.350
-    TextLabel_2.TextWrapped = true
-
-    UITextSizeConstraint_3.Parent = TextLabel_2
-    UITextSizeConstraint_3.MaxTextSize = 15
-
-    UIAspectRatioConstraint_4.Parent = TextLabel_2
-    UIAspectRatioConstraint_4.AspectRatio = 2.400
-
-    UITextSizeConstraint_4.Parent = EnterBtn
-    UITextSizeConstraint_4.MaxTextSize = 18
-
-    UIAspectRatioConstraint_5.Parent = EnterBtn
-    UIAspectRatioConstraint_5.AspectRatio = 2.571
-
-    InputBtn.Name = "InputBtn"
-    InputBtn.Parent = Frame
-    InputBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    InputBtn.BackgroundTransparency = 0.650
-    InputBtn.BorderColor3 = Color3.fromRGB(0, 0, 0)
-    InputBtn.BorderSizePixel = 0
-    InputBtn.Position = UDim2.new(0.170214593, 0, 0.454311937, 0)
-    InputBtn.Size = UDim2.new(0.65968585, 0, 0.186666667, 0)
-    InputBtn.Font = Enum.Font.SourceSans
-    InputBtn.Text = ""
-    InputBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    InputBtn.TextScaled = true
-    InputBtn.TextSize = 18.000
-    InputBtn.TextWrapped = true
-
-    TextBox.Parent = InputBtn
-    TextBox.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    TextBox.BackgroundTransparency = 1.000
-    TextBox.BorderColor3 = Color3.fromRGB(0, 0, 0)
-    TextBox.BorderSizePixel = 0
-    TextBox.ClipsDescendants = true
-    TextBox.Position = UDim2.new(0.00704326341, 0, -0.0074441093, 0)
-    TextBox.Size = UDim2.new(0.992063463, 0, 1.03571427, 0)
-    TextBox.Font = Enum.Font.SourceSans
-    TextBox.PlaceholderColor3 = Color3.fromRGB(143, 143, 145)
-    TextBox.PlaceholderText = "Enter your key here"
-    TextBox.Text = ""
-    TextBox.TextColor3 = Color3.fromRGB(187, 188, 190)
-    TextBox.TextScaled = true
-    TextBox.TextSize = 20.000
-    TextBox.TextWrapped = true
-
-    UITextSizeConstraint_5.Parent = TextBox
-    UITextSizeConstraint_5.MaxTextSize = 20
-
-    UIAspectRatioConstraint_6.Parent = TextBox
-    UIAspectRatioConstraint_6.AspectRatio = 8.621
-
-    UIGradient_4.Color = ColorSequence.new{ColorSequenceKeypoint.new(0.00, Color3.fromRGB(140, 140, 140)), ColorSequenceKeypoint.new(0.50, Color3.fromRGB(129, 129, 129)), ColorSequenceKeypoint.new(1.00, Color3.fromRGB(140, 140, 140))}
-    UIGradient_4.Parent = InputBtn
-
-    UICorner_4.CornerRadius = UDim.new(0, 10)
-    UICorner_4.Parent = InputBtn
-
-    UITextSizeConstraint_6.Parent = InputBtn
-    UITextSizeConstraint_6.MaxTextSize = 18
-
-    UIAspectRatioConstraint_7.Parent = InputBtn
-    UIAspectRatioConstraint_7.AspectRatio = 9.000
-
-    CloseBtn.Name = "CloseBtn"
-    CloseBtn.Parent = Frame
-    CloseBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    CloseBtn.BackgroundTransparency = 0.650
-    CloseBtn.BorderColor3 = Color3.fromRGB(0, 0, 0)
-    CloseBtn.BorderSizePixel = 0
-    CloseBtn.Position = UDim2.new(0.89200002, 0, 0.0549999997, 0)
-    CloseBtn.Size = UDim2.new(0.0732984319, 0, 0.186666667, 0)
-    CloseBtn.Font = Enum.Font.SourceSans
-    CloseBtn.Text = ""
-    CloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    CloseBtn.TextScaled = true
-    CloseBtn.TextSize = 18.000
-    CloseBtn.TextWrapped = true
-
-    UICorner_5.CornerRadius = UDim.new(0, 10)
-    UICorner_5.Parent = CloseBtn
-
-    UIGradient_5.Color = ColorSequence.new{ColorSequenceKeypoint.new(0.00, Color3.fromRGB(140, 140, 140)), ColorSequenceKeypoint.new(0.50, Color3.fromRGB(129, 129, 129)), ColorSequenceKeypoint.new(1.00, Color3.fromRGB(140, 140, 140))}
-    UIGradient_5.Parent = CloseBtn
-
-    Img.Name = "Img"
-    Img.Parent = CloseBtn
-    Img.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    Img.BackgroundTransparency = 1.000
-    Img.BorderColor3 = Color3.fromRGB(0, 0, 0)
-    Img.BorderSizePixel = 0
-    Img.Position = UDim2.new(0.107142858, 0, 0.107142858, 0)
-    Img.Size = UDim2.new(0.75, 0, 0.75, 0)
-    Img.Image = "rbxassetid://10747384394"
-    Img.ImageTransparency = 0.300
-
-    UIAspectRatioConstraint_8.Parent = Img
-
-    UITextSizeConstraint_7.Parent = CloseBtn
-    UITextSizeConstraint_7.MaxTextSize = 18
-
-    UIAspectRatioConstraint_9.Parent = CloseBtn
-
-    ResultText.Name = "ResultText"
-    ResultText.Parent = Frame
-    ResultText.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    ResultText.BackgroundTransparency = 1.000
-    ResultText.BorderColor3 = Color3.fromRGB(0, 0, 0)
-    ResultText.BorderSizePixel = 0
-    ResultText.Position = UDim2.new(0.170157075, 0, 0.293333322, 0)
-    ResultText.Size = UDim2.new(0.65968585, 0, 0.159999996, 0)
-    ResultText.Font = Enum.Font.Cartoon
-    ResultText.Text = ""
-    ResultText.TextColor3 = Color3.fromRGB(255, 255, 255)
-    ResultText.TextScaled = true
-    ResultText.TextSize = 15.000
-    ResultText.TextTransparency = 0.350
-    ResultText.TextWrapped = true
-
-    UITextSizeConstraint_8.Parent = ResultText
-    UITextSizeConstraint_8.MaxTextSize = 15
-
-    UIAspectRatioConstraint_10.Parent = ResultText
-    UIAspectRatioConstraint_10.AspectRatio = 10.500
-
-    UIAspectRatioConstraint_11.Parent = Frame
-    UIAspectRatioConstraint_11.AspectRatio = 2.547
-
-    -- Event Connections
-    TextBox:GetPropertyChangedSignal("Text"):Connect(function()
-        if TextBox.Text == "" then
-            ResultText.Text = ""
-        else
-            ResultText.Text = ""
+    KeySystemGui.IgnoreGuiInset = true
+    
+    -- Main container with responsive sizing
+    local Container = Instance.new("Frame")
+    Container.Name = "Container"
+    Container.Parent = KeySystemGui
+    Container.AnchorPoint = Vector2.new(0.5, 0.5)
+    Container.Position = UDim2.new(0.5, 0, 0.5, 0)
+    Container.BackgroundTransparency = 1
+    Container.Size = UDim2.new(0, 400, 0, 240)
+    
+    -- Main Frame with improved styling
+    local MainFrame = Instance.new("Frame")
+    MainFrame.Name = "MainFrame"
+    MainFrame.Parent = Container
+    MainFrame.Size = UDim2.new(1, 0, 1, 0)
+    MainFrame.Position = UDim2.new(0, 0, 0, 0)
+    MainFrame.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    MainFrame.BorderSizePixel = 0
+    
+    -- Frame styling
+    local MainCorner = Instance.new("UICorner")
+    MainCorner.CornerRadius = UDim.new(0, 10)
+    MainCorner.Parent = MainFrame
+    
+    local MainGradient = Instance.new("UIGradient")
+    MainGradient.Color = ColorSequence.new{
+        ColorSequenceKeypoint.new(0.00, Color3.fromRGB(53, 53, 53)), 
+        ColorSequenceKeypoint.new(0.50, Color3.fromRGB(50, 50, 50)), 
+        ColorSequenceKeypoint.new(1.00, Color3.fromRGB(53, 53, 53))
+    }
+    MainGradient.Transparency = NumberSequence.new{
+        NumberSequenceKeypoint.new(0.00, 0.24), 
+        NumberSequenceKeypoint.new(0.47, 0.00), 
+        NumberSequenceKeypoint.new(1.00, 0.24)
+    }
+    MainGradient.Parent = MainFrame
+    
+    -- Title/Logo section
+    local TitleFrame = Instance.new("Frame")
+    TitleFrame.Name = "TitleFrame"
+    TitleFrame.Parent = MainFrame
+    TitleFrame.Size = UDim2.new(1, -20, 0, 60)
+    TitleFrame.Position = UDim2.new(0, 10, 0, 10)
+    TitleFrame.BackgroundTransparency = 1
+    
+    local LogoImage = Instance.new("ImageLabel")
+    LogoImage.Name = "LogoImage"
+    LogoImage.Parent = TitleFrame
+    LogoImage.Size = UDim2.new(0, 120, 0, 120)
+    LogoImage.Position = UDim2.new(0.5, -55, 0, -20)
+    LogoImage.BackgroundTransparency = 1
+    LogoImage.Image = "rbxassetid://125181034874810"
+    LogoImage.ImageTransparency = 0.25
+    
+    local LogoCorner = Instance.new("UICorner")
+    LogoCorner.CornerRadius = UDim.new(0, 8)
+    LogoCorner.Parent = LogoImage
+    
+    -- Close button with improved positioning
+    local CloseButton = Instance.new("TextButton")
+    CloseButton.Name = "CloseButton"
+    CloseButton.Parent = TitleFrame
+    CloseButton.Size = UDim2.new(0, 30, 0, 30)
+    CloseButton.Position = UDim2.new(1, -35, 0, 5)
+    CloseButton.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    CloseButton.BackgroundTransparency = 0.65
+    CloseButton.Text = ""
+    CloseButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    CloseButton.TextScaled = true
+    CloseButton.Font = Enum.Font.SourceSans
+    
+    local CloseCorner = Instance.new("UICorner")
+    CloseCorner.CornerRadius = UDim.new(0, 10)
+    CloseCorner.Parent = CloseButton
+    
+    local CloseGradient = Instance.new("UIGradient")
+    CloseGradient.Color = ColorSequence.new{
+        ColorSequenceKeypoint.new(0.00, Color3.fromRGB(140, 140, 140)), 
+        ColorSequenceKeypoint.new(0.50, Color3.fromRGB(129, 129, 129)), 
+        ColorSequenceKeypoint.new(1.00, Color3.fromRGB(140, 140, 140))
+    }
+    CloseGradient.Parent = CloseButton
+    
+    local CloseImage = Instance.new("ImageLabel")
+    CloseImage.Name = "CloseImage"
+    CloseImage.Parent = CloseButton
+    CloseImage.BackgroundTransparency = 1
+    CloseImage.Position = UDim2.new(0.107, 0, 0.107, 0)
+    CloseImage.Size = UDim2.new(0.75, 0, 0.75, 0)
+    CloseImage.Image = "rbxassetid://10747384394"
+    CloseImage.ImageTransparency = 0.3
+    
+    -- Status/Result text
+    local StatusLabel = Instance.new("TextLabel")
+    StatusLabel.Name = "StatusLabel"
+    StatusLabel.Parent = MainFrame
+    StatusLabel.Size = UDim2.new(1, -20, 0, 25)
+    StatusLabel.Position = UDim2.new(0, 10, 0, 80)
+    StatusLabel.BackgroundTransparency = 1
+    StatusLabel.Text = ""
+    StatusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    StatusLabel.TextTransparency = 0.35
+    StatusLabel.TextScaled = true
+    StatusLabel.TextWrapped = true
+    StatusLabel.Font = Enum.Font.Cartoon
+    
+    local StatusTextSize = Instance.new("UITextSizeConstraint")
+    StatusTextSize.MaxTextSize = 14
+    StatusTextSize.Parent = StatusLabel
+    
+    -- Input section
+    local InputFrame = Instance.new("Frame")
+    InputFrame.Name = "InputFrame"
+    InputFrame.Parent = MainFrame
+    InputFrame.Size = UDim2.new(1, -20, 0, 40)
+    InputFrame.Position = UDim2.new(0, 10, 0, 115)
+    InputFrame.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    InputFrame.BackgroundTransparency = 0.65
+    
+    local InputCorner = Instance.new("UICorner")
+    InputCorner.CornerRadius = UDim.new(0, 10)
+    InputCorner.Parent = InputFrame
+    
+    local InputGradient = Instance.new("UIGradient")
+    InputGradient.Color = ColorSequence.new{
+        ColorSequenceKeypoint.new(0.00, Color3.fromRGB(140, 140, 140)), 
+        ColorSequenceKeypoint.new(0.50, Color3.fromRGB(129, 129, 129)), 
+        ColorSequenceKeypoint.new(1.00, Color3.fromRGB(140, 140, 140))
+    }
+    InputGradient.Parent = InputFrame
+    
+    local KeyTextBox = Instance.new("TextBox")
+    KeyTextBox.Name = "KeyTextBox"
+    KeyTextBox.Parent = InputFrame
+    KeyTextBox.Size = UDim2.new(1, -16, 1, -8)
+    KeyTextBox.Position = UDim2.new(0, 8, 0, 4)
+    KeyTextBox.BackgroundTransparency = 1
+    KeyTextBox.Text = ""
+    KeyTextBox.PlaceholderText = "Enter your key here"
+    KeyTextBox.PlaceholderColor3 = Color3.fromRGB(143, 143, 145)
+    KeyTextBox.TextColor3 = Color3.fromRGB(187, 188, 190)
+    KeyTextBox.TextScaled = true
+    KeyTextBox.TextWrapped = true
+    KeyTextBox.Font = Enum.Font.SourceSans
+    KeyTextBox.ClearTextOnFocus = false
+    
+    local InputTextSize = Instance.new("UITextSizeConstraint")
+    InputTextSize.MaxTextSize = 16
+    InputTextSize.Parent = KeyTextBox
+    
+    -- Button container
+    local ButtonFrame = Instance.new("Frame")
+    ButtonFrame.Name = "ButtonFrame"
+    ButtonFrame.Parent = MainFrame
+    ButtonFrame.Size = UDim2.new(1, -20, 0, 35)
+    ButtonFrame.Position = UDim2.new(0, 10, 0, 165)
+    ButtonFrame.BackgroundTransparency = 1
+    
+    -- Button layout
+    local ButtonLayout = Instance.new("UIListLayout")
+    ButtonLayout.Parent = ButtonFrame
+    ButtonLayout.FillDirection = Enum.FillDirection.Horizontal
+    ButtonLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    ButtonLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+    ButtonLayout.Padding = UDim.new(0, 10)
+    
+    -- Get Key Button
+    local GetKeyButton = Instance.new("TextButton")
+    GetKeyButton.Name = "GetKeyButton"
+    GetKeyButton.Parent = ButtonFrame
+    GetKeyButton.Size = UDim2.new(0, 120, 1, 0)
+    GetKeyButton.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    GetKeyButton.BackgroundTransparency = 0.65
+    GetKeyButton.Text = ""
+    GetKeyButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    GetKeyButton.TextScaled = true
+    GetKeyButton.Font = Enum.Font.SourceSans
+    
+    local GetKeyCorner = Instance.new("UICorner")
+    GetKeyCorner.CornerRadius = UDim.new(0, 10)
+    GetKeyCorner.Parent = GetKeyButton
+    
+    local GetKeyGradient = Instance.new("UIGradient")
+    GetKeyGradient.Color = ColorSequence.new{
+        ColorSequenceKeypoint.new(0.00, Color3.fromRGB(140, 140, 140)), 
+        ColorSequenceKeypoint.new(0.50, Color3.fromRGB(129, 129, 129)), 
+        ColorSequenceKeypoint.new(1.00, Color3.fromRGB(140, 140, 140))
+    }
+    GetKeyGradient.Parent = GetKeyButton
+    
+    local GetKeyLabel = Instance.new("TextLabel")
+    GetKeyLabel.Parent = GetKeyButton
+    GetKeyLabel.BackgroundTransparency = 1
+    GetKeyLabel.Size = UDim2.new(1, 0, 1, 0)
+    GetKeyLabel.Position = UDim2.new(0, 0, 0, 0)
+    GetKeyLabel.Font = Enum.Font.Cartoon
+    GetKeyLabel.Text = "Get Key"
+    GetKeyLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    GetKeyLabel.TextScaled = true
+    GetKeyLabel.TextTransparency = 0.35
+    
+    local GetKeyTextSize = Instance.new("UITextSizeConstraint")
+    GetKeyTextSize.MaxTextSize = 15
+    GetKeyTextSize.Parent = GetKeyLabel
+    
+    -- Enter/Verify Button
+    local VerifyButton = Instance.new("TextButton")
+    VerifyButton.Name = "VerifyButton"
+    VerifyButton.Parent = ButtonFrame
+    VerifyButton.Size = UDim2.new(0, 120, 1, 0)
+    VerifyButton.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    VerifyButton.BackgroundTransparency = 0.65
+    VerifyButton.Text = ""
+    VerifyButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    VerifyButton.TextScaled = true
+    VerifyButton.Font = Enum.Font.SourceSans
+    
+    local VerifyCorner = Instance.new("UICorner")
+    VerifyCorner.CornerRadius = UDim.new(0, 10)
+    VerifyCorner.Parent = VerifyButton
+    
+    local VerifyGradient = Instance.new("UIGradient")
+    VerifyGradient.Color = ColorSequence.new{
+        ColorSequenceKeypoint.new(0.00, Color3.fromRGB(140, 140, 140)), 
+        ColorSequenceKeypoint.new(0.50, Color3.fromRGB(129, 129, 129)), 
+        ColorSequenceKeypoint.new(1.00, Color3.fromRGB(140, 140, 140))
+    }
+    VerifyGradient.Parent = VerifyButton
+    
+    local VerifyLabel = Instance.new("TextLabel")
+    VerifyLabel.Parent = VerifyButton
+    VerifyLabel.BackgroundTransparency = 1
+    VerifyLabel.Size = UDim2.new(1, 0, 1, 0)
+    VerifyLabel.Position = UDim2.new(0, 0, 0, 0)
+    VerifyLabel.Font = Enum.Font.Cartoon
+    VerifyLabel.Text = "Enter"
+    VerifyLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    VerifyLabel.TextScaled = true
+    VerifyLabel.TextTransparency = 0.35
+    
+    local VerifyTextSize = Instance.new("UITextSizeConstraint")
+    VerifyTextSize.MaxTextSize = 15
+    VerifyTextSize.Parent = VerifyLabel
+    
+    -- Button hover effects
+    local function addButtonHoverEffect(button, normalTransparency, hoverTransparency)
+        button.MouseEnter:Connect(function()
+            if button and button.Parent then
+                local tween = TweenService:Create(
+                    button,
+                    TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+                    {BackgroundTransparency = hoverTransparency}
+                )
+                tween:Play()
+            end
+        end)
+        
+        button.MouseLeave:Connect(function()
+            if button and button.Parent then
+                local tween = TweenService:Create(
+                    button,
+                    TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+                    {BackgroundTransparency = normalTransparency}
+                )
+                tween:Play()
+            end
+        end)
+    end
+    
+    addButtonHoverEffect(GetKeyButton, 0.65, 0.5)
+    addButtonHoverEffect(VerifyButton, 0.65, 0.5)
+    addButtonHoverEffect(CloseButton, 0.65, 0.5)
+    
+    -- Input focus effects
+    KeyTextBox.Focused:Connect(function()
+        if InputFrame and InputFrame.Parent then
+            local tween = TweenService:Create(
+                InputFrame,
+                TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+                {BackgroundTransparency = 0.5}
+            )
+            tween:Play()
         end
     end)
-
-    -- FIXED: Enhanced Enter button with comprehensive debugging and error handling
-    EnterBtn.MouseButton1Click:Connect(function() 
+    
+    KeyTextBox.FocusLost:Connect(function(enterPressed)
+        if InputFrame and InputFrame.Parent then
+            local tween = TweenService:Create(
+                InputFrame,
+                TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+                {BackgroundTransparency = 0.65}
+            )
+            tween:Play()
+        end
+        
+        if enterPressed and VerifyButton and VerifyButton.Parent then
+            VerifyButton.MouseButton1Click:Fire()
+        end
+    end)
+    
+    -- Event connections with safety checks
+    GetKeyButton.MouseButton1Click:Connect(function()
         if requestSending then
-            ResultText.Text = "⏳ Please wait, verification in progress..."
+            if StatusLabel and StatusLabel.Parent then
+                StatusLabel.Text = "Please wait..."
+            end
             return
         end
         
-        if not TextBox then
-            ResultText.Text = "❌ Input error!"
+        if StatusLabel and StatusLabel.Parent then
+            StatusLabel.Text = "📋 Getting key link..."
+            StatusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+            StatusLabel.TextTransparency = 0.35
+        end
+        
+        task.spawn(function()
+            local success, err = pcall(function()
+                copyLink()
+            end)
+            
+            if StatusLabel and StatusLabel.Parent then
+                if success then
+                    StatusLabel.Text = "Link copied! Paste in browser to get key"
+                    StatusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+                    StatusLabel.TextTransparency = 0.35
+                else
+                    StatusLabel.Text = "Failed to get key link!"
+                    StatusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+                    StatusLabel.TextTransparency = 0.35
+                    onMessage("Error getting link: " .. tostring(err))
+                end
+            end
+        end)
+    end)
+    
+    VerifyButton.MouseButton1Click:Connect(function()
+        if requestSending then
+            if StatusLabel and StatusLabel.Parent then
+                StatusLabel.Text = "Please wait, verification in progress..."
+                StatusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+                StatusLabel.TextTransparency = 0.35
+            end
             return
         end
         
-        local inputText = TextBox.Text
-        if not inputText or inputText == "" then
-            ResultText.Text = "⚠️ Please enter a key first!"
+        local inputText = ""
+        if KeyTextBox and KeyTextBox.Parent then
+            inputText = KeyTextBox.Text or ""
+        end
+        
+        if inputText == "" then
+            if StatusLabel and StatusLabel.Parent then
+                StatusLabel.Text = "Please enter a key first!"
+                StatusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+                StatusLabel.TextTransparency = 0.35
+            end
             return
         end
         
-        -- Clean the input more thoroughly
         local inputKey = inputText:gsub("%s+", ""):gsub("[\r\n\t]", ""):gsub("^%s*(.-)%s*$", "%1")
         
         if #inputKey < 5 then
-            ResultText.Text = "⚠️ Key too short! Please check your key."
+            if StatusLabel and StatusLabel.Parent then
+                StatusLabel.Text = "Key too short! Please check your key."
+                StatusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+                StatusLabel.TextTransparency = 0.35
+            end
             return
         end
         
-        -- Visual feedback
-        ResultText.Text = "🔑 Verifying key (Length: " .. #inputKey .. ")..."
+        if StatusLabel and StatusLabel.Parent then
+            StatusLabel.Text = "Verifying key..."
+            StatusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+            StatusLabel.TextTransparency = 0.35
+        end
         
         task.spawn(function()
             local verificationResult = verifyKey(inputKey)
             
             if verificationResult then
-                ResultText.Text = "✅ Key valid! Loading script..."
-                TextBox.Text = ""
+                if StatusLabel and StatusLabel.Parent then
+                    StatusLabel.Text = "Key valid! Loading script..."
+                    StatusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+                    StatusLabel.TextTransparency = 0.35
+                end
+                if KeyTextBox and KeyTextBox.Parent then
+                    KeyTextBox.Text = ""
+                end
                 
-                -- Load script with error handling
                 task.spawn(function()
                     task.wait(1)
                     local scriptSuccess, scriptError = pcall(function()
@@ -582,109 +652,83 @@ task.spawn(function()
                     end)
                     
                     if scriptSuccess then
-                        onMessage("✅ Script loaded successfully!")
-                        -- Close GUI after successful load
+                        onMessage("Script loaded successfully!")
                         task.wait(0.5)
-                        if KeySystemGui then
+                        if KeySystemGui and KeySystemGui.Parent then
                             KeySystemGui:Destroy()
                         end
                     else
-                        ResultText.Text = "❌ Error loading script!"
-                        onMessage("❌ Script loading error: " .. tostring(scriptError))
+                        if StatusLabel and StatusLabel.Parent then
+                            StatusLabel.Text = "Error loading script!"
+                            StatusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+                            StatusLabel.TextTransparency = 0.35
+                        end
+                        onMessage("Script loading error: " .. tostring(scriptError))
                     end
                 end)
             else
-                ResultText.Text = "❌ Invalid or expired key!"
-                TextBox.Text = "" -- Clear invalid key
-            end
-        end)
-    end)
-
-    -- FIXED: Enhanced Get Key button with better feedback
-    GetKeyBtn.MouseButton1Click:Connect(function() 
-        if requestSending then
-            ResultText.Text = "⏳ Please wait..."
-            return
-        end
-        
-        ResultText.Text = "📋 Getting key link..."
-        
-        task.spawn(function()
-            local success, err = pcall(function()
-                copyLink()
-            end)
-            
-            if success then
-                ResultText.Text = "✅ Link copied! Paste in browser to get key."
-            else
-                ResultText.Text = "❌ Failed to get key link!"
-                onMessage("Error getting link: " .. tostring(err))
+                if StatusLabel and StatusLabel.Parent then
+                    StatusLabel.Text = "Invalid or expired key!"
+                    StatusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+                    StatusLabel.TextTransparency = 0.35
+                end
+                if KeyTextBox and KeyTextBox.Parent then
+                    KeyTextBox.Text = ""
+                end
             end
         end)
     end)
     
-    -- Enhanced Close button
-    CloseBtn.MouseButton1Click:Connect(function()
-        if KeySystemGui then
+    CloseButton.MouseButton1Click:Connect(function()
+        if KeySystemGui and KeySystemGui.Parent then
             KeySystemGui:Destroy()
         end
     end)
     
-    -- ADDED: Enter key support for TextBox
-    TextBox.FocusLost:Connect(function(enterPressed)
-        if enterPressed then
-            -- Simulate Enter button click when Enter key is pressed
-            EnterBtn.MouseButton1Click:Fire()
-        end
-    end)
-    
-    -- ADDED: Visual feedback for buttons
-    local function addButtonEffect(button)
-        button.MouseEnter:Connect(function()
-            button.BackgroundTransparency = 0.5
-        end)
-        
-        button.MouseLeave:Connect(function()
-            button.BackgroundTransparency = 0.65
+    -- Clear status when typing with safety check
+    if KeyTextBox then
+        KeyTextBox:GetPropertyChangedSignal("Text"):Connect(function()
+            if KeyTextBox and KeyTextBox.Parent and StatusLabel and StatusLabel.Parent then
+                local currentText = KeyTextBox.Text or ""
+                local statusText = StatusLabel.Text or ""
+                if currentText ~= "" and statusText:find("⚠️") then
+                    StatusLabel.Text = ""
+                end
+            end
         end)
     end
-    
-    addButtonEffect(GetKeyBtn)
-    addButtonEffect(EnterBtn)
-    addButtonEffect(CloseBtn)
 end)
 
--- ADDED: Additional debugging function to test KeyGuardian connection
+-- Test KeyGuardian connection
 local function testKeyGuardianConnection()
     task.spawn(function()
-        task.wait(2) -- Wait for UI to load
+        task.wait(2)
         
         local success, result = pcall(function()
             if KeyGuardLibrary then
                 onMessage("🔗 KeyGuardian library loaded successfully!")
                 
-                -- Test getLink function
                 if KeyGuardLibrary.getLink then
                     local link = KeyGuardLibrary.getLink()
                     if link then
-                        onMessage("✅ KeyGuardian link generation working!")
+                        onMessage("KeyGuardian link generation working!")
                         return true
                     else
-                        onMessage("⚠️ KeyGuardian link generation returned nil!")
+                        onMessage("KeyGuardian link generation returned nil!")
                         return false
                     end
                 else
-                    onMessage("⚠️ KeyGuardLibrary.getLink function not found!")
+                    onMessage("KeyGuardLibrary.getLink function not found!")
                     return false
                 end
             else
-                onMessage("❌ KeyGuardian library is nil!")
+                onMessage("KeyGuardian library is nil!")
                 return false
             end
         end)
         
         if not success then
-            onMessage("❌ KeyGuardian connection error: " .. tostring(result))
+            onMessage("KeyGuardian connection error: " .. tostring(result))
         end
     end)
 end

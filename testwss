@@ -3307,7 +3307,7 @@ local WebhookToggle = WebhookTab:AddToggle("webhooktracking",
         if Value then
             if webhookURL == "" then
                 WebhookToggle:SetValue(false)
-                                warn("Please set sadas Webhook URL first!")
+                warn("Please set sadas Webhook URL first!")
                 Wait(5)
                 WebhookToggle:SetValue(true)
                 return
@@ -3329,10 +3329,11 @@ local InventoryCheckToggle = WebhookTab:AddToggle("inventorycheck",
         
         if Value then
             if inventoryWebhookURL == "" then
-                InventoryCheckToggle:SetValue(false)
+                Options.inventorycheck:SetValue(false)
                 warn("Please set Inventory Webhook URL first!")
                 Wait(5)
-                InventoryCheckToggle:SetValue(true)
+                Options.inventorycheck:SetValue(true)
+                print('ya')
                 return
             end
             startInventoryCheckTimer()

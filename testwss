@@ -2988,9 +2988,9 @@ local function sendInventoryWebhook(inventoryData)
                     
                     -- Create list of fish with counts
                     for fishName, count in pairs(fishes) do
-                        local displayText = fishName
+                        local displayText = "> " .. fishName
                         if count > 1 then
-                            displayText = fishName .. " x" .. tostring(count)
+                            displayText = "> " .. fishName .. " x" .. tostring(count)
                         end
                         table.insert(fishList, displayText)
                         totalInTier = totalInTier + count
@@ -3003,12 +3003,12 @@ local function sendInventoryWebhook(inventoryData)
                         fieldValue = table.concat(fishList, "\n")
                         -- Truncate if too long
                         if string.len(fieldValue) > 1000 then
-                            fieldValue = string.sub(fieldValue, 1, 950) .. "...\n(and more)"
+                            fieldValue = string.sub(fieldValue, 1, 950) .. "...\n> (and more)"
                         end
                     end
                     
                     -- Add field
-                    local fieldName = tier .. " Fish (" .. tostring(totalInTier) .. ")"
+                    local fieldName = "**" .. tier .. " Fish (" .. tostring(totalInTier) .. ")**"
                     table.insert(fields, {
                         ["name"] = fieldName,
                         ["value"] = fieldValue,
@@ -3362,7 +3362,7 @@ WebhookTab:AddButton({
         end
     })
 end
-----rrrrr
+---zzzz
 Window:SelectTab(1)
 AutoConfig:Initialize(Fluent)
 end

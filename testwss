@@ -1049,7 +1049,6 @@ end
 
 -- Clean shutdown function
 local function stopAutoFishingV2()
-    print("[AUTO FISHING V2] Stopping...")
     isAutoFishV2Active = false
     
     -- Disconnect character connection
@@ -1071,8 +1070,6 @@ local function stopAutoFishingV2()
     pcall(function()
         unequipFishingTool()
     end)
-    
-    print("[AUTO FISHING V2] Stopped successfully")
 end
 
 -- Start function with respawn protection
@@ -1100,19 +1097,14 @@ local function startAutoFishingV2()
     end
     
     characterConnection = player.CharacterRemoving:Connect(function()
-        print("[AUTO FISHING V2] Character removing - stopping auto fishing")
         if Options and Options.AutoFishingV2 then
             Options.AutoFishingV2:SetValue(false)
         end
     end)
-    
-    -- Start main fishing thread
     autoFishV2Thread = spawn(function()
-        print("[AUTO FISHING V2] Started")
         while isAutoFishV2Active do
             -- Double check if player is still valid
             if not isPlayerValid() then
-                print("[AUTO FISHING V2] Player invalid during loop - stopping")
                 if Options and Options.AutoFishingV2 then
                     Options.AutoFishingV2:SetValue(false)
                 end
@@ -1132,7 +1124,6 @@ local function startAutoFishingV2()
                 task.wait(0.1)
             end
         end
-        print("[AUTO FISHING V2] Main thread exited")
     end)
     
     return true
@@ -1140,7 +1131,7 @@ end
 
 local autoFishV2Toggle = Tabs.Fishing:AddToggle("AutoFishingV2", {
     Title = "Auto Fishing V2",
-    Description = "Advanced auto fishing with respawn protection",
+    Description = "Advanced auto fishing",
     Default = false,
     Callback = function(Value)
         if Value then
@@ -1177,7 +1168,7 @@ local autoClickV2Thread = nil
 
 local autoClickV2Toggle = Tabs.Fishing:AddToggle("AutoClickV2", {
     Title = "Auto Click",
-    Description = "For auto fishing v2 with respawn protection",
+    Description = "For auto fishing v2",
     Default = false,
     Callback = function(Value)
         isAutoClickV2Active = Value
@@ -1185,7 +1176,6 @@ local autoClickV2Toggle = Tabs.Fishing:AddToggle("AutoClickV2", {
             autoClickV2Thread = spawn(function()
                 while isAutoClickV2Active do
                     if not isPlayerValid() then
-                        print("[AUTO CLICK V2] Player invalid - stopping")
                         if Options and Options.AutoClickV2 then
                             Options.AutoClickV2:SetValue(false)
                         end
@@ -1217,8 +1207,6 @@ local autoClickV2Toggle = Tabs.Fishing:AddToggle("AutoClickV2", {
         end
     end
 })
-
--- Instant Reel with respawn protection
 local isInstantReelActive = false
 local instantReelConnection = nil
 
@@ -1235,7 +1223,6 @@ local function startInstantReel()
         end
         
         if not isPlayerValid() then
-            print("[INSTANT REEL] Player invalid - stopping")
             if Options and Options.instrail then
                 Options.instrail:SetValue(false)
             end
@@ -1269,7 +1256,7 @@ end
 
 local instantReelToggle = Tabs.Fishing:AddToggle("instrail", {
     Title = "Instant Reel",
-    Description = "For auto fishing v2 with respawn protection",
+    Description = "For auto fishing v2",
     Default = false,
     Callback = function(Value)
         isInstantReelActive = Value
@@ -1574,28 +1561,18 @@ local player = Players.LocalPlayer
 
 if player then
     player.CharacterRemoving:Connect(function()
-        print("[GLOBAL] Character removing - cleaning up all fishing processes")
-        
-        -- Stop all fishing activities
         isAutoFishV2Active = false
         isAutoClickV2Active = false
         isInstantReelActive = false
-        
-        -- Clean up connections
         if characterConnection then
             characterConnection:Disconnect()
             characterConnection = nil
         end
-        
         if instantReelConnection then
             instantReelConnection:Disconnect()
             instantReelConnection = nil
         end
-        
-        -- Reset controller
         resetFishingController()
-        
-        -- Force disable all toggles if they exist
         if Options then
             pcall(function() if Options.AutoFishingV2 then Options.AutoFishingV2:SetValue(false) end end)
             pcall(function() if Options.AutoClickV2 then Options.AutoClickV2:SetValue(false) end end)
@@ -1604,19 +1581,11 @@ if player then
     end)
     
     player.CharacterAdded:Connect(function()
-        print("[GLOBAL] Character added - resetting fishing states")
-        
-        -- Reset all states
         resetFishingController()
         lastToolRefreshTimeV2 = 0
-        
-        -- Small delay to let character fully load
         wait(2)
-        print("[GLOBAL] Character ready for fishing")
     end)
 end
-
-print("[FISHING SCRIPT] Loaded with enhanced respawn protection")
 end
 do
     local teleportTab = Tabs.Teleport
@@ -3056,7 +3025,33 @@ local WebhookToggle = WebhookTab:AddToggle("webhooktracking",
         end
     end 
 })
-
+WebhookTab:AddButton({
+        Title = "🔍 Debug Filter Ikan",
+        Description = "",
+        Callback = function()
+            print("=== DEBUG FILTER IKAN ===")
+        print("Toggle yang aktif:")
+        
+        local activeCount = 0
+        for fishId, enabled in pairs(specificFishEnabled) do
+            if enabled then
+                activeCount = activeCount + 1
+                local itemData = getItemData(fishId)
+                if itemData then
+                    print("  ✅", itemData.Name, "(ID:", fishId .. ")")
+                else
+                    print("  ❓ Ikan ID tidak dikenal:", fishId)
+                end
+            end
+        end
+        if activeCount == 0 then
+            print("  ❌ TIDAK ADA IKAN YANG AKTIF - Webhook tidak akan mengirim apapun!")
+        else
+            print("  Total ikan yang aktif:", activeCount)
+        end
+        print("=== AKHIR DEBUG ===")
+        end
+    })
 WebhookTab:AddButton({
     Title = "Clear Select",
     Description = "",

@@ -190,7 +190,7 @@ end
 
 -- Window Creation
 local Window = Fluent:CreateWindow({
-    Title = "#DJSTEST - FISH IT V.0.8",
+    Title = "#DJSTEST - FISH IT V.09",
     SubTitle = "  https://discord.gg/uwXYuxj6cF",
     TabWidth = 160,
     Size = UDim2.fromOffset(650, 400),
@@ -245,8 +245,6 @@ game.Players.LocalPlayer.CharacterAdded:Connect(setupCharacter)
 if game.Players.LocalPlayer.Character then
     setupCharacter()
 end
-
--- Info Tab
 do
     Tabs.Info:AddButton({
         Title = "Discord Server",
@@ -260,16 +258,11 @@ do
         Title = "Tiktok",
         Description = "Tiktok profile link",
         Callback = function()
-            setclipboard("https://www.tiktok.com/@daanujs_")
+            setclipboard("https://www.tiktok.com/@sjunaadd")
         end
     })
 end
-
--- Player Tab
 do
-   
-    
-    -- Walk Speed Slider
     local WalkSpeedSlider = Tabs.Player:AddSlider("WalkSpeedSlider", {
         Title = "Walk Speed",
         Description = "Control your walking speed",
@@ -2584,9 +2577,8 @@ do
     end)
 end
 do
-        local WebhookTab = Tabs.Webhook
--- Database Gambar Ikan (sementara menggunakan placeholder)
-local fishImages = {
+    local WebhookTab = Tabs.Webhook
+    local fishImages = {
     -- Secret Fish
     [156] = "https://i.imgur.com/VAUGUBf.png", -- Giant Squid
     [136] = "https://i.imgur.com/taZohVB.png", -- Frostborn Shark
@@ -2743,6 +2735,8 @@ FishDropdown:OnChanged(function(selectedTiers)
         end
     end
 end)
+
+-- [Keep all the other functions the same - getItemData, formatWeight, getFishImageURL, getTierInfo, sendWebhook, sendInventoryWebhook, checkInventoryFish, startReplionMonitoring, etc.]
 
 -- Fungsi untuk mendapatkan data ikan dari ReplicatedStorage
 local function getItemData(itemId)
@@ -2922,6 +2916,7 @@ local function sendWebhook(itemName, itemData, weight, isVariant, variantName)
         end
     end)
 end
+
 local function sendInventoryWebhook(inventoryData)
     if inventoryWebhookURL == "" then
         warn("Inventory Webhook URL is empty!")
@@ -3280,12 +3275,14 @@ local function startInventoryCheckTimer()
         end
     end)
 end
+
 local function stopInventoryCheckTimer()
     if inventoryCheckConnection then
         inventoryCheckConnection:Disconnect()
         inventoryCheckConnection = nil
     end
 end
+
 local function startInventoryMonitoring()
     httpRetryCount = 0
     if startReplionMonitoring() then
@@ -3295,6 +3292,7 @@ local function startInventoryMonitoring()
         inventoryConnection:Disconnect()
     end
 end
+
 local function stopInventoryMonitoring()
     if inventoryConnection then
         inventoryConnection:Disconnect()
@@ -3304,20 +3302,31 @@ local function stopInventoryMonitoring()
     httpRetryCount = 0
 end
 
+-- Modified webhook toggle with validation check
 local WebhookToggle = WebhookTab:AddToggle("webhooktracking", 
 {
     Title = "Enable Fishing Webhook", 
     Description = "Toggle for fishing webhook notifications",
     Default = false,
     Callback = function(Value)
-	isWebhookActive = Value
-        
         if Value then
+            -- Check if webhook URL is loaded from config
             if webhookURL == "" then
-                return
+                -- Get from Options if available
+                local savedWebhookURL = Options.Input and Options.Input.Value or ""
+                if savedWebhookURL ~= "" then
+                    webhookURL = savedWebhookURL
+                else
+                    -- Disable toggle and show warning
+                    Options.webhooktracking:SetValue(false)
+                    warn("Please set Fishing Webhook URL first!")
+                    return
+                end
             end
+            isWebhookActive = true
             startInventoryMonitoring()
         else
+            isWebhookActive = false
             stopInventoryMonitoring()
         end
     end 
@@ -3329,20 +3338,83 @@ local InventoryCheckToggle = WebhookTab:AddToggle("inventorycheck",
     Description = "Automatically send inventory check every 3 minutes",
     Default = false,
     Callback = function(Value)
-        isInventoryCheckActive = Value
-        
         if Value then
+            -- Check if inventory webhook URL is loaded from config
             if inventoryWebhookURL == "" then
-                InventoryCheckToggle:SetValue(false)
-                warn("Please set Inventory Webhook URL first!")
-                return
+                -- Get from Options if available
+                local savedInventoryWebhookURL = Options.InventoryInput and Options.InventoryInput.Value or ""
+                if savedInventoryWebhookURL ~= "" then
+                    inventoryWebhookURL = savedInventoryWebhookURL
+                else
+                    -- Disable toggle and show warning
+                    Options.inventorycheck:SetValue(false)
+                    warn("Please set Inventory Webhook URL first!")
+                    return
+                end
             end
+            isInventoryCheckActive = true
             startInventoryCheckTimer()
         else
+            isInventoryCheckActive = false
             stopInventoryCheckTimer()
         end
     end 
 })
+
+-- Add delayed initialization check similar to AutoFarmV2
+spawn(function()
+    wait(5) -- Wait for config and webhook inputs to load properly
+    
+    -- Check fishing webhook
+    if Options.webhooktracking and Options.webhooktracking.Value == true then
+        local savedWebhookURL = Options.Input and Options.Input.Value or ""
+        if savedWebhookURL ~= "" then
+            webhookURL = savedWebhookURL
+            -- Restart webhook monitoring if URL is now available
+            if not isWebhookActive then
+                Options.webhooktracking:SetValue(false)
+                wait(1)
+                Options.webhooktracking:SetValue(true)
+            end
+        else
+            -- No URL saved, disable the toggle
+            Options.webhooktracking:SetValue(false)
+        end
+    end
+    
+    -- Check inventory webhook
+    if Options.inventorycheck and Options.inventorycheck.Value == true then
+        local savedInventoryWebhookURL = Options.InventoryInput and Options.InventoryInput.Value or ""
+        if savedInventoryWebhookURL ~= "" then
+            inventoryWebhookURL = savedInventoryWebhookURL
+            -- Restart inventory check if URL is now available
+            if not isInventoryCheckActive then
+                Options.inventorycheck:SetValue(false)
+                wait(1)
+                Options.inventorycheck:SetValue(true)
+            end
+        else
+            -- No URL saved, disable the toggle
+            Options.inventorycheck:SetValue(false)
+        end
+    end
+end)
+
+-- Additional config loading check
+spawn(function()
+    wait(3) -- Wait for config loading to complete
+    
+    -- Update webhook URLs from saved inputs
+    local fishingWebhookValue = Options.Input and Options.Input.Value or ""
+    if fishingWebhookValue ~= "" then
+        webhookURL = fishingWebhookValue
+    end
+    
+    local inventoryWebhookValue = Options.InventoryInput and Options.InventoryInput.Value or ""
+    if inventoryWebhookValue ~= "" then
+        inventoryWebhookURL = inventoryWebhookValue
+    end
+end)
 
 WebhookTab:AddButton({
     Title = "Clear Select",
@@ -3351,11 +3423,13 @@ WebhookTab:AddButton({
         FishDropdown:SetValue({})
     end
 })
+
 WebhookTab:AddButton({
-        Title = "Test Webhook",
-        Description = "",
-        Callback = function()
-            if webhookURL == "" then
+    Title = "Test Webhook",
+    Description = "",
+    Callback = function()
+        if webhookURL == "" then
+            warn("Please set Fishing Webhook URL first!")
             return
         end
         local testData = {
@@ -3368,10 +3442,11 @@ WebhookTab:AddButton({
             Probability = {Chance = 0.05}
         }
         sendWebhook("TEST Robot Kraken", testData, 419600, false, nil)
-        end
-    })
+    end
+})
+
 end
----ssss
+---zzzz
 Window:SelectTab(1)
 AutoConfig:Initialize(Fluent)
 end

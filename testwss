@@ -3320,13 +3320,12 @@ WebhookTab:AddButton({
     end
 })
 
--- Check Inventory Button
 WebhookTab:AddButton({
-    Title = "Check Inventory",
-    Description = "Scan and send all fish in your inventory",
+    Title = "Manual Inventory Check",
+    Description = "Send inventory check immediately",
     Callback = function()
-        if webhookURL == "" then
-            warn("Webhook URL tidak diset!")
+        if inventoryWebhookURL == "" then
+            warn("Inventory Webhook URL tidak diset!")
             return
         end
         
@@ -3363,8 +3362,8 @@ WebhookTab:AddButton({
         }
         sendWebhook("TEST Robot Kraken", testData, 419600, false, nil)
         end
-    }) --RRRR
-end
+    })
+end ---yyyy
 Window:SelectTab(1)
 AutoConfig:Initialize(Fluent)
 end

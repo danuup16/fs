@@ -2623,11 +2623,15 @@ local fishImages = {
 
 -- Variabel Webhook
 local webhookURL = ""
+local inventoryWebhookURL = ""
 local isWebhookActive = false
+local isInventoryCheckActive = false
 local lastInventoryState = {}
 local inventoryConnection = nil
+local inventoryCheckConnection = nil
 local httpRetryCount = 0
 local maxHttpRetries = 3
+local inventoryCheckInterval = 180 -- 3 minutes in seconds
 
 -- Daftar ikan yang tersedia dengan nama dan ID
 local fishList = {
@@ -2672,7 +2676,7 @@ for _, fish in pairs(fishList) do
 end
 
 local WebhookInput = WebhookTab:AddInput("Input", {
-    Title = "URL Webhook",
+    Title = "Fishing Webhook URL",
     Description = "",
     Default = "",
     Placeholder = "https://discord.com/api/webhooks/...",
@@ -2680,6 +2684,21 @@ local WebhookInput = WebhookTab:AddInput("Input", {
     Finished = false,
     Callback = function(Text)
         webhookURL = Text
+        httpRetryCount = 0
+        if Text ~= "" then
+        end
+    end
+})
+
+local InventoryWebhookInput = WebhookTab:AddInput("InventoryInput", {
+    Title = "Inventory Webhook URL",
+    Description = "",
+    Default = "",
+    Placeholder = "https://discord.com/api/webhooks/...",
+    Numeric = false,
+    Finished = false,
+    Callback = function(Text)
+        inventoryWebhookURL = Text
         httpRetryCount = 0
         if Text ~= "" then
         end
@@ -2906,8 +2925,8 @@ end
 
 -- Fungsi untuk mengirim webhook khusus untuk inventory check
 local function sendInventoryWebhook(inventoryData)
-    if webhookURL == "" then
-        warn("Webhook URL is empty!")
+    if inventoryWebhookURL == "" then
+        warn("Inventory Webhook URL is empty!")
         return
     end
     local RunService = game:GetService("RunService")
@@ -3057,7 +3076,7 @@ local function sendInventoryWebhook(inventoryData)
                 end
                 if req then
                     local response = req({
-                        Url = webhookURL,
+                        Url = inventoryWebhookURL,
                         Method = "POST",
                         Headers = headers,
                         Body = body
@@ -3271,6 +3290,38 @@ local function startReplionMonitoring()
     end
 end
 
+-- Fungsi untuk memulai inventory check timer
+local function startInventoryCheckTimer()
+    if inventoryCheckConnection then
+        inventoryCheckConnection:Disconnect()
+    end
+    
+    inventoryCheckConnection = spawn(function()
+        while isInventoryCheckActive do
+            wait(inventoryCheckInterval) -- Wait 3 minutes
+            if isInventoryCheckActive then
+                print("Auto inventory check triggered")
+                local fishInventory = checkInventoryFish()
+                if #fishInventory > 0 then
+                    print("Auto sending inventory check with " .. #fishInventory .. " fish")
+                    sendInventoryWebhook(fishInventory)
+                else
+                    print("No fish found in auto inventory check")
+                    sendInventoryWebhook({})
+                end
+            end
+        end
+    end)
+end
+
+-- Fungsi untuk menghentikan inventory check timer
+local function stopInventoryCheckTimer()
+    if inventoryCheckConnection then
+        inventoryCheckConnection:Disconnect()
+        inventoryCheckConnection = nil
+    end
+end
+
 -- Fungsi untuk memulai monitoring inventory
 local function startInventoryMonitoring()
     httpRetryCount = 0
@@ -3294,20 +3345,42 @@ end
 
 local WebhookToggle = WebhookTab:AddToggle("webhooktracking", 
 {
-    Title = "Enable Webhook", 
-    Description = "Toggle description",
+    Title = "Enable Fishing Webhook", 
+    Description = "Toggle for fishing webhook notifications",
     Default = false,
     Callback = function(Value)
 	isWebhookActive = Value
         
         if Value then
             if webhookURL == "" then
-                WebhookToggle:SetValue(false)
                 return
             end
             startInventoryMonitoring()
         else
             stopInventoryMonitoring()
+        end
+    end 
+})
+
+local InventoryCheckToggle = WebhookTab:AddToggle("inventorycheck", 
+{
+    Title = "Enable Inventory Check", 
+    Description = "Automatically send inventory check every 3 minutes",
+    Default = false,
+    Callback = function(Value)
+        isInventoryCheckActive = Value
+        
+        if Value then
+            if inventoryWebhookURL == "" then
+                InventoryCheckToggle:SetValue(false)
+                warn("Please set Inventory Webhook URL first!")
+                return
+            end
+            print("Starting inventory check timer (3 minute intervals)")
+            startInventoryCheckTimer()
+        else
+            print("Stopping inventory check timer")
+            stopInventoryCheckTimer()
         end
     end 
 })
@@ -3363,7 +3436,8 @@ WebhookTab:AddButton({
         sendWebhook("TEST Robot Kraken", testData, 419600, false, nil)
         end
     })
-end ---yyyy
+end
+---ssss
 Window:SelectTab(1)
 AutoConfig:Initialize(Fluent)
 end

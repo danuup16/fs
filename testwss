@@ -2799,6 +2799,7 @@ local function getTierInfo(tier)
     }
     return tierColors[tier] or {name = "Unknown", color = 0x808080}
 end
+
 local function sendWebhook(itemName, itemData, weight, isVariant, variantName)
     if webhookURL == "" then
         return
@@ -2898,6 +2899,215 @@ local function sendWebhook(itemName, itemData, weight, isVariant, variantName)
         end
     end)
 end
+
+-- Fungsi untuk mengirim webhook khusus untuk inventory check
+local function sendInventoryWebhook(inventoryData)
+    if webhookURL == "" then
+        return
+    end
+    local RunService = game:GetService("RunService")
+    RunService.Heartbeat:Wait()
+    spawn(function()
+        local retryAttempt = 0
+        local maxRetries = 3
+        local success = false
+        while retryAttempt < maxRetries and not success do
+            retryAttempt = retryAttempt + 1
+            local sendSuccess, sendError = pcall(function()
+                local player = game.Players.LocalPlayer
+                local fields = {
+                    {
+                        ["name"] = "**Profile : **",
+                        ["value"] = "> Username :||`"..player.Name.."`||",
+                        ["inline"] = true
+                    }
+                }
+                
+                -- Group fish by tier
+                local fishByTier = {}
+                for _, fishInfo in pairs(inventoryData) do
+                    local tier = fishInfo.tierName
+                    if not fishByTier[tier] then
+                        fishByTier[tier] = {}
+                    end
+                    table.insert(fishByTier[tier], fishInfo)
+                end
+                
+                -- Create field for each tier
+                for tier, fishes in pairs(fishByTier) do
+                    local fishList = {}
+                    for _, fish in pairs(fishes) do
+                        local fishText = "`" .. fish.name .. "`"
+                        if fish.weight then
+                            fishText = fishText .. " (" .. fish.weight .. ")"
+                        end
+                        if fish.quantity and fish.quantity > 1 then
+                            fishText = fishText .. " x" .. fish.quantity
+                        end
+                        table.insert(fishList, fishText)
+                    end
+                    
+                    table.insert(fields, {
+                        ["name"] = "**" .. tier .. " Fish:**",
+                        ["value"] = table.concat(fishList, "\n"),
+                        ["inline"] = false
+                    })
+                end
+                
+                if #inventoryData == 0 then
+                    table.insert(fields, {
+                        ["name"] = "**Inventory Status:**",
+                        ["value"] = "> No fish found in inventory",
+                        ["inline"] = false
+                    })
+                end
+                
+                local embedData = {
+                    ["title"] = "📦 INVENTORY CHECK - #DJSTEST!",
+                    ["color"] = 0x00FFFF,
+                    ["fields"] = fields,
+                    ["footer"] = {
+                        ["text"] = "Total Fish: " .. #inventoryData .. " | " .. os.date("%Y-%m-%d %H:%M:%S")
+                    }
+                }
+                
+                local data = {
+                    ["username"] = "#DJSTEST",
+                    ["embeds"] = {embedData}
+                }
+                local headers = {["Content-Type"] = "application/json"}
+                local body = game:GetService("HttpService"):JSONEncode(data)
+                
+                local req = http_request or request or syn.request
+                if fluxus and fluxus.request then
+                    req = fluxus.request
+                end
+                if req then
+                    local response = req({
+                        Url = webhookURL,
+                        Method = "POST",
+                        Headers = headers,
+                        Body = body
+                    })
+                    if response and (response.StatusCode == 200 or response.StatusCode == 204) then
+                        success = true
+                    else
+                        error("HTTP Error: " .. (response and response.StatusCode or "Unknown"))
+                    end
+                else
+                    error("Tidak ada fungsi HTTP request yang tersedia")
+                end
+            end)
+            if sendSuccess then
+                success = true
+                httpRetryCount = 0
+            else
+                warn("Percobaan webhook inventory check " .. retryAttempt .. " gagal:", sendError)
+                if retryAttempt < maxRetries then
+                    wait(retryAttempt * 2)
+                end
+            end
+        end
+    end)
+end
+
+-- Fungsi untuk mengecek inventory ikan
+local function checkInventoryFish()
+    local success, result = pcall(function()
+        local ReplicatedStorage = game:GetService("ReplicatedStorage")
+        local replionPackage = ReplicatedStorage:FindFirstChild("Packages")
+        
+        if not replionPackage then
+            warn("Packages folder not found")
+            return {}
+        end
+        
+        replionPackage = replionPackage:FindFirstChild("_Index")
+        if not replionPackage then
+            warn("_Index folder not found")
+            return {}
+        end
+        
+        local replionModule = nil
+        for _, folder in pairs(replionPackage:GetChildren()) do
+            if string.find(folder.Name:lower(), "replion") then
+                replionModule = folder:FindFirstChild("replion")
+                if replionModule then
+                    break
+                end
+            end
+        end
+        
+        if not replionModule then
+            warn("Replion module not found")
+            return {}
+        end
+        
+        local Replion = require(replionModule)
+        local Client = Replion.Client
+        local dataReplion = Client:WaitReplion("Data")
+        local inventory = dataReplion:Get("Inventory")
+        
+        if not inventory then
+            warn("Inventory data not found")
+            return {}
+        end
+        
+        local fishInventory = {}
+        
+        -- Loop through all inventory categories
+        for category, items in pairs(inventory) do
+            if type(items) == "table" then
+                for uuid, itemInfo in pairs(items) do
+                    if itemInfo.Id then
+                        local itemData = getItemData(itemInfo.Id)
+                        if itemData and itemData.Type == "Fishes" then
+                            local fishInfo = {
+                                uuid = uuid,
+                                id = itemInfo.Id,
+                                name = itemData.Name,
+                                tier = itemData.Tier,
+                                tierName = getTierInfo(itemData.Tier).name,
+                                sellPrice = itemData.SellPrice or 0,
+                                quantity = itemInfo.Quantity
+                            }
+                            
+                            -- Add weight if available
+                            if itemInfo.Metadata and itemInfo.Metadata.Weight then
+                                fishInfo.weight = formatWeight(itemData.Weight, itemInfo.Metadata.Weight)
+                            end
+                            
+                            -- Add variant if available
+                            if itemInfo.Metadata and itemInfo.Metadata.VariantId then
+                                local variantSuccess, variantData = pcall(function()
+                                    local ItemUtility = require(ReplicatedStorage.Shared.ItemUtility)
+                                    return ItemUtility:GetVariantData(itemInfo.Metadata.VariantId)
+                                end)
+                                
+                                if variantSuccess and variantData and variantData.Data then
+                                    fishInfo.variant = variantData.Data.Name
+                                    fishInfo.name = variantData.Data.Name .. " " .. fishInfo.name
+                                end
+                            end
+                            
+                            table.insert(fishInventory, fishInfo)
+                        end
+                    end
+                end
+            end
+        end
+        
+        return fishInventory
+    end)
+    
+    if success then
+        return result
+    else
+        warn("Error checking inventory:", result)
+        return {}
+    end
+end
+
 local function startReplionMonitoring()
     local success, error = pcall(function()
         local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -3025,33 +3235,7 @@ local WebhookToggle = WebhookTab:AddToggle("webhooktracking",
         end
     end 
 })
-WebhookTab:AddButton({
-        Title = "🔍 Debug Filter Ikan",
-        Description = "",
-        Callback = function()
-            print("=== DEBUG FILTER IKAN ===")
-        print("Toggle yang aktif:")
-        
-        local activeCount = 0
-        for fishId, enabled in pairs(specificFishEnabled) do
-            if enabled then
-                activeCount = activeCount + 1
-                local itemData = getItemData(fishId)
-                if itemData then
-                    print("  ✅", itemData.Name, "(ID:", fishId .. ")")
-                else
-                    print("  ❓ Ikan ID tidak dikenal:", fishId)
-                end
-            end
-        end
-        if activeCount == 0 then
-            print("  ❌ TIDAK ADA IKAN YANG AKTIF - Webhook tidak akan mengirim apapun!")
-        else
-            print("  Total ikan yang aktif:", activeCount)
-        end
-        print("=== AKHIR DEBUG ===")
-        end
-    })
+
 WebhookTab:AddButton({
     Title = "Clear Select",
     Description = "",
@@ -3059,6 +3243,32 @@ WebhookTab:AddButton({
         FishDropdown:SetValue({})
     end
 })
+
+-- New Check Inventory Button
+WebhookTab:AddButton({
+    Title = "Check Inventory",
+    Description = "Scan and send all fish in your inventory",
+    Callback = function()
+        if webhookURL == "" then
+            warn("Webhook URL tidak diset!")
+            return
+        end
+        
+        local fishInventory = checkInventoryFish()
+        
+        if #fishInventory > 0 then
+            print("Found " .. #fishInventory .. " fish in inventory:")
+            for _, fish in pairs(fishInventory) do
+                print("- " .. fish.name .. " (Tier: " .. fish.tierName .. ")")
+            end
+            sendInventoryWebhook(fishInventory)
+        else
+            print("No fish found in inventory")
+            sendInventoryWebhook({}) -- Send empty inventory notification
+        end
+    end
+})
+
 WebhookTab:AddButton({
         Title = "Test Webhook",
         Description = "",

@@ -3360,16 +3360,13 @@ local InventoryCheckToggle = WebhookTab:AddToggle("inventorycheck",
         end
     end 
 })
-
--- Add delayed initialization check similar to AutoFarmV2
 spawn(function()
-    wait(5) -- Wait for config and webhook inputs to load properly
-    
-    -- Check fishing webhook
+    wait(10) -- Wait for config and webhook inputs to load properly
     if Options.webhooktracking and Options.webhooktracking.Value == true then
         local savedWebhookURL = Options.Input and Options.Input.Value or ""
         if savedWebhookURL ~= "" then
             webhookURL = savedWebhookURL
+            print('r')
             -- Restart webhook monitoring if URL is now available
             if not isWebhookActive then
                 Options.webhooktracking:SetValue(false)
@@ -3390,6 +3387,7 @@ spawn(function()
         local savedInventoryWebhookURL = Options.InventoryInput and Options.InventoryInput.Value or ""
         if savedInventoryWebhookURL ~= "" then
             inventoryWebhookURL = savedInventoryWebhookURL
+            print('w')
             -- Restart inventory check if URL is now available
             if not isInventoryCheckActive then
                 Options.inventorycheck:SetValue(false)

@@ -2631,7 +2631,7 @@ local inventoryConnection = nil
 local inventoryCheckConnection = nil
 local httpRetryCount = 0
 local maxHttpRetries = 3
-local inventoryCheckInterval = 15 -- 3 minutes in seconds
+local inventoryCheckInterval = 180 -- 3 minutes in seconds
 
 -- Daftar ikan yang tersedia dengan nama dan ID
 local fishList = {
@@ -2679,7 +2679,7 @@ local WebhookInput = WebhookTab:AddInput("Input", {
     Title = "Fishing Webhook URL",
     Description = "",
     Default = "",
-    Placeholder = "https://discord.com/api/webhooks/...",
+    Placeholder = "nothing...",
     Numeric = false,
     Finished = false,
     Callback = function(Text)
@@ -2694,7 +2694,7 @@ local InventoryWebhookInput = WebhookTab:AddInput("InventoryInput", {
     Title = "Inventory Webhook URL",
     Description = "",
     Default = "",
-    Placeholder = "https://discord.com/api/webhooks/...",
+    Placeholder = "nothing...",
     Numeric = false,
     Finished = false,
     Callback = function(Text)

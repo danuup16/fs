@@ -2903,6 +2903,7 @@ end
 -- Fungsi untuk mengirim webhook khusus untuk inventory check
 local function sendInventoryWebhook(inventoryData)
     if webhookURL == "" then
+        warn("Webhook URL is empty!")
         return
     end
     local RunService = game:GetService("RunService")
@@ -2917,8 +2918,8 @@ local function sendInventoryWebhook(inventoryData)
                 local player = game.Players.LocalPlayer
                 local fields = {
                     {
-                        ["name"] = "**Profile : **",
-                        ["value"] = "> Username :||`"..player.Name.."`||",
+                        ["name"] = "Profile",
+                        ["value"] = "Username: ||`"..player.Name.."`||",
                         ["inline"] = true
                     }
                 }
@@ -2926,45 +2927,64 @@ local function sendInventoryWebhook(inventoryData)
                 -- Group fish by tier
                 local fishByTier = {}
                 for _, fishInfo in pairs(inventoryData) do
-                    local tier = fishInfo.tierName
+                    local tier = fishInfo.tierName or "Unknown"
                     if not fishByTier[tier] then
                         fishByTier[tier] = {}
                     end
                     table.insert(fishByTier[tier], fishInfo)
                 end
                 
-                -- Create field for each tier
+                -- Create field for each tier (limit fields to prevent overflow)
+                local fieldCount = 1 -- Already have profile field
                 for tier, fishes in pairs(fishByTier) do
+                    if fieldCount >= 25 then -- Discord limit is 25 fields
+                        break
+                    end
+                    
                     local fishList = {}
+                    local itemCount = 0
                     for _, fish in pairs(fishes) do
-                        local fishText = "`" .. fish.name .. "`"
+                        if itemCount >= 10 then -- Limit items per tier to prevent field value overflow
+                            table.insert(fishList, "... and more")
+                            break
+                        end
+                        
+                        local fishText = fish.name or "Unknown Fish"
                         if fish.weight then
-                            fishText = fishText .. " (" .. fish.weight .. ")"
+                            fishText = fishText .. " (" .. tostring(fish.weight) .. ")"
                         end
                         if fish.quantity and fish.quantity > 1 then
-                            fishText = fishText .. " x" .. fish.quantity
+                            fishText = fishText .. " x" .. tostring(fish.quantity)
                         end
                         table.insert(fishList, fishText)
+                        itemCount = itemCount + 1
+                    end
+                    
+                    -- Ensure field value doesn't exceed Discord's 1024 character limit
+                    local fieldValue = table.concat(fishList, "\n")
+                    if #fieldValue > 1024 then
+                        fieldValue = string.sub(fieldValue, 1, 1000) .. "..."
                     end
                     
                     table.insert(fields, {
-                        ["name"] = "**" .. tier .. " Fish:**",
-                        ["value"] = table.concat(fishList, "\n"),
+                        ["name"] = tier .. " Fish (" .. #fishes .. ")",
+                        ["value"] = fieldValue,
                         ["inline"] = false
                     })
+                    fieldCount = fieldCount + 1
                 end
                 
                 if #inventoryData == 0 then
                     table.insert(fields, {
-                        ["name"] = "**Inventory Status:**",
-                        ["value"] = "> No fish found in inventory",
+                        ["name"] = "Inventory Status",
+                        ["value"] = "No fish found in inventory",
                         ["inline"] = false
                     })
                 end
                 
                 local embedData = {
-                    ["title"] = "📦 INVENTORY CHECK - #DJSTEST!",
-                    ["color"] = 0x00FFFF,
+                    ["title"] = "INVENTORY CHECK - #DJSTEST",
+                    ["color"] = 65535, -- 0x00FFFF in decimal
                     ["fields"] = fields,
                     ["footer"] = {
                         ["text"] = "Total Fish: " .. #inventoryData .. " | " .. os.date("%Y-%m-%d %H:%M:%S")
@@ -2975,8 +2995,20 @@ local function sendInventoryWebhook(inventoryData)
                     ["username"] = "#DJSTEST",
                     ["embeds"] = {embedData}
                 }
+                
+                -- Debug: Print the data being sent
+                print("Sending webhook data:")
+                print("Fields count:", #fields)
+                print("Total fish:", #inventoryData)
+                
                 local headers = {["Content-Type"] = "application/json"}
                 local body = game:GetService("HttpService"):JSONEncode(data)
+                
+                -- Debug: Check body length
+                print("Body length:", #body)
+                if #body > 6000 then
+                    warn("Body too large, may cause issues")
+                end
                 
                 local req = http_request or request or syn.request
                 if fluxus and fluxus.request then
@@ -2991,8 +3023,13 @@ local function sendInventoryWebhook(inventoryData)
                     })
                     if response and (response.StatusCode == 200 or response.StatusCode == 204) then
                         success = true
+                        print("Inventory webhook sent successfully!")
                     else
-                        error("HTTP Error: " .. (response and response.StatusCode or "Unknown"))
+                        local errorMsg = "HTTP Error: " .. (response and response.StatusCode or "Unknown")
+                        if response and response.Body then
+                            errorMsg = errorMsg .. " - " .. tostring(response.Body)
+                        end
+                        error(errorMsg)
                     end
                 else
                     error("Tidak ada fungsi HTTP request yang tersedia")

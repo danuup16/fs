@@ -2967,7 +2967,7 @@ local function sendInventoryWebhook(inventoryData)
                     end
                     
                     table.insert(fields, {
-                        ["name"] = tier .. " Fish (" .. totalFishInTier .. ")",
+                        ["name"] = tier .. " Fish (" .. #fishes .. ")",
                         ["value"] = fieldValue,
                         ["inline"] = false
                     })
@@ -3305,7 +3305,7 @@ WebhookTab:AddButton({
         end
     end
 })
-
+---yyy
 WebhookTab:AddButton({
         Title = "Test Webhook",
         Description = "",

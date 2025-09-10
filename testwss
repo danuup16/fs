@@ -3373,12 +3373,15 @@ spawn(function()
             -- Restart webhook monitoring if URL is now available
             if not isWebhookActive then
                 Options.webhooktracking:SetValue(false)
+                print('y')
                 wait(1)
                 Options.webhooktracking:SetValue(true)
+                print('yy')
             end
         else
             -- No URL saved, disable the toggle
             Options.webhooktracking:SetValue(false)
+            print('n')
         end
     end
     
@@ -3390,12 +3393,15 @@ spawn(function()
             -- Restart inventory check if URL is now available
             if not isInventoryCheckActive then
                 Options.inventorycheck:SetValue(false)
+                print('y2')
                 wait(1)
                 Options.inventorycheck:SetValue(true)
+                print('y22')
             end
         else
             -- No URL saved, disable the toggle
             Options.inventorycheck:SetValue(false)
+            print('r')
         end
     end
 end)
@@ -3446,7 +3452,7 @@ WebhookTab:AddButton({
 })
 
 end
----zzzz
+---ssss
 Window:SelectTab(1)
 AutoConfig:Initialize(Fluent)
 end

@@ -2631,7 +2631,7 @@ local inventoryConnection = nil
 local inventoryCheckConnection = nil
 local httpRetryCount = 0
 local maxHttpRetries = 3
-local inventoryCheckInterval = 10 -- 3 minutes in seconds
+local inventoryCheckInterval = 15 -- 3 minutes in seconds
 
 -- Daftar ikan yang tersedia dengan nama dan ID
 local fishList = {
@@ -2922,8 +2922,6 @@ local function sendWebhook(itemName, itemData, weight, isVariant, variantName)
         end
     end)
 end
-
--- Fungsi untuk mengirim webhook khusus untuk inventory check
 local function sendInventoryWebhook(inventoryData)
     if inventoryWebhookURL == "" then
         warn("Inventory Webhook URL is empty!")
@@ -2953,12 +2951,7 @@ local function sendInventoryWebhook(inventoryData)
                         ["inline"] = true
                     }
                 }
-                
-                print("Debug: Starting inventory processing with " .. #inventoryData .. " items")
-                
-                -- Simple consolidation: count fish by name and tier
                 local fishCounts = {} -- Format: [tierName][fishName] = count
-                
                 for i, fishInfo in pairs(inventoryData) do
                     local tier = "Unknown"
                     local fishName = "Unknown Fish"
@@ -2971,20 +2964,12 @@ local function sendInventoryWebhook(inventoryData)
                             fishName = tostring(fishInfo.name)
                         end
                     end
-                    
-                    print("Debug: Processing " .. fishName .. " in tier " .. tier)
-                    
-                    -- Initialize tier if doesn't exist
                     if not fishCounts[tier] then
                         fishCounts[tier] = {}
                     end
-                    
-                    -- Initialize fish count if doesn't exist
                     if not fishCounts[tier][fishName] then
                         fishCounts[tier][fishName] = 0
                     end
-                    
-                    -- Add to count (use quantity if available, otherwise 1)
                     local quantity = 1
                     if fishInfo and fishInfo.quantity then
                         quantity = tonumber(fishInfo.quantity) or 1
@@ -2992,10 +2977,6 @@ local function sendInventoryWebhook(inventoryData)
                     
                     fishCounts[tier][fishName] = fishCounts[tier][fishName] + quantity
                 end
-                
-                print("Debug: Finished counting, creating fields")
-                
-                -- Create field for each tier
                 local fieldCount = 1
                 for tier, fishes in pairs(fishCounts) do
                     if fieldCount >= 25 then
@@ -3013,10 +2994,7 @@ local function sendInventoryWebhook(inventoryData)
                         end
                         table.insert(fishList, displayText)
                         totalInTier = totalInTier + count
-                        print("Debug: Added " .. displayText)
                     end
-                    
-                    -- Create field value
                     local fieldValue = "No fish in this tier"
                     if #fishList > 0 then
                         fieldValue = table.concat(fishList, "\n")
@@ -3034,8 +3012,6 @@ local function sendInventoryWebhook(inventoryData)
                         ["inline"] = false
                     })
                     fieldCount = fieldCount + 1
-                    
-                    print("Debug: Added field " .. fieldName)
                 end
                 
                 -- Add empty message if no fish
@@ -3049,7 +3025,7 @@ local function sendInventoryWebhook(inventoryData)
                 
                 -- Create embed
                 local embedData = {
-                    ["title"] = "📦 INVENTORY CHECK - #DJSTEST!",
+                    ["title"] = "#DJSTEST!",
                     ["color"] = 65535,
                     ["fields"] = fields,
                     ["thumbnail"] = {
@@ -3059,14 +3035,10 @@ local function sendInventoryWebhook(inventoryData)
                         ["text"] = "Total Fish: " .. tostring(#inventoryData) .. " | " .. os.date("%Y-%m-%d %H:%M:%S")
                     }
                 }
-                
                 local data = {
                     ["username"] = "#DJSTEST",
                     ["embeds"] = {embedData}
                 }
-                
-                print("Debug: Sending webhook with " .. #fields .. " fields")
-                
                 local headers = {["Content-Type"] = "application/json"}
                 local body = game:GetService("HttpService"):JSONEncode(data)
                 
@@ -3083,11 +3055,9 @@ local function sendInventoryWebhook(inventoryData)
                     })
                     if response and (response.StatusCode == 200 or response.StatusCode == 204) then
                         success = true
-                        print("Inventory webhook sent successfully!")
                     else
                         local errorMsg = "HTTP Error: " .. tostring(response.StatusCode or "Unknown")
                         if response and response.Body then
-                            print("Response body: " .. tostring(response.Body))
                         end
                         error(errorMsg)
                     end
@@ -3300,29 +3270,22 @@ local function startInventoryCheckTimer()
         while isInventoryCheckActive do
             wait(inventoryCheckInterval) -- Wait 3 minutes
             if isInventoryCheckActive then
-                print("Auto inventory check triggered")
                 local fishInventory = checkInventoryFish()
                 if #fishInventory > 0 then
-                    print("Auto sending inventory check with " .. #fishInventory .. " fish")
                     sendInventoryWebhook(fishInventory)
                 else
-                    print("No fish found in auto inventory check")
                     sendInventoryWebhook({})
                 end
             end
         end
     end)
 end
-
--- Fungsi untuk menghentikan inventory check timer
 local function stopInventoryCheckTimer()
     if inventoryCheckConnection then
         inventoryCheckConnection:Disconnect()
         inventoryCheckConnection = nil
     end
 end
-
--- Fungsi untuk memulai monitoring inventory
 local function startInventoryMonitoring()
     httpRetryCount = 0
     if startReplionMonitoring() then
@@ -3332,8 +3295,6 @@ local function startInventoryMonitoring()
         inventoryConnection:Disconnect()
     end
 end
-
--- Fungsi untuk menghentikan monitoring
 local function stopInventoryMonitoring()
     if inventoryConnection then
         inventoryConnection:Disconnect()
@@ -3364,7 +3325,7 @@ local WebhookToggle = WebhookTab:AddToggle("webhooktracking",
 
 local InventoryCheckToggle = WebhookTab:AddToggle("inventorycheck", 
 {
-    Title = "Enable Inventory Check", 
+    Title = "Enable Inventory Webhook", 
     Description = "Automatically send inventory check every 3 minutes",
     Default = false,
     Callback = function(Value)
@@ -3376,10 +3337,8 @@ local InventoryCheckToggle = WebhookTab:AddToggle("inventorycheck",
                 warn("Please set Inventory Webhook URL first!")
                 return
             end
-            print("Starting inventory check timer (3 minute intervals)")
             startInventoryCheckTimer()
         else
-            print("Stopping inventory check timer")
             stopInventoryCheckTimer()
         end
     end 
@@ -3392,31 +3351,6 @@ WebhookTab:AddButton({
         FishDropdown:SetValue({})
     end
 })
-
-WebhookTab:AddButton({
-    Title = "Manual Inventory Check",
-    Description = "Send inventory check immediately",
-    Callback = function()
-        if inventoryWebhookURL == "" then
-            warn("Inventory Webhook URL tidak diset!")
-            return
-        end
-        
-        local fishInventory = checkInventoryFish()
-        
-        if #fishInventory > 0 then
-            print("Found " .. #fishInventory .. " fish in inventory:")
-            for _, fish in pairs(fishInventory) do
-                print("- " .. fish.name .. " (Tier: " .. fish.tierName .. ")")
-            end
-            sendInventoryWebhook(fishInventory)
-        else
-            print("No fish found in inventory")
-            sendInventoryWebhook({}) -- Send empty inventory notification
-        end
-    end
-})
-
 WebhookTab:AddButton({
         Title = "Test Webhook",
         Description = "",

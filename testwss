@@ -2967,7 +2967,7 @@ local function sendInventoryWebhook(inventoryData)
                     end
                     
                     table.insert(fields, {
-                        ["name"] = tier .. " Fish (" .. #fishes .. ")",
+                        ["name"] = tier .. " Fish (" .. totalFishInTier .. ")",
                         ["value"] = fieldValue,
                         ["inline"] = false
                     })
@@ -3305,7 +3305,7 @@ WebhookTab:AddButton({
         end
     end
 })
----yyy
+
 WebhookTab:AddButton({
         Title = "Test Webhook",
         Description = "",
@@ -3326,6 +3326,7 @@ WebhookTab:AddButton({
         end
     })
 end
+---awaw
 Window:SelectTab(1)
 AutoConfig:Initialize(Fluent)
 end

@@ -2929,8 +2929,8 @@ local function sendInventoryWebhook(inventoryData)
                 
                 local fields = {
                     {
-                        ["name"] = "Profile",
-                        ["value"] = "Username: " .. playerName,
+                        ["name"] = "**Profile :**",
+                        ["value"] = "> Username: ||`" .. playerName .. "`||",
                         ["inline"] = true
                     }
                 }
@@ -3022,24 +3022,27 @@ local function sendInventoryWebhook(inventoryData)
                 -- Add empty message if no fish
                 if #inventoryData == 0 then
                     table.insert(fields, {
-                        ["name"] = "Inventory Status",
-                        ["value"] = "No fish found in inventory",
+                        ["name"] = "**Inventory Status :**",
+                        ["value"] = "> No fish found in inventory",
                         ["inline"] = false
                     })
                 end
                 
                 -- Create embed
                 local embedData = {
-                    ["title"] = "INVENTORY CHECK",
+                    ["title"] = "📦 INVENTORY CHECK - #DJSTEST!",
                     ["color"] = 65535,
                     ["fields"] = fields,
+                    ["thumbnail"] = {
+                        ["url"] = "https://i.imgur.com/0mURszZ.png"
+                    },
                     ["footer"] = {
-                        ["text"] = "Total Fish: " .. tostring(#inventoryData)
+                        ["text"] = "Total Fish: " .. tostring(#inventoryData) .. " | " .. os.date("%Y-%m-%d %H:%M:%S")
                     }
                 }
                 
                 local data = {
-                    ["username"] = "DJSTEST",
+                    ["username"] = "#DJSTEST",
                     ["embeds"] = {embedData}
                 }
                 
@@ -3360,9 +3363,8 @@ WebhookTab:AddButton({
         }
         sendWebhook("TEST Robot Kraken", testData, 419600, false, nil)
         end
-    })
+    }) --RRRR
 end
---sssss
 Window:SelectTab(1)
 AutoConfig:Initialize(Fluent)
 end

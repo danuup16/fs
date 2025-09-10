@@ -2665,10 +2665,12 @@ local fishList = {
     {name = "Blackcap Basslet", id = 182, tier = "Uncommon"},
     {name = "Pilot Fish", id = 140, tier = "Uncommon"}
 }
+
 local specificFishEnabled = {}
 for _, fish in pairs(fishList) do
     specificFishEnabled[fish.id] = false
 end
+
 local WebhookInput = WebhookTab:AddInput("Input", {
     Title = "URL Webhook",
     Description = "",
@@ -2692,6 +2694,7 @@ local FishDropdown = WebhookTab:AddDropdown("FishSelection", {
     Multi = true,
     Default = {},
 })
+
 FishDropdown:OnChanged(function(selectedTiers)
     for fishId, _ in pairs(specificFishEnabled) do
         specificFishEnabled[fishId] = false
@@ -2778,6 +2781,7 @@ local function formatWeight(weight, actualWeight)
     
     return weightText
 end
+
 local function getFishImageURL(fishId)
     local imageUrl = fishImages[fishId]
     if imageUrl and imageUrl ~= "" then
@@ -2916,64 +2920,106 @@ local function sendInventoryWebhook(inventoryData)
             retryAttempt = retryAttempt + 1
             local sendSuccess, sendError = pcall(function()
                 local player = game.Players.LocalPlayer
+                
+                -- Safe player name extraction
+                local playerName = "Unknown"
+                if player and player.Name then
+                    playerName = tostring(player.Name)
+                end
+                
                 local fields = {
                     {
                         ["name"] = "Profile",
-                        ["value"] = "Username: ||`"..player.Name.."`||",
+                        ["value"] = "Username: " .. playerName,
                         ["inline"] = true
                     }
                 }
                 
-                -- Group fish by tier
-                local fishByTier = {}
-                for _, fishInfo in pairs(inventoryData) do
-                    local tier = fishInfo.tierName or "Unknown"
-                    if not fishByTier[tier] then
-                        fishByTier[tier] = {}
+                print("Debug: Starting inventory processing with " .. #inventoryData .. " items")
+                
+                -- Simple consolidation: count fish by name and tier
+                local fishCounts = {} -- Format: [tierName][fishName] = count
+                
+                for i, fishInfo in pairs(inventoryData) do
+                    local tier = "Unknown"
+                    local fishName = "Unknown Fish"
+                    
+                    if fishInfo then
+                        if fishInfo.tierName then
+                            tier = tostring(fishInfo.tierName)
+                        end
+                        if fishInfo.name then
+                            fishName = tostring(fishInfo.name)
+                        end
                     end
-                    table.insert(fishByTier[tier], fishInfo)
+                    
+                    print("Debug: Processing " .. fishName .. " in tier " .. tier)
+                    
+                    -- Initialize tier if doesn't exist
+                    if not fishCounts[tier] then
+                        fishCounts[tier] = {}
+                    end
+                    
+                    -- Initialize fish count if doesn't exist
+                    if not fishCounts[tier][fishName] then
+                        fishCounts[tier][fishName] = 0
+                    end
+                    
+                    -- Add to count (use quantity if available, otherwise 1)
+                    local quantity = 1
+                    if fishInfo and fishInfo.quantity then
+                        quantity = tonumber(fishInfo.quantity) or 1
+                    end
+                    
+                    fishCounts[tier][fishName] = fishCounts[tier][fishName] + quantity
                 end
                 
-                -- Create field for each tier (limit fields to prevent overflow)
-                local fieldCount = 1 -- Already have profile field
-                for tier, fishes in pairs(fishByTier) do
-                    if fieldCount >= 25 then -- Discord limit is 25 fields
+                print("Debug: Finished counting, creating fields")
+                
+                -- Create field for each tier
+                local fieldCount = 1
+                for tier, fishes in pairs(fishCounts) do
+                    if fieldCount >= 25 then
                         break
                     end
                     
                     local fishList = {}
-                    local itemCount = 0
-                    for _, fish in pairs(fishes) do
-                        if itemCount >= 10 then -- Limit items per tier to prevent field value overflow
-                            table.insert(fishList, "... and more")
-                            break
+                    local totalInTier = 0
+                    
+                    -- Create list of fish with counts
+                    for fishName, count in pairs(fishes) do
+                        local displayText = fishName
+                        if count > 1 then
+                            displayText = fishName .. " x" .. tostring(count)
                         end
-                        
-                        local fishText = fish.name or "Unknown Fish"
-                        if fish.weight then
-                            fishText = fishText .. " (" .. tostring(fish.weight) .. ")"
-                        end
-                        if fish.quantity and fish.quantity > 1 then
-                            fishText = fishText .. " x" .. tostring(fish.quantity)
-                        end
-                        table.insert(fishList, fishText)
-                        itemCount = itemCount + 1
+                        table.insert(fishList, displayText)
+                        totalInTier = totalInTier + count
+                        print("Debug: Added " .. displayText)
                     end
                     
-                    -- Ensure field value doesn't exceed Discord's 1024 character limit
-                    local fieldValue = table.concat(fishList, "\n")
-                    if #fieldValue > 1024 then
-                        fieldValue = string.sub(fieldValue, 1, 1000) .. "..."
+                    -- Create field value
+                    local fieldValue = "No fish in this tier"
+                    if #fishList > 0 then
+                        fieldValue = table.concat(fishList, "\n")
+                        -- Truncate if too long
+                        if string.len(fieldValue) > 1000 then
+                            fieldValue = string.sub(fieldValue, 1, 950) .. "...\n(and more)"
+                        end
                     end
                     
+                    -- Add field
+                    local fieldName = tier .. " Fish (" .. tostring(totalInTier) .. ")"
                     table.insert(fields, {
-                        ["name"] = tier .. " Fish (" .. totalFishInTier .. ")",
+                        ["name"] = fieldName,
                         ["value"] = fieldValue,
                         ["inline"] = false
                     })
                     fieldCount = fieldCount + 1
+                    
+                    print("Debug: Added field " .. fieldName)
                 end
                 
+                -- Add empty message if no fish
                 if #inventoryData == 0 then
                     table.insert(fields, {
                         ["name"] = "Inventory Status",
@@ -2982,33 +3028,25 @@ local function sendInventoryWebhook(inventoryData)
                     })
                 end
                 
+                -- Create embed
                 local embedData = {
-                    ["title"] = "INVENTORY CHECK - #DJSTEST",
-                    ["color"] = 65535, -- 0x00FFFF in decimal
+                    ["title"] = "INVENTORY CHECK",
+                    ["color"] = 65535,
                     ["fields"] = fields,
                     ["footer"] = {
-                        ["text"] = "Total Fish: " .. #inventoryData .. " | " .. os.date("%Y-%m-%d %H:%M:%S")
+                        ["text"] = "Total Fish: " .. tostring(#inventoryData)
                     }
                 }
                 
                 local data = {
-                    ["username"] = "#DJSTEST",
+                    ["username"] = "DJSTEST",
                     ["embeds"] = {embedData}
                 }
                 
-                -- Debug: Print the data being sent
-                print("Sending webhook data:")
-                print("Fields count:", #fields)
-                print("Total fish:", #inventoryData)
+                print("Debug: Sending webhook with " .. #fields .. " fields")
                 
                 local headers = {["Content-Type"] = "application/json"}
                 local body = game:GetService("HttpService"):JSONEncode(data)
-                
-                -- Debug: Check body length
-                print("Body length:", #body)
-                if #body > 6000 then
-                    warn("Body too large, may cause issues")
-                end
                 
                 local req = http_request or request or syn.request
                 if fluxus and fluxus.request then
@@ -3025,21 +3063,21 @@ local function sendInventoryWebhook(inventoryData)
                         success = true
                         print("Inventory webhook sent successfully!")
                     else
-                        local errorMsg = "HTTP Error: " .. (response and response.StatusCode or "Unknown")
+                        local errorMsg = "HTTP Error: " .. tostring(response.StatusCode or "Unknown")
                         if response and response.Body then
-                            errorMsg = errorMsg .. " - " .. tostring(response.Body)
+                            print("Response body: " .. tostring(response.Body))
                         end
                         error(errorMsg)
                     end
                 else
-                    error("Tidak ada fungsi HTTP request yang tersedia")
+                    error("No HTTP request function available")
                 end
             end)
             if sendSuccess then
                 success = true
                 httpRetryCount = 0
             else
-                warn("Percobaan webhook inventory check " .. retryAttempt .. " gagal:", sendError)
+                warn("Webhook attempt " .. retryAttempt .. " failed: " .. tostring(sendError))
                 if retryAttempt < maxRetries then
                     wait(retryAttempt * 2)
                 end
@@ -3108,11 +3146,6 @@ local function checkInventoryFish()
                                 sellPrice = itemData.SellPrice or 0,
                                 quantity = itemInfo.Quantity
                             }
-                            
-                            -- Add weight if available
-                            if itemInfo.Metadata and itemInfo.Metadata.Weight then
-                                fishInfo.weight = formatWeight(itemData.Weight, itemInfo.Metadata.Weight)
-                            end
                             
                             -- Add variant if available
                             if itemInfo.Metadata and itemInfo.Metadata.VariantId then
@@ -3234,6 +3267,7 @@ local function startReplionMonitoring()
         return false
     end
 end
+
 -- Fungsi untuk memulai monitoring inventory
 local function startInventoryMonitoring()
     httpRetryCount = 0
@@ -3244,6 +3278,7 @@ local function startInventoryMonitoring()
         inventoryConnection:Disconnect()
     end
 end
+
 -- Fungsi untuk menghentikan monitoring
 local function stopInventoryMonitoring()
     if inventoryConnection then
@@ -3253,6 +3288,7 @@ local function stopInventoryMonitoring()
     lastInventoryState = {}
     httpRetryCount = 0
 end
+
 local WebhookToggle = WebhookTab:AddToggle("webhooktracking", 
 {
     Title = "Enable Webhook", 
@@ -3281,7 +3317,7 @@ WebhookTab:AddButton({
     end
 })
 
--- New Check Inventory Button
+-- Check Inventory Button
 WebhookTab:AddButton({
     Title = "Check Inventory",
     Description = "Scan and send all fish in your inventory",
@@ -3314,7 +3350,7 @@ WebhookTab:AddButton({
             return
         end
         local testData = {
-            Id = 159, -- Silver Tuna ID untuk testing
+            Id = 159, -- Robot Kraken ID untuk testing
             Name = "Robot Kraken",
             Type = "Fishes",
             Tier = 7,
@@ -3326,7 +3362,7 @@ WebhookTab:AddButton({
         end
     })
 end
-----ssssss
+----rrrrr
 Window:SelectTab(1)
 AutoConfig:Initialize(Fluent)
 end

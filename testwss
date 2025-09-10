@@ -2625,6 +2625,10 @@ local httpRetryCount = 0
 local maxHttpRetries = 3
 local inventoryCheckInterval = 180 -- 3 minutes in seconds
 
+-- Add cooldown variables
+local webhookConfigLoaded = false
+local configLoadStartTime = tick()
+
 -- Daftar ikan yang tersedia dengan nama dan ID
 local fishList = {
     -- Secret Fish (Tier 5 & 6)
@@ -2665,6 +2669,28 @@ local fishList = {
 local specificFishEnabled = {}
 for _, fish in pairs(fishList) do
     specificFishEnabled[fish.id] = false
+end
+
+-- Function to check if config is ready
+local function isConfigReady()
+    local timeSinceStart = tick() - configLoadStartTime
+    if timeSinceStart < 6 then -- Wait minimum 6 seconds
+        return false
+    end
+    
+    -- Check if URLs are loaded from config
+    local fishingURL = Options.Input and Options.Input.Value or ""
+    local inventoryURL = Options.InventoryInput and Options.InventoryInput.Value or ""
+    
+    -- Update local variables
+    if fishingURL ~= "" then
+        webhookURL = fishingURL
+    end
+    if inventoryURL ~= "" then
+        inventoryWebhookURL = inventoryURL
+    end
+    
+    return true
 end
 
 local WebhookInput = WebhookTab:AddInput("Input", {
@@ -2735,8 +2761,6 @@ FishDropdown:OnChanged(function(selectedTiers)
         end
     end
 end)
-
--- [Keep all the other functions the same - getItemData, formatWeight, getFishImageURL, getTierInfo, sendWebhook, sendInventoryWebhook, checkInventoryFish, startReplionMonitoring, etc.]
 
 -- Fungsi untuk mendapatkan data ikan dari ReplicatedStorage
 local function getItemData(itemId)
@@ -2916,7 +2940,6 @@ local function sendWebhook(itemName, itemData, weight, isVariant, variantName)
         end
     end)
 end
-
 local function sendInventoryWebhook(inventoryData)
     if inventoryWebhookURL == "" then
         warn("Inventory Webhook URL is empty!")
@@ -3302,7 +3325,7 @@ local function stopInventoryMonitoring()
     httpRetryCount = 0
 end
 
--- Modified webhook toggle with validation check
+-- Modified webhook toggle with cooldown check
 local WebhookToggle = WebhookTab:AddToggle("webhooktracking", 
 {
     Title = "Enable Fishing Webhook", 
@@ -3310,19 +3333,22 @@ local WebhookToggle = WebhookTab:AddToggle("webhooktracking",
     Default = false,
     Callback = function(Value)
         if Value then
-            -- Check if webhook URL is loaded from config
-            if webhookURL == "" then
-                -- Get from Options if available
-                local savedWebhookURL = Options.Input and Options.Input.Value or ""
-                if savedWebhookURL ~= "" then
-                    webhookURL = savedWebhookURL
-                else
-                    -- Disable toggle and show warning
-                    Options.webhooktracking:SetValue(false)
-                    warn("Please set Fishing Webhook URL first!")
-                    return
-                end
+            -- Check if config is ready
+            if not isConfigReady() then
+                Options.webhooktracking:SetValue(false)
+                warn("Please wait for config to load completely...")
+                return
             end
+            
+            -- Check if webhook URL is available
+            local currentURL = Options.Input and Options.Input.Value or ""
+            if currentURL == "" then
+                Options.webhooktracking:SetValue(false)
+                warn("Please set Fishing Webhook URL first!")
+                return
+            end
+            
+            webhookURL = currentURL
             isWebhookActive = true
             startInventoryMonitoring()
         else
@@ -3339,19 +3365,22 @@ local InventoryCheckToggle = WebhookTab:AddToggle("inventorycheck",
     Default = false,
     Callback = function(Value)
         if Value then
-            -- Check if inventory webhook URL is loaded from config
-            if inventoryWebhookURL == "" then
-                -- Get from Options if available
-                local savedInventoryWebhookURL = Options.InventoryInput and Options.InventoryInput.Value or ""
-                if savedInventoryWebhookURL ~= "" then
-                    inventoryWebhookURL = savedInventoryWebhookURL
-                else
-                    -- Disable toggle and show warning
-                    Options.inventorycheck:SetValue(false)
-                    warn("Please set Inventory Webhook URL first!")
-                    return
-                end
+            -- Check if config is ready
+            if not isConfigReady() then
+                Options.inventorycheck:SetValue(false)
+                warn("Please wait for config to load completely...")
+                return
             end
+            
+            -- Check if inventory webhook URL is available
+            local currentURL = Options.InventoryInput and Options.InventoryInput.Value or ""
+            if currentURL == "" then
+                Options.inventorycheck:SetValue(false)
+                warn("Please set Inventory Webhook URL first!")
+                return
+            end
+            
+            inventoryWebhookURL = currentURL
             isInventoryCheckActive = true
             startInventoryCheckTimer()
         else
@@ -3360,53 +3389,14 @@ local InventoryCheckToggle = WebhookTab:AddToggle("inventorycheck",
         end
     end 
 })
-spawn(function()
-    wait(10) -- Wait for config and webhook inputs to load properly
-    if Options.webhooktracking and Options.webhooktracking.Value == true then
-        local savedWebhookURL = Options.Input and Options.Input.Value or ""
-        if savedWebhookURL ~= "" then
-            webhookURL = savedWebhookURL
-            print('r')
-            -- Restart webhook monitoring if URL is now available
-            if not isWebhookActive then
-                Options.webhooktracking:SetValue(false)
-                print('y')
-                wait(1)
-                Options.webhooktracking:SetValue(true)
-                print('yy')
-            end
-        else
-            -- No URL saved, disable the toggle
-            Options.webhooktracking:SetValue(false)
-            print('n')
-        end
-    end
-    
-    -- Check inventory webhook
-    if Options.inventorycheck and Options.inventorycheck.Value == true then
-        local savedInventoryWebhookURL = Options.InventoryInput and Options.InventoryInput.Value or ""
-        if savedInventoryWebhookURL ~= "" then
-            inventoryWebhookURL = savedInventoryWebhookURL
-            print('w')
-            -- Restart inventory check if URL is now available
-            if not isInventoryCheckActive then
-                Options.inventorycheck:SetValue(false)
-                print('y2')
-                wait(1)
-                Options.inventorycheck:SetValue(true)
-                print('y22')
-            end
-        else
-            -- No URL saved, disable the toggle
-            Options.inventorycheck:SetValue(false)
-            print('r')
-        end
-    end
-end)
 
--- Additional config loading check
+-- Enhanced delayed initialization with better config loading detection
 spawn(function()
-    wait(3) -- Wait for config loading to complete
+    -- Wait longer to ensure config system is fully loaded
+    wait(8) -- Increased wait time to 8 seconds
+    
+    -- Mark config as loaded
+    webhookConfigLoaded = true
     
     -- Update webhook URLs from saved inputs
     local fishingWebhookValue = Options.Input and Options.Input.Value or ""
@@ -3417,6 +3407,57 @@ spawn(function()
     local inventoryWebhookValue = Options.InventoryInput and Options.InventoryInput.Value or ""
     if inventoryWebhookValue ~= "" then
         inventoryWebhookURL = inventoryWebhookValue
+    end
+    
+    -- Check if toggles were enabled before config was ready and fix them
+    if Options.webhooktracking and Options.webhooktracking.Value == true then
+        if webhookURL ~= "" then
+            -- Config is loaded and URL is available, restart webhook
+            if not isWebhookActive then
+                isWebhookActive = true
+                startInventoryMonitoring()
+            end
+        else
+            -- No URL available, disable toggle
+            Options.webhooktracking:SetValue(false)
+        end
+    end
+    
+    if Options.inventorycheck and Options.inventorycheck.Value == true then
+        if inventoryWebhookURL ~= "" then
+            -- Config is loaded and URL is available, restart inventory check
+            if not isInventoryCheckActive then
+                isInventoryCheckActive = true
+                startInventoryCheckTimer()
+            end
+        else
+            -- No URL available, disable toggle
+            Options.inventorycheck:SetValue(false)
+        end
+    end
+end)
+
+-- Additional safety check for early toggle activation
+spawn(function()
+    local checkCount = 0
+    while checkCount < 10 do -- Check for 10 seconds
+        wait(1)
+        checkCount = checkCount + 1
+        
+        -- If toggles are active but config not loaded, show warning
+        if not webhookConfigLoaded then
+            if Options.webhooktracking and Options.webhooktracking.Value == true then
+                Options.webhooktracking:SetValue(false)
+                warn("Config still loading, please wait...")
+            end
+            
+            if Options.inventorycheck and Options.inventorycheck.Value == true then
+                Options.inventorycheck:SetValue(false)
+                warn("Config still loading, please wait...")
+            end
+        else
+            break -- Config loaded, no need to continue checking
+        end
     end
 end)
 
@@ -3450,7 +3491,7 @@ WebhookTab:AddButton({
 })
 
 end
----ssss
+---sdsd
 Window:SelectTab(1)
 AutoConfig:Initialize(Fluent)
 end

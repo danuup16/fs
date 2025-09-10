@@ -1838,16 +1838,16 @@ do
             local workspaceProps = workspace:FindFirstChild("Props")
             
             if workspaceProps and workspaceProps:FindFirstChild("Shark Hunt") then
-                table.insert(activeEvents, "Shark Hunt 🟢")
+                table.insert(activeEvents, "Shark Hunt ðŸŸ¢")
             end
             if workspaceProps and workspaceProps:FindFirstChild("Ghost Shark Hunt") then
-                table.insert(activeEvents, "Ghost Shark Hunt 🟢")
+                table.insert(activeEvents, "Ghost Shark Hunt ðŸŸ¢")
             end
             
             local lighting = game:GetService("Lighting")
             if lighting:FindFirstChild("SparklingCoveEffect") or 
                (lighting.Brightness > 1.5 and lighting.ColorShift_Top.R > 0.8 and lighting.ColorShift_Top.G > 0.8) then
-                table.insert(activeEvents, "Sparkling Cove 🟢")
+                table.insert(activeEvents, "Sparkling Cove ðŸŸ¢")
             end
             
             local PlayerGui = game.Players.LocalPlayer:FindFirstChild("PlayerGui")
@@ -1865,39 +1865,39 @@ do
             end
             
             if wormHuntActive or (workspaceProps and workspaceProps:FindFirstChild("Worm Hunt")) then
-                table.insert(activeEvents, "Worm Hunt 🟢")
+                table.insert(activeEvents, "Worm Hunt ðŸŸ¢")
             end
             
             local adminAreas = workspace:FindFirstChild("AdminAreas") or workspace:FindFirstChild("AdminEvents")
             if adminAreas then
                 if adminAreas:FindFirstChild("Shocked") or adminAreas:FindFirstChild("ShockedArea") then
-                    table.insert(activeEvents, "Admin - Shocked 🟢")
+                    table.insert(activeEvents, "Admin - Shocked ðŸŸ¢")
                 end
                 if adminAreas:FindFirstChild("BlackHole") or adminAreas:FindFirstChild("Black Hole") then
-                    table.insert(activeEvents, "Admin - Black Hole 🟢")
+                    table.insert(activeEvents, "Admin - Black Hole ðŸŸ¢")
                 end
                 if adminAreas:FindFirstChild("GhostWorm") or adminAreas:FindFirstChild("Ghost Worm") then
-                    table.insert(activeEvents, "Admin - Ghost Worm 🟢")
+                    table.insert(activeEvents, "Admin - Ghost Worm ðŸŸ¢")
                 end
                 if adminAreas:FindFirstChild("MeteorRain") or adminAreas:FindFirstChild("Meteor Rain") then
-                    table.insert(activeEvents, "Admin - Meteor Rain 🟢")
+                    table.insert(activeEvents, "Admin - Meteor Rain ðŸŸ¢")
                 end
             end
             
             if lighting.Brightness >= 3.5 and lighting.Ambient.B >= 0.6 and lighting.Ambient.R < 0.4 then
-                table.insert(activeEvents, "Storm 🟢")
+                table.insert(activeEvents, "Storm ðŸŸ¢")
             end
             if lighting.ColorShift_Top.R <= 0.03 and lighting.ColorShift_Top.G <= 0.03 and lighting.ColorShift_Top.B <= 0.03 and
                lighting.Brightness < 1 then
-                table.insert(activeEvents, "Snow 🟢")
+                table.insert(activeEvents, "Snow ðŸŸ¢")
             end
             local atmosphere = lighting:FindFirstChild("Atmosphere")
             if atmosphere and atmosphere.Density >= 1.0 and lighting.Brightness > 1.2 then
-                table.insert(activeEvents, "Wind 🟢")
+                table.insert(activeEvents, "Wind ðŸŸ¢")
             end
             if lighting.Brightness <= 0.4 and 
                lighting.ColorShift_Top.R >= 0.8 and lighting.ColorShift_Top.G >= 0.8 and lighting.ColorShift_Top.B >= 0.8 then
-                table.insert(activeEvents, "Cloudy 🟢")
+                table.insert(activeEvents, "Cloudy ðŸŸ¢")
             end
         end)
         
@@ -1915,7 +1915,7 @@ do
     end
 
     local function getEventCoordinates(selection)
-        local cleanName = string.gsub(selection, " 🟢", "")
+        local cleanName = string.gsub(selection, " ðŸŸ¢", "")
         cleanName = string.gsub(cleanName, "^%s*(.-)%s*$", "%1") 
         if eventCoordinates[cleanName] then
             local coords = eventCoordinates[cleanName]
@@ -1991,7 +1991,7 @@ do
                 
                 local activeCount = 0
                 for _, event in ipairs(detectedEvents) do
-                    if string.find(event, "🟢") then
+                    if string.find(event, "ðŸŸ¢") then
                         activeCount = activeCount + 1
                     end
                 end
@@ -2625,10 +2625,6 @@ local httpRetryCount = 0
 local maxHttpRetries = 3
 local inventoryCheckInterval = 180 -- 3 minutes in seconds
 
--- Auto-retry variables
-local fishingWebhookRetrying = false
-local inventoryWebhookRetrying = false
-
 -- Daftar ikan yang tersedia dengan nama dan ID
 local fishList = {
     -- Secret Fish (Tier 5 & 6)
@@ -2918,7 +2914,6 @@ local function sendWebhook(itemName, itemData, weight, isVariant, variantName)
         end
     end)
 end
-
 local function sendInventoryWebhook(inventoryData)
     if inventoryWebhookURL == "" then
         warn("Inventory Webhook URL is empty!")
@@ -3277,14 +3272,12 @@ local function startInventoryCheckTimer()
         end
     end)
 end
-
 local function stopInventoryCheckTimer()
     if inventoryCheckConnection then
         inventoryCheckConnection:Disconnect()
         inventoryCheckConnection = nil
     end
 end
-
 local function startInventoryMonitoring()
     httpRetryCount = 0
     if startReplionMonitoring() then
@@ -3294,7 +3287,6 @@ local function startInventoryMonitoring()
         inventoryConnection:Disconnect()
     end
 end
-
 local function stopInventoryMonitoring()
     if inventoryConnection then
         inventoryConnection:Disconnect()
@@ -3304,77 +3296,20 @@ local function stopInventoryMonitoring()
     httpRetryCount = 0
 end
 
--- Auto-retry function untuk Fishing Webhook
-local function autoRetryFishingWebhook()
-    if fishingWebhookRetrying then
-        return -- Sudah dalam proses retry
-    end
-    
-    fishingWebhookRetrying = true
-    warn("Please set Fishing Webhook URL first! Akan mencoba lagi dalam 5 detik...")
-    
-    spawn(function()
-        wait(5) -- Tunggu 5 detik
-        
-        if webhookURL ~= "" then
-            -- URL sudah diisi, coba aktifkan lagi
-            print("Fishing Webhook URL terdeteksi, mencoba mengaktifkan...")
-            isWebhookActive = true
-            startInventoryMonitoring()
-            WebhookToggle:SetValue(true) -- Update toggle UI
-            print("Fishing Webhook berhasil diaktifkan!")
-        else
-            -- URL masih kosong, stop
-            print("Fishing Webhook URL masih kosong, berhenti mencoba.")
-            WebhookToggle:SetValue(false) -- Pastikan toggle tetap off
-        end
-        
-        fishingWebhookRetrying = false
-    end)
-end
-
--- Auto-retry function untuk Inventory Webhook
-local function autoRetryInventoryWebhook()
-    if inventoryWebhookRetrying then
-        return -- Sudah dalam proses retry
-    end
-    
-    inventoryWebhookRetrying = true
-    warn("Please set Inventory Webhook URL first! Akan mencoba lagi dalam 5 detik...")
-    
-    spawn(function()
-        wait(5) -- Tunggu 5 detik
-        
-        if inventoryWebhookURL ~= "" then
-            -- URL sudah diisi, coba aktifkan lagi
-            print("Inventory Webhook URL terdeteksi, mencoba mengaktifkan...")
-            isInventoryCheckActive = true
-            startInventoryCheckTimer()
-            InventoryCheckToggle:SetValue(true) -- Update toggle UI
-            print("Inventory Webhook berhasil diaktifkan!")
-        else
-            -- URL masih kosong, stop
-            print("Inventory Webhook URL masih kosong, berhenti mencoba.")
-            InventoryCheckToggle:SetValue(false) -- Pastikan toggle tetap off
-        end
-        
-        inventoryWebhookRetrying = false
-    end)
-end
-
 local WebhookToggle = WebhookTab:AddToggle("webhooktracking", 
 {
     Title = "Enable Fishing Webhook", 
     Description = "Toggle for fishing webhook notifications",
     Default = false,
     Callback = function(Value)
-        isWebhookActive = Value
+	isWebhookActive = Value
         
         if Value then
             if webhookURL == "" then
-                -- URL kosong, matikan toggle dan mulai auto-retry
                 WebhookToggle:SetValue(false)
-                autoRetryFishingWebhook()
+                                warn("Please set sadas Webhook URL first!")
+                Wait(5)
+                WebhookToggle:SetValue(true)
                 return
             end
             startInventoryMonitoring()
@@ -3394,9 +3329,10 @@ local InventoryCheckToggle = WebhookTab:AddToggle("inventorycheck",
         
         if Value then
             if inventoryWebhookURL == "" then
-                -- URL kosong, matikan toggle dan mulai auto-retry
                 InventoryCheckToggle:SetValue(false)
-                autoRetryInventoryWebhook()
+                warn("Please set Inventory Webhook URL first!")
+                Wait(5)
+                InventoryCheckToggle:SetValue(true)
                 return
             end
             startInventoryCheckTimer()
@@ -3413,7 +3349,6 @@ WebhookTab:AddButton({
         FishDropdown:SetValue({})
     end
 })
-
 WebhookTab:AddButton({
         Title = "Test Webhook",
         Description = "",
@@ -3434,7 +3369,6 @@ WebhookTab:AddButton({
         end
     })
 end
----ssss
 Window:SelectTab(1)
 AutoConfig:Initialize(Fluent)
 end

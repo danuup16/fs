@@ -833,7 +833,7 @@ local FishingDelaySlider = Tabs.Fishing:AddSlider("FishingDelay", {
     Default = 2.3,
     Min = 2.3,
     Max = 10,
-    Rounding = 1,
+    Rounding = 0.1,
     Callback = function(Value)
         fishingDelay = Value
     end
@@ -944,28 +944,6 @@ local function getFishingController()
     
     return nil
 end
-
-local function canStartFishing()
-    if not isPlayerValid() then
-        return false, "Player not valid"
-    end
-    
-    local controller = getFishingController()
-    if not controller then
-        return false, "Controller not found"
-    end
-    
-    local success, result = pcall(function()
-        return not controller:OnCooldown()
-    end)
-    
-    if success then
-        return result, result and "Ready" or "On cooldown"
-    end
-    
-    return false, "Error checking cooldown"
-end
-
 local function ensureFishingToolEquipped()
     if not isPlayerValid() then
         return false
@@ -1122,8 +1100,6 @@ local function setupCompletionListener()
         end
     end)
 end
-
--- Updated main Auto Fishing V2 function
 local function startAutoFishingV2()
     if not isPlayerValid() then
         warn("[AUTO FISHING V2] Player not valid")
@@ -1140,8 +1116,6 @@ local function startAutoFishingV2()
         warn("[AUTO FISHING V2] Controller not found")
         return false
     end
-    
-    -- Set up character respawn detection
     local player = game.Players.LocalPlayer
     if characterConnection then
         characterConnection:Disconnect()
@@ -1152,11 +1126,7 @@ local function startAutoFishingV2()
             Options.AutoFishingV2:SetValue(false)
         end
     end)
-    
-    -- Setup completion listener yang akan auto-restart
     setupCompletionListener()
-    
-    -- Start first cycle
     if startFishingCycleOnly() then
         monitorFishingProcess()
     else
@@ -1165,8 +1135,6 @@ local function startAutoFishingV2()
     
     return true
 end
-
--- Updated stop function
 local function stopAutoFishingV2()
     isAutoFishV2Active = false
     isWaitingForCompletion = false
@@ -1212,14 +1180,13 @@ local autoFishV2Toggle = Tabs.Fishing:AddToggle("AutoFishingV2", {
         end
     end
 })
-
 local fishingV2DelaySlider = Tabs.Fishing:AddSlider("FishingV2Delay", {
     Title = "Fishing Delay V2",
     Description = "Delay between fishing cycles (seconds)",
     Default = 0,
     Min = 0,
     Max = 10,
-    Rounding = 0.1,
+    Rounding = 1,
     Callback = function(Value)
         fishingV2DelayTime = tonumber(Value) or 0
     end
@@ -1400,11 +1367,8 @@ local function startAutoFarm()
                      Options.AutoFishing:SetValue(true)
                   else
                      Options.AutoFishingV2:SetValue(false)
-                     Options.AutoClickV2:SetValue(false)
                      wait(1)
                      Options.AutoFishingV2:SetValue(true)
-                     Options.AutoClickV2:SetValue(true)
-                     
                   end
                end
             end
@@ -1547,10 +1511,8 @@ local function startAutoFarmV2()
                         Options.AutoFishing:SetValue(true)
                     else
                         Options.AutoFishingV2:SetValue(false)
-                        Options.AutoClickV2:SetValue(false)
                         wait(1)
                         Options.AutoFishingV2:SetValue(true)
-                        Options.AutoClickV2:SetValue(true)
                     end
                 end
             end
@@ -1875,261 +1837,409 @@ do
         end
     })
  teleportTab:AddSection("Events")
-    
-    local detectedEvents = {}
-    local selectedEvent = nil
-    local eventCoordinates = {
-        ["Shark Hunt"] = {
-            Vector3.new(1.64999, 5, 2095.72),
-            Vector3.new(1369.94, 5, 930.125),
-            Vector3.new(-1585.5, 5, 1242.87),
-            Vector3.new(-1896.8, 5, 2634.37)
-        },
-        ["Ghost Shark Hunt"] = {
-            Vector3.new(489.558, 5, 25.4060),
-            Vector3.new(1976.51, 5, 2915.93),
-            Vector3.new(-1358.2, 5, 4100.55),
-            Vector3.new(627.859, 5, 3798.08)
-        },
-        ["Sparkling Cove"] = {
-            Vector3.new(195.378, 5, 2976.27)
-        },
-        ["Worm Hunt"] = {
-            Vector3.new(1591.55, 5, -105.92),
-            Vector3.new(-2450.6, 5, 139.731),
-            Vector3.new(-267.47, 5, 5188.53)
-        },
-        ["Admin - Shocked"] = {
-            Vector3.new(383, 5, 2452)
-        },
-        ["Admin - Black Hole"] = {
-            Vector3.new(883, 5, 2542)
-        },
-        ["Admin - Ghost Worm"] = {
-            Vector3.new(-327, 5, 2422)
-        },
-        ["Admin - Meteor Rain"] = {
-            Vector3.new(383, 5, 2452)
-        },
-        ["Storm"] = {Vector3.new(-1492.293091, 3.500000, 1903.266235)},
-        ["Snow"] = {Vector3.new(-1492.293091, 3.500000, 1903.266235)},
-        ["Wind"] = {Vector3.new(-1492.293091, 3.500000, 1903.266235)},
-        ["Cloudy"] = {Vector3.new(-1492.293091, 3.500000, 1903.266235)}
-    }
 
-    local function detectActiveEvents()
-        local activeEvents = {}
+local detectedEvents = {}
+local selectedEvent = nil
+local eventCoordinates = {
+    ["Shark Hunt"] = {
+        Vector3.new(1.64999, 5, 2095.72),
+        Vector3.new(1369.94, 5, 930.125),
+        Vector3.new(-1585.5, 5, 1242.87),
+        Vector3.new(-1896.8, 5, 2634.37)
+    },
+    ["Ghost Shark Hunt"] = {
+        Vector3.new(489.558, 5, 25.4060),
+        Vector3.new(1976.51, 5, 2915.93),
+        Vector3.new(-1358.2, 5, 4100.55),
+        Vector3.new(627.859, 5, 3798.08)
+    },
+    ["Sparkling Cove"] = {
+        Vector3.new(195.378, 5, 2976.27)
+    },
+    ["Worm Hunt"] = {
+        Vector3.new(1591.55, 5, -105.92),
+        Vector3.new(-2450.6, 5, 139.731),
+        Vector3.new(-267.47, 5, 5188.53)
+    },
+    ["Admin - Shocked"] = {
+        Vector3.new(383, 5, 2452)
+    },
+    ["Admin - Black Hole"] = {
+        Vector3.new(883, 5, 2542)
+    },
+    ["Admin - Ghost Worm"] = {
+        Vector3.new(-327, 5, 2422)
+    },
+    ["Admin - Meteor Rain"] = {
+        Vector3.new(383, 5, 2452)
+    },
+    ["Storm"] = {Vector3.new(-1492.293091, 3.500000, 1903.266235)},
+    ["Snow"] = {Vector3.new(-1492.293091, 3.500000, 1903.266235)},
+    ["Wind"] = {Vector3.new(-1492.293091, 3.500000, 1903.266235)},
+    ["Cloudy"] = {Vector3.new(-1492.293091, 3.500000, 1903.266235)},
+    ["Radiant"] = {Vector3.new(-1492.293091, 3.500000, 1903.266235)},
+    ["Mutation"] = {Vector3.new(-1492.293091, 3.500000, 1903.266235)}
+}
+
+local function detectActiveEvents()
+    local activeEvents = {}
+    
+    local success, error = pcall(function()
+        local ReplicatedStorage = game:GetService("ReplicatedStorage")
+        local Players = game:GetService("Players")
+        local LocalPlayer = Players.LocalPlayer
+        local Lighting = game:GetService("Lighting")
+        local workspace = game:GetService("Workspace")
         
-        local success, error = pcall(function()
-            local ReplicatedStorage = game:GetService("ReplicatedStorage")
-            local workspaceProps = workspace:FindFirstChild("Props")
-            
-            if workspaceProps and workspaceProps:FindFirstChild("Shark Hunt") then
-                table.insert(activeEvents, "Shark Hunt ðŸŸ¢")
-            end
-            if workspaceProps and workspaceProps:FindFirstChild("Ghost Shark Hunt") then
-                table.insert(activeEvents, "Ghost Shark Hunt ðŸŸ¢")
-            end
-            
-            local lighting = game:GetService("Lighting")
-            if lighting:FindFirstChild("SparklingCoveEffect") or 
-               (lighting.Brightness > 1.5 and lighting.ColorShift_Top.R > 0.8 and lighting.ColorShift_Top.G > 0.8) then
-                table.insert(activeEvents, "Sparkling Cove ðŸŸ¢")
-            end
-            
-            local PlayerGui = game.Players.LocalPlayer:FindFirstChild("PlayerGui")
-            local wormHuntActive = false
-            if PlayerGui then
-                for _, gui in pairs(PlayerGui:GetDescendants()) do
-                    if gui:IsA("TextLabel") and gui.Text then
-                        if string.match(gui.Text, "Worm Hunt") and 
-                           (string.match(gui.Text, "%d+:%d+") or string.match(gui.Text, "ACTIVE")) then
-                            wormHuntActive = true
-                            break
+        -- Method 1: Check Replion Events (most reliable based on game code)
+        local Client = ReplicatedStorage.Packages:FindFirstChild("Replion")
+        if Client then
+            local clientModule = require(Client).Client
+            local eventsReplion = clientModule:GetReplion("Events")
+            if eventsReplion then
+                local events = eventsReplion:Get("Events")
+                if events then
+                    for _, eventName in ipairs(events) do
+                        if eventName and eventName ~= "" then
+                            table.insert(activeEvents, eventName .. " 🟢")
                         end
                     end
                 end
             end
-            
-            if wormHuntActive or (workspaceProps and workspaceProps:FindFirstChild("Worm Hunt")) then
-                table.insert(activeEvents, "Worm Hunt ðŸŸ¢")
-            end
-            
-            local adminAreas = workspace:FindFirstChild("AdminAreas") or workspace:FindFirstChild("AdminEvents")
-            if adminAreas then
-                if adminAreas:FindFirstChild("Shocked") or adminAreas:FindFirstChild("ShockedArea") then
-                    table.insert(activeEvents, "Admin - Shocked ðŸŸ¢")
-                end
-                if adminAreas:FindFirstChild("BlackHole") or adminAreas:FindFirstChild("Black Hole") then
-                    table.insert(activeEvents, "Admin - Black Hole ðŸŸ¢")
-                end
-                if adminAreas:FindFirstChild("GhostWorm") or adminAreas:FindFirstChild("Ghost Worm") then
-                    table.insert(activeEvents, "Admin - Ghost Worm ðŸŸ¢")
-                end
-                if adminAreas:FindFirstChild("MeteorRain") or adminAreas:FindFirstChild("Meteor Rain") then
-                    table.insert(activeEvents, "Admin - Meteor Rain ðŸŸ¢")
-                end
-            end
-            
-            if lighting.Brightness >= 3.5 and lighting.Ambient.B >= 0.6 and lighting.Ambient.R < 0.4 then
-                table.insert(activeEvents, "Storm ðŸŸ¢")
-            end
-            if lighting.ColorShift_Top.R <= 0.03 and lighting.ColorShift_Top.G <= 0.03 and lighting.ColorShift_Top.B <= 0.03 and
-               lighting.Brightness < 1 then
-                table.insert(activeEvents, "Snow ðŸŸ¢")
-            end
-            local atmosphere = lighting:FindFirstChild("Atmosphere")
-            if atmosphere and atmosphere.Density >= 1.0 and lighting.Brightness > 1.2 then
-                table.insert(activeEvents, "Wind ðŸŸ¢")
-            end
-            if lighting.Brightness <= 0.4 and 
-               lighting.ColorShift_Top.R >= 0.8 and lighting.ColorShift_Top.G >= 0.8 and lighting.ColorShift_Top.B >= 0.8 then
-                table.insert(activeEvents, "Cloudy ðŸŸ¢")
-            end
-        end)
-        
-        if success then
-            detectedEvents = activeEvents
-            if #detectedEvents == 0 then
-                detectedEvents = {"No active events"}
-            end
-        else
-            warn("Error detecting events: " .. tostring(error))
-            detectedEvents = {"Error detecting events"}
         end
         
-        return detectedEvents
-    end
-
-    local function getEventCoordinates(selection)
-        local cleanName = string.gsub(selection, " ðŸŸ¢", "")
-        cleanName = string.gsub(cleanName, "^%s*(.-)%s*$", "%1") 
-        if eventCoordinates[cleanName] then
-            local coords = eventCoordinates[cleanName]
-            
-            if #coords > 1 then
-                local selectedCoord = coords[math.random(1, #coords)]
-                return selectedCoord
-            else
-                return coords[1]
-            end
-        end
-        return nil
-    end
-
-    detectActiveEvents()
-    local eventDropdown = teleportTab:AddDropdown("EventTeleport", {
-        Title = "Active Events",
-        Description = "Select an active event to teleport to",
-        Values = #detectedEvents > 0 and (function()
-            local options = {"Select Event..."}
-            for _, event in ipairs(detectedEvents) do
-                table.insert(options, event)
-            end
-            return options
-        end)() or {"Select Event...", "No events detected"},
-        Multi = false,
-        Default = 1,
-        Searchable = true,
-        Callback = function(Value)
-            if Value == "Select Event..." or Value == "No events detected" then
-                return
-            end
-            
-            selectedEvent = Value
-            
-            -- Auto teleport when selected
-            local player = game.Players.LocalPlayer
-            if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
-                return
-            end
-            
-            local targetPos = getEventCoordinates(selectedEvent)
-            if targetPos then
-                local offsetPos = targetPos + Vector3.new(
-                    math.random(-5, 5),
-                    0,
-                    math.random(-5, 5)
-                )
-                player.Character.HumanoidRootPart.CFrame = CFrame.new(offsetPos)
-                
-                if Options.FlyToggle then
-                    Options.FlyToggle:SetValue(true)
-                end
-                spawn(function()
-                    wait(0.1)
-                    Options.EventTeleport:SetValue("Select Event...")
-                end)
-            end
-        end
-    })
-    local refreshEventsButton = teleportTab:AddButton({
-        Title = "Refresh Events",
-        Description = "Scan for currently active events",
-        Callback = function()
-            detectActiveEvents()
-            if Options.EventTeleport then
-                local options = {}
-                for _, event in ipairs(detectedEvents) do
-                    table.insert(options, event)
-                end
-                Options.EventTeleport:SetValues(options)
-                selectedEvent = nil
-                
-                local activeCount = 0
-                for _, event in ipairs(detectedEvents) do
-                    if string.find(event, "ðŸŸ¢") then
-                        activeCount = activeCount + 1
+        -- Method 2: Check PlayerGui Events (secondary check)
+        local PlayerGui = LocalPlayer:FindFirstChild("PlayerGui")
+        if PlayerGui then
+            local eventsGui = PlayerGui:FindFirstChild("Events")
+            if eventsGui then
+                local frame = eventsGui:FindFirstChild("Frame")
+                if frame then
+                    local eventsFrame = frame:FindFirstChild("Events")
+                    if eventsFrame then
+                        for _, eventTile in pairs(eventsFrame:GetChildren()) do
+                            if eventTile:IsA("GuiObject") and eventTile.Visible then
+                                local eventName = eventTile.Name
+                                -- Avoid duplicates
+                                local alreadyExists = false
+                                for _, existing in pairs(activeEvents) do
+                                    if string.find(existing, eventName) then
+                                        alreadyExists = true
+                                        break
+                                    end
+                                end
+                                if not alreadyExists and eventName ~= "UIListLayout" then
+                                    table.insert(activeEvents, eventName .. " 🟢")
+                                end
+                            end
+                        end
                     end
                 end
             end
         end
-    })
-
-    local teleportEventButton = teleportTab:AddButton({
-        Title = "Teleport To Event",
-        Description = "Teleport to the selected event location",
-        Callback = function()
-            if not selectedEvent or selectedEvent == "No active events" or selectedEvent == "Error detecting events" then
-                return
+        
+        -- Method 3: Check workspace Props for physical event objects
+        local workspaceProps = workspace:FindFirstChild("Props")
+        if workspaceProps then
+            -- Shark Hunt detection
+            if workspaceProps:FindFirstChild("Shark Hunt") or workspaceProps:FindFirstChild("SharkHunt") then
+                local alreadyExists = false
+                for _, existing in pairs(activeEvents) do
+                    if string.find(existing, "Shark Hunt") then
+                        alreadyExists = true
+                        break
+                    end
+                end
+                if not alreadyExists then
+                    table.insert(activeEvents, "Shark Hunt 🟢")
+                end
             end
             
-            local player = game.Players.LocalPlayer
-            if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
-                return
+            -- Ghost Shark Hunt detection
+            if workspaceProps:FindFirstChild("Ghost Shark Hunt") or workspaceProps:FindFirstChild("GhostSharkHunt") then
+                local alreadyExists = false
+                for _, existing in pairs(activeEvents) do
+                    if string.find(existing, "Ghost Shark Hunt") then
+                        alreadyExists = true
+                        break
+                    end
+                end
+                if not alreadyExists then
+                    table.insert(activeEvents, "Ghost Shark Hunt 🟢")
+                end
             end
             
-            local targetPos = getEventCoordinates(selectedEvent)
-            if targetPos then
-                local offsetPos = targetPos + Vector3.new(
-                    math.random(-5, 5),
-                    0,
-                    math.random(-5, 5)
-                )
-                player.Character.HumanoidRootPart.CFrame = CFrame.new(offsetPos)
-                
-                if Options.FlyToggle then
-                    Options.FlyToggle:SetValue(true)
+            -- Worm Hunt detection
+            if workspaceProps:FindFirstChild("Worm Hunt") or workspaceProps:FindFirstChild("WormHunt") then
+                local alreadyExists = false
+                for _, existing in pairs(activeEvents) do
+                    if string.find(existing, "Worm Hunt") then
+                        alreadyExists = true
+                        break
+                    end
+                end
+                if not alreadyExists then
+                    table.insert(activeEvents, "Worm Hunt 🟢")
                 end
             end
         end
+        
+        -- Method 4: Weather detection based on game's weather system
+        if Lighting then
+            -- Storm detection (from game code: high brightness + blue ambient)
+            if Lighting.Brightness >= 3.5 and Lighting.Ambient.B >= 0.6 and Lighting.Ambient.R < 0.4 then
+                table.insert(activeEvents, "Storm 🟢")
+            end
+            
+            -- Snow detection (from game code: low color shift + low brightness)
+            if Lighting.ColorShift_Top.R <= 0.03 and Lighting.ColorShift_Top.G <= 0.03 and 
+               Lighting.ColorShift_Top.B <= 0.03 and Lighting.Brightness < 1 then
+                table.insert(activeEvents, "Snow 🟢")
+            end
+            
+            -- Cloudy detection (from game code: Clouds with high cover + fog effects)
+            local terrain = workspace:FindFirstChild("Terrain")
+            if terrain then
+                local clouds = terrain:FindFirstChild("Clouds")
+                if clouds and clouds.Cover >= 0.9 then
+                    table.insert(activeEvents, "Cloudy 🟢")
+                end
+            end
+            
+            -- Radiant/Wind detection (high atmosphere density + brightness)
+            local atmosphere = Lighting:FindFirstChild("Atmosphere")
+            if atmosphere and atmosphere.Density >= 1.0 and Lighting.Brightness > 1.2 then
+                -- Check for radiant particles or wind effects
+                for _, obj in pairs(workspace:GetDescendants()) do
+                    if obj.Name == "Radiant" and obj.Parent == workspace then
+                        table.insert(activeEvents, "Radiant 🟢")
+                        break
+                    elseif obj.Name == "Wind" and obj.Parent == workspace then
+                        table.insert(activeEvents, "Wind 🟢")
+                        break
+                    end
+                end
+            end
+            
+            -- Sparkling Cove detection (high brightness + high color shift)
+            if Lighting.Brightness > 1.5 and Lighting.ColorShift_Top.R > 0.8 and 
+               Lighting.ColorShift_Top.G > 0.8 then
+                table.insert(activeEvents, "Sparkling Cove 🟢")
+            end
+        end
+        
+        -- Method 5: Admin Events detection
+        local adminAreas = workspace:FindFirstChild("AdminAreas") or workspace:FindFirstChild("AdminEvents")
+        if adminAreas then
+            for _, area in pairs(adminAreas:GetChildren()) do
+                if area.Name == "Shocked" or area.Name == "ShockedArea" then
+                    table.insert(activeEvents, "Admin - Shocked 🟢")
+                elseif area.Name == "BlackHole" or area.Name == "Black Hole" then
+                    table.insert(activeEvents, "Admin - Black Hole 🟢")
+                elseif area.Name == "GhostWorm" or area.Name == "Ghost Worm" then
+                    table.insert(activeEvents, "Admin - Ghost Worm 🟢")
+                elseif area.Name == "MeteorRain" or area.Name == "Meteor Rain" then
+                    table.insert(activeEvents, "Admin - Meteor Rain 🟢")
+                end
+            end
+        end
+        
+        -- Method 6: Sound-based detection for weather events
+        local SoundService = game:GetService("SoundService")
+        if SoundService then
+            -- Check for storm sounds
+            for _, sound in pairs(SoundService:GetDescendants()) do
+                if sound:IsA("Sound") and sound.IsPlaying then
+                    if sound.SoundId == "rbxassetid://18214464638" then -- Storm sound ID from code
+                        local alreadyExists = false
+                        for _, existing in pairs(activeEvents) do
+                            if string.find(existing, "Storm") then
+                                alreadyExists = true
+                                break
+                            end
+                        end
+                        if not alreadyExists then
+                            table.insert(activeEvents, "Storm 🟢")
+                        end
+                    end
+                end
+            end
+        end
+        
+    end)
+    
+    if success then
+        detectedEvents = activeEvents
+        if #detectedEvents == 0 then
+            detectedEvents = {"No active events"}
+        end
+    else
+        warn("Error detecting events: " .. tostring(error))
+        detectedEvents = {"Error detecting events"}
+    end
+    
+    return detectedEvents
+end
+
+local function getEventCoordinates(selection)
+    local cleanName = string.gsub(selection, " 🟢", "")
+    cleanName = string.gsub(cleanName, "^%s*(.-)%s*$", "%1") 
+    if eventCoordinates[cleanName] then
+        local coords = eventCoordinates[cleanName]
+        
+        if #coords > 1 then
+            local selectedCoord = coords[math.random(1, #coords)]
+            return selectedCoord
+        else
+            return coords[1]
+        end
+    end
+    return nil
+end
+
+-- Initialize event detection
+detectActiveEvents()
+local eventDropdown = teleportTab:AddDropdown("EventTeleport", {
+    Title = "Active Events",
+    Description = "Select an active event to teleport to",
+    Values = #detectedEvents > 0 and (function()
+        local options = {"Select Event..."}
+        for _, event in ipairs(detectedEvents) do
+            table.insert(options, event)
+        end
+        return options
+    end)() or {"Select Event...", "No events detected"},
+    Multi = false,
+    Default = 1,
+    Searchable = true,
+    Callback = function(Value)
+        if Value == "Select Event..." or Value == "No events detected" or Value == "Error detecting events" then
+            return
+        end
+        
+        selectedEvent = Value
+        
+        -- Auto teleport when selected
+        local player = game.Players.LocalPlayer
+        if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+            return
+        end
+        
+        local targetPos = getEventCoordinates(selectedEvent)
+        if targetPos then
+            local offsetPos = targetPos + Vector3.new(
+                math.random(-5, 5),
+                0,
+                math.random(-5, 5)
+            )
+            player.Character.HumanoidRootPart.CFrame = CFrame.new(offsetPos)
+            
+            -- Enable fly if available
+            if Options.FlyToggle then
+                Options.FlyToggle:SetValue(true)
+            end
+            
+            spawn(function()
+                wait(0.1)
+                Options.EventTeleport:SetValue("Select Event...")
+            end)
+        else
+            warn("No coordinates found for event: " .. selectedEvent)
+        end
+    end
+})
+
+local refreshEventsButton = teleportTab:AddButton({
+    Title = "Refresh Events",
+    Description = "Scan for currently active events",
+    Callback = function()
+        detectActiveEvents()
+        if Options.EventTeleport then
+            local options = {"Select Event..."}
+            for _, event in ipairs(detectedEvents) do
+                table.insert(options, event)
+            end
+            Options.EventTeleport:SetValues(options)
+            selectedEvent = nil
+            
+            local activeCount = 0
+            for _, event in ipairs(detectedEvents) do
+                if string.find(event, "🟢") then
+                    activeCount = activeCount + 1
+                end
+            end
+            
+            print("Detected " .. activeCount .. " active events")
+        end
+    end
+})
+
+local teleportEventButton = teleportTab:AddButton({
+    Title = "Teleport To Event",
+    Description = "Teleport to the selected event location",
+    Callback = function()
+        if not selectedEvent or selectedEvent == "No active events" or 
+           selectedEvent == "Error detecting events" or selectedEvent == "Select Event..." then
+            print("No event selected")
+            return
+        end
+        
+        local player = game.Players.LocalPlayer
+        if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+            print("Character not found")
+            return
+        end
+        
+        local targetPos = getEventCoordinates(selectedEvent)
+        if targetPos then
+            local offsetPos = targetPos + Vector3.new(
+                math.random(-5, 5),
+                0,
+                math.random(-5, 5)
+            )
+            player.Character.HumanoidRootPart.CFrame = CFrame.new(offsetPos)
+            
+            if Options.FlyToggle then
+                Options.FlyToggle:SetValue(true)
+            end
+            
+            print("Teleported to: " .. selectedEvent)
+        else
+            print("No coordinates found for: " .. selectedEvent)
+        end
+    end
+})
+
+-- Auto-refresh events every 30 seconds
+spawn(function()
+    while true do
+        wait(30)
+        if Options.EventTeleport then
+            detectActiveEvents()
+            local options = {"Select Event..."}
+            for _, event in ipairs(detectedEvents) do
+                table.insert(options, event)
+            end
+            Options.EventTeleport:SetValues(options)
+        end
+    end
+end)
+    local copycords = teleportTab:AddButton({
+        Title = "Copy Coords",
+        Description = "copy coords",
+        Callback = function()
+                    local player = game.Players.LocalPlayer
+        if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            local pos = player.Character.HumanoidRootPart.CFrame
+            -- Format ke string
+            local coordsString = string.format(
+                "CFrame.new(%.6f, %.6f, %.6f, %.6f, %.6f, %.6f, %.6f, %.6f, %.6f, %.6f, %.6f, %.6f)",
+                pos:GetComponents()
+            )
+            setclipboard(coordsString)
+        end
+        end
     })
-    -- local copycords = teleportTab:AddButton({
-    --     Title = "Copy Coords",
-    --     Description = "copy coords",
-    --     Callback = function()
-    --                 local player = game.Players.LocalPlayer
-    --     if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-    --         local pos = player.Character.HumanoidRootPart.CFrame
-    --         -- Format ke string
-    --         local coordsString = string.format(
-    --             "CFrame.new(%.6f, %.6f, %.6f, %.6f, %.6f, %.6f, %.6f, %.6f, %.6f, %.6f, %.6f, %.6f)",
-    --             pos:GetComponents()
-    --         )
-    --         setclipboard(coordsString)
-    --     end
-    --     end
-    -- })
 end
 
 do
@@ -3459,4 +3569,3 @@ end
 Window:SelectTab(1)
 AutoConfig:Initialize(Fluent)
 end
----zsw

@@ -701,6 +701,10 @@ local toolRefreshIntervalV2 = 300
 local autoFishV2Thread = nil -- Track main thread
 local characterConnection = nil -- Track character respawn
 
+-- Global variables untuk instant restart system
+local fishingCompletionConnection = nil
+local isWaitingForCompletion = false
+
 local function equipFishingTool()
    local success, error = pcall(function()
       local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -975,10 +979,7 @@ local function ensureFishingToolEquipped()
     return true
 end
 
-local fishingCompletionConnection = nil
-local isWaitingForCompletion = false
-
--- Function untuk start fishing cycle tanpa wait completion
+-- Function untuk start fishing cycle lengkap seperti original
 local function startFishingCycleOnly()
     if not isPlayerValid() then
         return false
@@ -1006,10 +1007,11 @@ local function startFishingCycleOnly()
         
         local canFish, reason = canStartFishing()
         if not canFish then
+            task.wait(0.1) -- Wait sedikit jika on cooldown
             return false
         end
         
-        -- Start fishing - hanya charge dan request
+        -- Start fishing lengkap seperti original
         controller:RequestChargeFishingRod(screenCenter, true, true)
         isWaitingForCompletion = true -- Set flag bahwa sedang tunggu completion
         
@@ -1024,7 +1026,7 @@ local function startFishingCycleOnly()
     return success
 end
 
--- Function untuk monitor dan auto-click selama fishing
+-- Function untuk monitor dan auto-click selama fishing (lebih agresif)
 local function monitorFishingProcess()
     spawn(function()
         while isAutoFishV2Active and isWaitingForCompletion do
@@ -1037,17 +1039,20 @@ local function monitorFishingProcess()
                 if controller then
                     local currentGUID = controller:GetCurrentGUID()
                     if currentGUID then
-                        controller:RequestFishingMinigameClick()
+                        -- Click multiple times untuk ensure minigame completion
+                        for i = 1, 2 do
+                            controller:RequestFishingMinigameClick()
+                        end
                     end
                 end
             end)
             
-            task.wait(0.05) -- Fast clicking
+            task.wait(0.03) -- Very fast clicking seperti original tapi lebih cepat
         end
     end)
 end
 
--- Function untuk setup completion event listener
+-- Function untuk setup completion event listener (dengan safety checks)
 local function setupCompletionListener()
     if fishingCompletionConnection then
         fishingCompletionConnection:Disconnect()
@@ -1064,7 +1069,7 @@ local function setupCompletionListener()
             return
         end
         
-        -- Jika sedang menunggu completion dan ada GUID, fire completion
+        -- Jika sedang menunggu completion
         if isWaitingForCompletion then
             local success = pcall(function()
                 local controller = getFishingController()
@@ -1080,13 +1085,38 @@ local function setupCompletionListener()
                             if fishingCompleted then
                                 fishingCompleted:FireServer()
                                 
-                                -- LANGSUNG START CYCLE BARU TANPA DELAY!
+                                -- LANGSUNG START CYCLE BARU!
                                 isWaitingForCompletion = false
-                                task.wait(0.05) -- Minimal delay untuk server response
+                                
+                                -- Apply user delay jika ada
+                                local delayTime = tonumber(fishingV2DelayTime) or 0
+                                if delayTime > 0 then
+                                    task.wait(delayTime)
+                                else
+                                    task.wait(0.05) -- Minimal delay untuk server response
+                                end
                                 
                                 -- Start cycle baru immediately
-                                if isAutoFishV2Active then
-                                    startFishingCycleOnly()
+                                if isAutoFishV2Active and isPlayerValid() then
+                                    if startFishingCycleOnly() then
+                                        monitorFishingProcess()
+                                    end
+                                end
+                            end
+                        end
+                    else
+                        -- Jika tidak ada GUID tapi masih waiting, coba restart setelah delay
+                        local waitTime = 0
+                        while waitTime < 3 and isWaitingForCompletion and not controller:GetCurrentGUID() do
+                            task.wait(0.1)
+                            waitTime = waitTime + 0.1
+                        end
+                        
+                        -- Jika masih tidak ada GUID, restart cycle
+                        if isWaitingForCompletion and not controller:GetCurrentGUID() then
+                            isWaitingForCompletion = false
+                            if isAutoFishV2Active and isPlayerValid() then
+                                if startFishingCycleOnly() then
                                     monitorFishingProcess()
                                 end
                             end
@@ -1097,6 +1127,8 @@ local function setupCompletionListener()
         end
     end)
 end
+
+-- Updated main Auto Fishing V2 function
 local function startAutoFishingV2()
     if not isPlayerValid() then
         warn("[AUTO FISHING V2] Player not valid")
@@ -1165,7 +1197,6 @@ local function stopAutoFishingV2()
     end)
 end
 
-
 local autoFishV2Toggle = Tabs.Fishing:AddToggle("AutoFishingV2", {
     Title = "Auto Fishing V2",
     Description = "Instant restart after completion",
@@ -1186,6 +1217,7 @@ local autoFishV2Toggle = Tabs.Fishing:AddToggle("AutoFishingV2", {
         end
     end
 })
+
 local fishingV2DelaySlider = Tabs.Fishing:AddSlider("FishingV2Delay", {
     Title = "Fishing Delay V2",
     Description = "Delay between fishing cycles (seconds)",
@@ -1194,10 +1226,9 @@ local fishingV2DelaySlider = Tabs.Fishing:AddSlider("FishingV2Delay", {
     Max = 10,
     Rounding = 0.1,
     Callback = function(Value)
-        fishingV2DelayTime = tonumber(Value) or 0 -- Ensure it's always a number
+        fishingV2DelayTime = tonumber(Value) or 0
     end
 })
-
 
 -- Auto Click V2 with respawn protection
 local isAutoClickV2Active = false
@@ -1244,6 +1275,7 @@ local autoClickV2Toggle = Tabs.Fishing:AddToggle("AutoClickV2", {
         end
     end
 })
+
 local isInstantReelActive = false
 local instantReelConnection = nil
 
@@ -1305,8 +1337,7 @@ local instantReelToggle = Tabs.Fishing:AddToggle("instrail", {
     end
 })
 
--- Rest of your Auto Farm code here...
--- (keeping the original Auto Farm V1 and V2 code as they seem to work fine)
+-- Auto Farm V1
 Tabs.Fishing:AddSection("Auto Farm V1")
 local selectedFarmLocation = nil
 local isAutoFarmActive = false
@@ -1424,10 +1455,16 @@ local AutoFarmV1Toggle = Tabs.Fishing:AddToggle("AutoFarmV1", {
       end
    end,
 })
+
+-- Auto Farm V2
 Tabs.Fishing:AddSection("Auto Farm V2")
 local selectedFarmMethodV2 = "V1"
+local isAutoFarmV2Active = false
+local checkpointPosition = nil
+local hasCheckpoint = false
+
 local CheckpointInput = Tabs.Fishing:AddInput("CheckpointInput", {
-    Title = "Dont' touch this!",
+    Title = "Don't touch this!",
     Description = "Checkpoint Status",
     Default = "",
     Placeholder = "......",
@@ -1450,11 +1487,13 @@ local CheckpointInput = Tabs.Fishing:AddInput("CheckpointInput", {
         end
     end
 })
+
 local function cframeToString(cframe)
     if not cframe then return "" end
     local components = {cframe:GetComponents()}
     return string.format("%.2f, %.2f, %.2f, %.3f, %.3f, %.3f, %.3f, %.3f, %.3f, %.3f, %.3f, %.3f", unpack(components))
 end
+
 local SetCheckpointButton = Tabs.Fishing:AddButton({
     Title = "Set Location",
     Description = "Save current position as farming location",
@@ -1468,6 +1507,7 @@ local SetCheckpointButton = Tabs.Fishing:AddButton({
         end
     end,
 })
+
 local ClearCheckpointButton = Tabs.Fishing:AddButton({
     Title = "Clear Location",
     Description = "Remove saved position",
@@ -1480,6 +1520,7 @@ local ClearCheckpointButton = Tabs.Fishing:AddButton({
         Options.CheckpointInput:SetValue("")
     end,
 })
+
 local function startAutoFarmV2()
     local player = game.Players.LocalPlayer
     if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then return false end
@@ -1533,6 +1574,7 @@ local FarmMethodV2Dropdown = Tabs.Fishing:AddDropdown("FarmMethodV2", {
 FarmMethodV2Dropdown:OnChanged(function(Value)
     selectedFarmMethodV2 = Value
 end)
+
 local function stopAutoFarmV2()
     isAutoFarmV2Active = false
     Options.AutoFishing:SetValue(false)
@@ -1601,6 +1643,8 @@ if player then
         isAutoFishV2Active = false
         isAutoClickV2Active = false
         isInstantReelActive = false
+        isWaitingForCompletion = false
+        
         if characterConnection then
             characterConnection:Disconnect()
             characterConnection = nil
@@ -1609,7 +1653,13 @@ if player then
             instantReelConnection:Disconnect()
             instantReelConnection = nil
         end
+        if fishingCompletionConnection then
+            fishingCompletionConnection:Disconnect()
+            fishingCompletionConnection = nil
+        end
+        
         resetFishingController()
+        
         if Options then
             pcall(function() if Options.AutoFishingV2 then Options.AutoFishingV2:SetValue(false) end end)
             pcall(function() if Options.AutoClickV2 then Options.AutoClickV2:SetValue(false) end end)
@@ -1620,6 +1670,7 @@ if player then
     player.CharacterAdded:Connect(function()
         resetFishingController()
         lastToolRefreshTimeV2 = 0
+        isWaitingForCompletion = false
         wait(2)
     end)
 end
@@ -3416,4 +3467,4 @@ end
 Window:SelectTab(1)
 AutoConfig:Initialize(Fluent)
 end
----qf
+--zzz

@@ -817,7 +817,7 @@ local function performFishingCycle()
          local currentTime = tick()
          if currentTime - lastToolRefreshTime >= toolRefreshInterval then
              lastToolRefreshTime = currentTime
-             task.wait(1)
+             task.wait(0.5)
          end
      end
  end)
@@ -1652,16 +1652,13 @@ if player then
             fishingCompletionConnection:Disconnect()
             fishingCompletionConnection = nil
         end
-        
         resetFishingController()
-        
         if Options then
             pcall(function() if Options.AutoFishingV2 then Options.AutoFishingV2:SetValue(false) end end)
             pcall(function() if Options.AutoClickV2 then Options.AutoClickV2:SetValue(false) end end)
             pcall(function() if Options.instrail then Options.instrail:SetValue(false) end end)
         end
     end)
-    
     player.CharacterAdded:Connect(function()
         resetFishingController()
         lastToolRefreshTimeV2 = 0
@@ -3461,5 +3458,4 @@ WebhookTab:AddButton({
 end
 Window:SelectTab(1)
 AutoConfig:Initialize(Fluent)
-end
---uwq
+end ---zzz

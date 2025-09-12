@@ -1007,52 +1007,28 @@ local function performNaturalFishingCycle()
             return false
         end
         
-        -- Start fishing cycle - langsung charge
+        -- Start fishing cycle
         controller:RequestChargeFishingRod(screenCenter, true, true)
         
         local waitTime = 0
         local maxWait = 15
-        local fishingCompleted = false
 
-        -- Monitor fishing process dengan response lebih cepat
-        while waitTime < maxWait and isAutoFishV2Active and isPlayerValid() and not fishingCompleted do
+        -- Monitor fishing process dengan wait time yang lebih cepat
+        while waitTime < maxWait and isAutoFishV2Active and isPlayerValid() do
             local currentGUID = controller:GetCurrentGUID()
             if currentGUID then
-                -- Click minigame
                 controller:RequestFishingMinigameClick()
-                
-                -- Check jika fishing sudah completed dan langsung fire completion
-                local completionSuccess = pcall(function()
-                    local ReplicatedStorage = game:GetService("ReplicatedStorage")
-                    local netFolder = ReplicatedStorage.Packages._Index:FindFirstChild("sleitnick_net@0.2.0")
-                    if netFolder and netFolder:FindFirstChild("net") then
-                        local net = netFolder.net
-                        local fishingCompletedEvent = net:FindFirstChild("RE/FishingCompleted")
-                        if fishingCompletedEvent then
-                            -- Fire completion dan set flag untuk break loop
-                            fishingCompletedEvent:FireServer()
-                            fishingCompleted = true
-                        end
-                    end
-                end)
-                
-                -- Jika sudah completed, langsung break untuk cycle berikutnya
-                if fishingCompleted then
-                    task.wait(0.05) -- Minimal delay sebelum cycle berikutnya
-                    break
-                end
-                
             else
-                -- Tidak ada GUID, cek apakah masih dalam fishing atau sudah selesai
+                -- Tidak ada GUID, check apakah masih dalam fishing
                 local stillInFishing = controller:GetCurrentGUID()
-                if not stillInFishing and waitTime > 0.5 then -- Reduced dari 1 detik ke 0.5
+                if not stillInFishing and waitTime > 0.5 then -- Fixed: pastikan comparison number dengan number
                     break
                 end
             end
             
-            -- Reduced wait time untuk response lebih cepat
-            task.wait(0.03) -- Dari 0.1 ke 0.03 untuk speed maksimal
-            waitTime = waitTime + 0.03
+            -- Faster response time
+            task.wait(0.05) -- Reduced dari 0.1 ke 0.05
+            waitTime = waitTime + 0.05 -- Fixed: pastikan number addition
         end
         
         return true
@@ -1064,6 +1040,7 @@ local function performNaturalFishingCycle()
     end
     return success
 end
+
 
 local function stopAutoFishingV2()
     isAutoFishV2Active = false
@@ -1120,28 +1097,28 @@ local function startAutoFishingV2()
             
             if not isAutoFishV2Active then break end
             
-            -- Gunakan optimized fishing cycle
             local cycleSuccess = performNaturalFishingCycle()
             
-            -- Optimized delay system
-            if fishingV2DelayTime > 0 then
-                -- Jika user set delay > 0, gunakan delay tersebut dengan precision tinggi
-                local delaySteps = math.max(1, fishingV2DelayTime * 20) -- Increased precision
+            -- Fixed delay system dengan proper number handling
+            local delayTime = tonumber(fishingV2DelayTime) or 0 -- Ensure it's a number
+            if delayTime > 0 then
+                local delaySteps = math.max(1, delayTime * 10) -- Fixed calculation
                 for i = 1, delaySteps do
                     if not isAutoFishV2Active or not isPlayerValid() then 
                         break 
                     end
-                    task.wait(0.05) -- Smaller increments untuk smooth delay
+                    task.wait(0.1)
                 end
             else
-                -- Jika delay = 0, minimal wait untuk prevent lag
-                task.wait(0.05) -- Dari 0.1 ke 0.05 untuk speed maksimal
+                -- Minimal wait untuk prevent script lag
+                task.wait(0.1)
             end
         end
     end)
     
     return true
 end
+
 
 
 local autoFishV2Toggle = Tabs.Fishing:AddToggle("AutoFishingV2", {
@@ -1164,7 +1141,6 @@ local autoFishV2Toggle = Tabs.Fishing:AddToggle("AutoFishingV2", {
         end
     end
 })
-
 local fishingV2DelaySlider = Tabs.Fishing:AddSlider("FishingV2Delay", {
     Title = "Fishing Delay V2",
     Description = "Delay between fishing cycles (seconds)",
@@ -1173,9 +1149,10 @@ local fishingV2DelaySlider = Tabs.Fishing:AddSlider("FishingV2Delay", {
     Max = 10,
     Rounding = 0.1,
     Callback = function(Value)
-        fishingV2DelayTime = Value
+        fishingV2DelayTime = tonumber(Value) or 0 -- Ensure it's always a number
     end
 })
+
 
 -- Auto Click V2 with respawn protection
 local isAutoClickV2Active = false
@@ -1245,19 +1222,6 @@ local function startInstantReel()
         end
         
         local success, error = pcall(function()
-            -- Method 1: Using controller (lebih smooth)
-            local controller = getFishingController()
-            if controller then
-                local currentGUID = controller:GetCurrentGUID()
-                if currentGUID then
-                    -- Multiple rapid clicks untuk instant completion
-                    for i = 1, 3 do
-                        controller:RequestFishingMinigameClick()
-                    end
-                end
-            end
-            
-            -- Method 2: Direct completion call (lebih aggressive)
             local ReplicatedStorage = game:GetService("ReplicatedStorage")
             local netFolder = ReplicatedStorage.Packages._Index:FindFirstChild("sleitnick_net@0.2.0")
             if netFolder and netFolder:FindFirstChild("net") then
@@ -3407,4 +3371,4 @@ end
 Window:SelectTab(1)
 AutoConfig:Initialize(Fluent)
 end
---zz
+--ww

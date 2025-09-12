@@ -975,10 +975,12 @@ local function ensureFishingToolEquipped()
     return true
 end
 
-local function performNaturalFishingCycle()
-    -- Check if player is still valid before starting
+local fishingCompletionConnection = nil
+local isWaitingForCompletion = false
+
+-- Function untuk start fishing cycle tanpa wait completion
+local function startFishingCycleOnly()
     if not isPlayerValid() then
-        warn("[AUTO FISHING V2] Player not valid - stopping cycle")
         return false
     end
     
@@ -1007,54 +1009,92 @@ local function performNaturalFishingCycle()
             return false
         end
         
-        -- Start fishing cycle
+        -- Start fishing - hanya charge dan request
         controller:RequestChargeFishingRod(screenCenter, true, true)
-        
-        local waitTime = 0
-        local maxWait = 15
-
-        -- Monitor fishing process dengan wait time yang lebih cepat
-        while waitTime < maxWait and isAutoFishV2Active and isPlayerValid() do
-            local currentGUID = controller:GetCurrentGUID()
-            if currentGUID then
-                controller:RequestFishingMinigameClick()
-            else
-                -- Tidak ada GUID, check apakah masih dalam fishing
-                local stillInFishing = controller:GetCurrentGUID()
-                if not stillInFishing and waitTime > 0.5 then -- Fixed: pastikan comparison number dengan number
-                    break
-                end
-            end
-            
-            -- Faster response time
-            task.wait(0.05) -- Reduced dari 0.1 ke 0.05
-            waitTime = waitTime + 0.05 -- Fixed: pastikan number addition
-        end
+        isWaitingForCompletion = true -- Set flag bahwa sedang tunggu completion
         
         return true
     end)
     
     if not success then
         warn("[AUTO FISHING V2] Error: " .. tostring(error))
+        isWaitingForCompletion = false
         return false
     end
     return success
 end
 
+-- Function untuk monitor dan auto-click selama fishing
+local function monitorFishingProcess()
+    spawn(function()
+        while isAutoFishV2Active and isWaitingForCompletion do
+            if not isPlayerValid() then
+                break
+            end
+            
+            local success = pcall(function()
+                local controller = getFishingController()
+                if controller then
+                    local currentGUID = controller:GetCurrentGUID()
+                    if currentGUID then
+                        controller:RequestFishingMinigameClick()
+                    end
+                end
+            end)
+            
+            task.wait(0.05) -- Fast clicking
+        end
+    end)
+end
 
-local function stopAutoFishingV2()
-    isAutoFishV2Active = false
-    if characterConnection then
-        characterConnection:Disconnect()
-        characterConnection = nil
+-- Function untuk setup completion event listener
+local function setupCompletionListener()
+    if fishingCompletionConnection then
+        fishingCompletionConnection:Disconnect()
     end
-    if autoFishV2Thread then
-        task.wait(0.5) -- Give time for thread to exit gracefully
-        autoFishV2Thread = nil
-    end
-    resetFishingController()
-    pcall(function()
-        unequipFishingTool()
+    
+    -- Monitor network events untuk detect completion
+    local RunService = game:GetService("RunService")
+    fishingCompletionConnection = RunService.Heartbeat:Connect(function()
+        if not isAutoFishV2Active or not isPlayerValid() then
+            if fishingCompletionConnection then
+                fishingCompletionConnection:Disconnect()
+                fishingCompletionConnection = nil
+            end
+            return
+        end
+        
+        -- Jika sedang menunggu completion dan ada GUID, fire completion
+        if isWaitingForCompletion then
+            local success = pcall(function()
+                local controller = getFishingController()
+                if controller then
+                    local currentGUID = controller:GetCurrentGUID()
+                    if currentGUID then
+                        -- Fire completion event
+                        local ReplicatedStorage = game:GetService("ReplicatedStorage")
+                        local netFolder = ReplicatedStorage.Packages._Index:FindFirstChild("sleitnick_net@0.2.0")
+                        if netFolder and netFolder:FindFirstChild("net") then
+                            local net = netFolder.net
+                            local fishingCompleted = net:FindFirstChild("RE/FishingCompleted")
+                            if fishingCompleted then
+                                fishingCompleted:FireServer()
+                                
+                                -- LANGSUNG START CYCLE BARU TANPA DELAY!
+                                isWaitingForCompletion = false
+                                task.wait(0.05) -- Minimal delay untuk server response
+                                
+                                -- Start cycle baru immediately
+                                if isAutoFishV2Active then
+                                    startFishingCycleOnly()
+                                    monitorFishingProcess()
+                                end
+                            end
+                        end
+                    end
+                end
+            end)
+        end
     end)
 end
 local function startAutoFishingV2()
@@ -1086,44 +1126,49 @@ local function startAutoFishingV2()
         end
     end)
     
-    autoFishV2Thread = spawn(function()
-        while isAutoFishV2Active do
-            if not isPlayerValid() then
-                if Options and Options.AutoFishingV2 then
-                    Options.AutoFishingV2:SetValue(false)
-                end
-                break
-            end
-            
-            if not isAutoFishV2Active then break end
-            
-            local cycleSuccess = performNaturalFishingCycle()
-            
-            -- Fixed delay system dengan proper number handling
-            local delayTime = tonumber(fishingV2DelayTime) or 0 -- Ensure it's a number
-            if delayTime > 0 then
-                local delaySteps = math.max(1, delayTime * 10) -- Fixed calculation
-                for i = 1, delaySteps do
-                    if not isAutoFishV2Active or not isPlayerValid() then 
-                        break 
-                    end
-                    task.wait(0.1)
-                end
-            else
-                -- Minimal wait untuk prevent script lag
-                task.wait(0.1)
-            end
-        end
-    end)
+    -- Setup completion listener yang akan auto-restart
+    setupCompletionListener()
+    
+    -- Start first cycle
+    if startFishingCycleOnly() then
+        monitorFishingProcess()
+    else
+        return false
+    end
     
     return true
 end
 
+-- Updated stop function
+local function stopAutoFishingV2()
+    isAutoFishV2Active = false
+    isWaitingForCompletion = false
+    
+    if fishingCompletionConnection then
+        fishingCompletionConnection:Disconnect()
+        fishingCompletionConnection = nil
+    end
+    
+    if characterConnection then
+        characterConnection:Disconnect()
+        characterConnection = nil
+    end
+    
+    if autoFishV2Thread then
+        task.wait(0.5)
+        autoFishV2Thread = nil
+    end
+    
+    resetFishingController()
+    pcall(function()
+        unequipFishingTool()
+    end)
+end
 
 
 local autoFishV2Toggle = Tabs.Fishing:AddToggle("AutoFishingV2", {
     Title = "Auto Fishing V2",
-    Description = "Advanced auto fishing",
+    Description = "Instant restart after completion",
     Default = false,
     Callback = function(Value)
         if Value then
@@ -3371,4 +3416,4 @@ end
 Window:SelectTab(1)
 AutoConfig:Initialize(Fluent)
 end
---ww
+---qf

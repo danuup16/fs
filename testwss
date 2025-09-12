@@ -1103,7 +1103,7 @@ local function setupCompletionListener()
                         -- Jika tidak ada GUID tapi masih waiting, coba restart setelah delay
                         local waitTime = 0
                         while waitTime < 3 and isWaitingForCompletion and not controller:GetCurrentGUID() do
-                            task.wait(0.1)
+                            task.wait(0.05)
                             waitTime = waitTime + 0.1
                         end
                         
@@ -1260,7 +1260,7 @@ local autoClickV2Toggle = Tabs.Fishing:AddToggle("AutoClickV2", {
                     if not success then
                         warn("[AUTO CLICK V2] Error: " .. tostring(error))
                     end
-                    task.wait(0.1)
+                    task.wait(0.05)
                 end
             end)
         else
@@ -3458,4 +3458,4 @@ WebhookTab:AddButton({
 end
 Window:SelectTab(1)
 AutoConfig:Initialize(Fluent)
-end ---zzz
+end

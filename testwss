@@ -565,8 +565,7 @@ do
             end
         end
     })
-    -- Fixed Auto Trade Section (Original Method)
-local isAutoTradeActive = false
+    local isAutoTradeActive = false
 local isAutoGiveActive = false
 local autoTradeConnection = nil
 local hookApplied = false
@@ -599,10 +598,16 @@ local function setupAutoTrade()
                         local Promise = require(ReplicatedStorage.Packages.Promise)
                         print("[AUTO ACCEPT] Auto accepting trade from:", tradeInfo.sender.DisplayName)
                         
-                        -- Add small delay to make it look more natural
+                        -- Try to call the server response function directly
                         task.spawn(function()
-                            task.wait(0.2)
-                            print("[AUTO ACCEPT] Returning true for incoming trade")
+                            local Net = require(ReplicatedStorage.Packages.Net)
+                            local AwaitTradeResponse = Net:RemoteFunction("AwaitTradeResponse")
+                            
+                            if AwaitTradeResponse and AwaitTradeResponse.OnClientInvoke then
+                                print("[AUTO ACCEPT] Calling server response directly...")
+                                local result = AwaitTradeResponse.OnClientInvoke(itemData, tradeInfo.sender)
+                                print("[AUTO ACCEPT] Server response result:", result)
+                            end
                         end)
                         
                         return Promise.resolve(true)
@@ -832,7 +837,7 @@ Tabs.Player:AddButton({
     end
 })
 
-print("[AUTO ACCEPT] Script loaded successfully!")---rrr
+print("[AUTO ACCEPT] Script loaded successfully!") ---yw
 end
 do
 local isAutoFishActive = false

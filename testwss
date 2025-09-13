@@ -565,324 +565,148 @@ do
             end
         end
     })
-    -- Working Auto Trade - Alternative Approach
+    -- Simple Auto Trade - Direct UI Manipulation
 local isAutoTradeActive = false
-local isAutoGiveActive = false
-local connections = {}
-local originalFunctions = {}
+local connection = nil
 
-local function setupAutoTrade()
-    local success, error = pcall(function()
-        local ReplicatedStorage = game:GetService("ReplicatedStorage")
-        
-        -- Method 1: Hook the ItemTradingController directly where the server response is handled
-        local Controllers = ReplicatedStorage:FindFirstChild("Controllers")
-        if Controllers then
-            local ItemTradingController = Controllers:FindFirstChild("ItemTradingController")
-            if ItemTradingController then
-                local controller = require(ItemTradingController)
-                
-                print("[AUTO ACCEPT] Found ItemTradingController")
-                
-                -- Hook CreateTradePrompt 
-                if controller.CreateTradePrompt and not originalFunctions.CreateTradePrompt then
-                    originalFunctions.CreateTradePrompt = controller.CreateTradePrompt
-                    
-                    controller.CreateTradePrompt = function(self, itemData, itemInfo, tradeInfo)
-                        print("[AUTO ACCEPT] CreateTradePrompt intercepted")
-                        print("  Trade Info:", tradeInfo)
-                        
-                        -- Check for incoming trade (has sender)
-                        if isAutoTradeActive and tradeInfo and tradeInfo.sender then
-                            print("[AUTO ACCEPT] Auto accepting incoming trade from:", tradeInfo.sender.DisplayName)
-                            local Promise = require(ReplicatedStorage.Packages.Promise)
-                            return Promise.resolve(true)
-                        end
-                        
-                        -- Check for outgoing trade (has target)
-                        if isAutoGiveActive and tradeInfo and tradeInfo.target then
-                            print("[AUTO ACCEPT] Auto accepting outgoing trade to:", tradeInfo.target.DisplayName)
-                            local Promise = require(ReplicatedStorage.Packages.Promise)
-                            return Promise.resolve(true)
-                        end
-                        
-                        -- Call original function
-                        return originalFunctions.CreateTradePrompt(self, itemData, itemInfo, tradeInfo)
-                    end
-                    
-                    print("[AUTO ACCEPT] CreateTradePrompt hook applied successfully!")
-                end
-            end
-        end
-        
-        -- Method 2: Hook PromptController to bypass UI prompts entirely
-        local PromptController = Controllers:FindFirstChild("PromptController")
-        if PromptController then
-            local promptController = require(PromptController)
-            
-            print("[AUTO ACCEPT] Found PromptController")
-            
-            -- Hook DrawPrompt to auto-accept trade prompts
-            if promptController.DrawPrompt and not originalFunctions.DrawPrompt then
-                originalFunctions.DrawPrompt = promptController.DrawPrompt
-                
-                promptController.DrawPrompt = function(self, promptData)
-                    if promptData and promptData.TextPrompt then
-                        local text = promptData.TextPrompt
-                        print("[AUTO ACCEPT] Prompt detected:", text:gsub("<[^>]*>", ""):sub(1, 50) .. "...")
-                        
-                        -- Check for trade acceptance prompts
-                        if isAutoTradeActive and (text:find("Accept.*from:") or text:find("Accept <b>")) then
-                            print("[AUTO ACCEPT] Auto accepting trade prompt!")
-                            return true
-                        end
-                        
-                        -- Check for trade giving prompts  
-                        if isAutoGiveActive and text:find("Would you like to give") then
-                            print("[AUTO ACCEPT] Auto accepting give prompt!")
-                            return true
-                        end
-                    end
-                    
-                    -- Call original function
-                    return originalFunctions.DrawPrompt(self, promptData)
-                end
-                
-                print("[AUTO ACCEPT] DrawPrompt hook applied successfully!")
-            end
-            
-            -- Also hook FirePrompt which is called before DrawPrompt
-            if promptController.FirePrompt and not originalFunctions.FirePrompt then
-                originalFunctions.FirePrompt = promptController.FirePrompt
-                
-                promptController.FirePrompt = function(self, textPrompt, confirmAction)
-                    print("[AUTO ACCEPT] FirePrompt intercepted:", textPrompt:gsub("<[^>]*>", ""):sub(1, 50))
-                    
-                    -- Auto accept trade prompts
-                    if isAutoTradeActive and (textPrompt:find("Accept.*from:") or textPrompt:find("Accept <b>")) then
-                        print("[AUTO ACCEPT] Auto accepting via FirePrompt!")
-                        local Promise = require(ReplicatedStorage.Packages.Promise)
-                        return Promise.resolve(true)
-                    end
-                    
-                    if isAutoGiveActive and textPrompt:find("Would you like to give") then
-                        print("[AUTO ACCEPT] Auto giving via FirePrompt!")
-                        local Promise = require(ReplicatedStorage.Packages.Promise)
-                        return Promise.resolve(true)
-                    end
-                    
-                    return originalFunctions.FirePrompt(self, textPrompt, confirmAction)
-                end
-                
-                print("[AUTO ACCEPT] FirePrompt hook applied successfully!")
-            end
-        end
-        
-        -- Method 3: Hook Net RemoteFunction using different approach
-        pcall(function()
-            local Net = require(ReplicatedStorage.Packages.Net)
-            
-            -- Try to hook the Net library itself
-            if Net and Net.RemoteFunction then
-                local originalRemoteFunction = Net.RemoteFunction
-                
-                Net.RemoteFunction = function(self, name)
-                    local remote = originalRemoteFunction(self, name)
-                    
-                    -- If this is AwaitTradeResponse, hook it
-                    if name == "AwaitTradeResponse" and remote then
-                        print("[AUTO ACCEPT] Intercepted AwaitTradeResponse creation")
-                        
-                        -- We'll use a different approach here
-                        spawn(function()
-                            wait(0.1) -- Small delay to ensure remote is set up
-                            
-                            -- Monitor for when this remote is called
-                            local connection
-                            connection = game:GetService("RunService").Heartbeat:Connect(function()
-                                if isAutoTradeActive then
-                                    -- This is a more hacky approach but might work
-                                    -- We'll check if there's a trade prompt visible and auto-click it
-                                    local Players = game:GetService("Players")
-                                    local LocalPlayer = Players.LocalPlayer
-                                    local PlayerGui = LocalPlayer:FindFirstChild("PlayerGui")
-                                    
-                                    if PlayerGui then
-                                        local Prompt = PlayerGui:FindFirstChild("Prompt")
-                                        if Prompt and Prompt.Enabled then
-                                            local Yes = Prompt:FindFirstChild("Blackout") and 
-                                                       Prompt.Blackout:FindFirstChild("Options") and
-                                                       Prompt.Blackout.Options:FindFirstChild("Yes")
-                                            
-                                            if Yes and Yes.Visible then
-                                                local text = Prompt.Blackout:FindFirstChild("Label") and Prompt.Blackout.Label.Text
-                                                if text and (text:find("Accept") or text:find("give")) then
-                                                    print("[AUTO ACCEPT] Auto clicking Yes button!")
-                                                    
-                                                    -- Simulate button click
-                                                    for _, connection in pairs(getconnections(Yes.Activated)) do
-                                                        if connection.Function then
-                                                            connection.Function()
-                                                        end
-                                                    end
-                                                    
-                                                    -- Also try direct activation
-                                                    Yes.Activated:Fire()
-                                                end
-                                            end
-                                        end
-                                    end
-                                end
-                            end)
-                            
-                            table.insert(connections, connection)
-                        end)
-                    end
-                    
-                    return remote
-                end
-            end
-        end)
-        
-        return true
-    end)
+local function autoClickTrade()
+    if not isAutoTradeActive then return end
     
-    if not success then
-        warn("[AUTO ACCEPT] Setup error:", error)
-        return false
+    local Players = game:GetService("Players")
+    local LocalPlayer = Players.LocalPlayer
+    local PlayerGui = LocalPlayer.PlayerGui
+    
+    -- Check for trade prompt
+    local Prompt = PlayerGui:FindFirstChild("Prompt")
+    if not Prompt or not Prompt.Enabled then return end
+    
+    local Blackout = Prompt:FindFirstChild("Blackout")
+    if not Blackout then return end
+    
+    local Label = Blackout:FindFirstChild("Label")
+    local Options = Blackout:FindFirstChild("Options")
+    
+    if not Label or not Options then return end
+    
+    local text = Label.Text
+    if not text then return end
+    
+    -- Remove HTML tags for cleaner text
+    local cleanText = text:gsub("<[^>]*>", "")
+    
+    -- Check if this is a trade prompt
+    local isTradePrompt = cleanText:find("Accept") and cleanText:find("from:") 
+    local isGivePrompt = cleanText:find("Would you like to give")
+    
+    if isTradePrompt or isGivePrompt then
+        local Yes = Options:FindFirstChild("Yes")
+        if Yes and Yes.Visible then
+            if isTradePrompt then
+                print("[AUTO ACCEPT] Auto accepting trade:", cleanText:match("from: ([^?]+)") or "Unknown")
+            else
+                print("[AUTO ACCEPT] Auto accepting give prompt")
+            end
+            
+            -- Click the Yes button
+            Yes.Activated:Fire()
+            
+            -- Also try GuiService click simulation
+            local GuiService = game:GetService("GuiService")
+            pcall(function()
+                GuiService.SelectedObject = Yes
+                GuiService:GetGuiInset()
+            end)
+            
+            -- Try direct function call if available
+            pcall(function()
+                for _, connection in pairs(getconnections(Yes.Activated)) do
+                    if connection.Function then
+                        connection.Function()
+                    end
+                end
+            end)
+        end
+    end
+end
+
+local function enableAutoTrade()
+    if connection then
+        connection:Disconnect()
     end
     
-    return success
+    -- Use RenderStepped for faster response
+    connection = game:GetService("RunService").RenderStepped:Connect(autoClickTrade)
+    
+    print("[AUTO ACCEPT] Auto trade enabled - watching for prompts...")
 end
 
 local function disableAutoTrade()
-    -- Restore original functions
-    for name, originalFunc in pairs(originalFunctions) do
-        pcall(function()
-            local ReplicatedStorage = game:GetService("ReplicatedStorage")
-            local Controllers = ReplicatedStorage:FindFirstChild("Controllers")
-            
-            if Controllers then
-                if name == "CreateTradePrompt" then
-                    local ItemTradingController = Controllers:FindFirstChild("ItemTradingController")
-                    if ItemTradingController then
-                        local controller = require(ItemTradingController)
-                        controller.CreateTradePrompt = originalFunc
-                    end
-                elseif name == "DrawPrompt" or name == "FirePrompt" then
-                    local PromptController = Controllers:FindFirstChild("PromptController")
-                    if PromptController then
-                        local controller = require(PromptController)
-                        controller[name] = originalFunc
-                    end
-                end
-            end
-        end)
+    if connection then
+        connection:Disconnect()
+        connection = nil
     end
     
-    -- Disconnect all connections
-    for _, connection in ipairs(connections) do
-        if connection then
-            connection:Disconnect()
-        end
-    end
-    
-    connections = {}
-    originalFunctions = {}
-    
-    print("[AUTO ACCEPT] All hooks disabled and restored!")
+    print("[AUTO ACCEPT] Auto trade disabled")
 end
 
--- UI Button Auto-Clicker as backup method
-local function setupButtonAutoClicker()
-    print("[AUTO ACCEPT] Setting up button auto-clicker as backup...")
-    
-    local connection = game:GetService("RunService").Heartbeat:Connect(function()
-        if not (isAutoTradeActive or isAutoGiveActive) then
-            return
-        end
-        
-        local Players = game:GetService("Players")
-        local LocalPlayer = Players.LocalPlayer
-        local PlayerGui = LocalPlayer:FindFirstChild("PlayerGui")
-        
-        if PlayerGui then
-            local Prompt = PlayerGui:FindFirstChild("Prompt")
-            if Prompt and Prompt.Enabled and Prompt.Visible then
-                local Blackout = Prompt:FindFirstChild("Blackout")
-                if Blackout and Blackout.Visible then
-                    local Options = Blackout:FindFirstChild("Options")
-                    local Label = Blackout:FindFirstChild("Label")
-                    
-                    if Options and Label and Label.Text then
-                        local text = Label.Text:gsub("<[^>]*>", "")
-                        
-                        -- Check if it's a trade prompt
-                        if text:find("Accept") and text:find("from:") and isAutoTradeActive then
-                            local Yes = Options:FindFirstChild("Yes")
-                            if Yes and Yes.Visible then
-                                print("[AUTO ACCEPT] Auto-clicking Accept button for trade from:", text:match("from: ([^?]+)"))
-                                
-                                -- Fire the button
-                                task.wait(0.1) -- Small delay to look more natural
-                                Yes.Activated:Fire()
-                            end
-                        elseif text:find("Would you like to give") and isAutoGiveActive then
-                            local Yes = Options:FindFirstChild("Yes")
-                            if Yes and Yes.Visible then
-                                print("[AUTO ACCEPT] Auto-clicking Give button")
-                                
-                                task.wait(0.1)
-                                Yes.Activated:Fire()
-                            end
-                        end
-                    end
-                end
-            end
-        end
-    end)
-    
-    table.insert(connections, connection)
-end
-
--- Toggle functionality
+-- Toggle
 local autoTradeToggle = Tabs.Player:AddToggle("AutoTrade", {
     Title = "Auto Trade",
-    Description = "Automatically accept and give trades",
+    Description = "Automatically accept trade prompts",
     Default = false,
     Callback = function(Value)
+        isAutoTradeActive = Value
+        
         if Value then
-            if not isAutoTradeActive and not isAutoGiveActive then
-                print("[AUTO ACCEPT] Enabling auto trade...")
-                
-                local success = setupAutoTrade()
-                setupButtonAutoClicker() -- Add button auto-clicker as backup
-                
-                if success then
-                    isAutoTradeActive = true
-                    isAutoGiveActive = true
-                    print("[AUTO ACCEPT] Auto trade enabled with multiple methods!")
-                    print("[AUTO ACCEPT] - Method 1: Function hooks")
-                    print("[AUTO ACCEPT] - Method 2: UI button auto-clicker")
-                    print("[AUTO ACCEPT] Ready to accept trades!")
-                else
-                    print("[AUTO ACCEPT] Failed to enable auto trade")
-                    Options.AutoTrade:SetValue(false)
-                end
-            end
+            enableAutoTrade()
         else
-            if isAutoTradeActive or isAutoGiveActive then
-                print("[AUTO ACCEPT] Disabling auto trade...")
-                isAutoTradeActive = false
-                isAutoGiveActive = false
-                disableAutoTrade()
-                print("[AUTO ACCEPT] Auto trade disabled!")
-            end
+            disableAutoTrade()
         end
     end
 })
 
-print("[AUTO ACCEPT] Script loaded. Toggle to enable auto trading!")
+-- Debug function to test prompt detection
+local debugConnection
+Tabs.Player:AddButton({
+    Title = "Debug Prompts",
+    Description = "Toggle debug mode to see prompts",
+    Callback = function()
+        if debugConnection then
+            debugConnection:Disconnect()
+            debugConnection = nil
+            print("[DEBUG] Debug mode disabled")
+        else
+            debugConnection = game:GetService("RunService").Heartbeat:Connect(function()
+                local PlayerGui = game.Players.LocalPlayer.PlayerGui
+                local Prompt = PlayerGui:FindFirstChild("Prompt")
+                
+                if Prompt and Prompt.Enabled then
+                    local Label = Prompt.Blackout and Prompt.Blackout:FindFirstChild("Label")
+                    if Label and Label.Text and Label.Text ~= "" then
+                        local cleanText = Label.Text:gsub("<[^>]*>", "")
+                        print("[DEBUG] Prompt detected:", cleanText)
+                        
+                        local Options = Prompt.Blackout:FindFirstChild("Options")
+                        if Options then
+                            local Yes = Options:FindFirstChild("Yes")
+                            local No = Options:FindFirstChild("No")
+                            print("[DEBUG] Yes button:", Yes and "Found" or "Missing")
+                            print("[DEBUG] No button:", No and "Found" or "Missing")
+                            
+                            if Yes then
+                                print("[DEBUG] Yes visible:", Yes.Visible)
+                                print("[DEBUG] Yes active:", Yes.Active)
+                            end
+                        end
+                    end
+                end
+            end)
+            print("[DEBUG] Debug mode enabled - check console for prompt info")
+        end
+    end
+})
+
+print("[AUTO ACCEPT] Simple auto trade loaded. Use Debug button to test prompt detection.")--zzzz
 end
 do
 local isAutoFishActive = false

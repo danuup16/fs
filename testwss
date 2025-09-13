@@ -565,13 +565,13 @@ do
             end
         end
     })
-    local isAutoTradeActive = false
+    -- Auto Give Only Section
 local isAutoGiveActive = false
 local autoTradeConnection = nil
 local hookApplied = false
 local originalCreateTradePrompt = nil
 
-local function setupAutoTrade()
+local function setupAutoGive()
     local success, error = pcall(function()
         local ReplicatedStorage = game:GetService("ReplicatedStorage")
         local Controllers = ReplicatedStorage:FindFirstChild("Controllers")
@@ -583,56 +583,36 @@ local function setupAutoTrade()
                 -- Store original function if not already stored
                 if not originalCreateTradePrompt and controller.CreateTradePrompt then
                     originalCreateTradePrompt = controller.CreateTradePrompt
-                    print("[AUTO ACCEPT] Original CreateTradePrompt function stored")
+                    print("[AUTO GIVE] Original CreateTradePrompt function stored")
                 end
                 
-                -- Hook the CreateTradePrompt function with correct parameters
+                -- Hook the CreateTradePrompt function for outgoing trades only
                 controller.CreateTradePrompt = function(self, itemData, itemInfo, tradeInfo)
-                    print("[AUTO ACCEPT] CreateTradePrompt called:")
+                    print("[AUTO GIVE] CreateTradePrompt called:")
                     print("  itemData:", itemData)
                     print("  itemInfo:", itemInfo) 
                     print("  tradeInfo:", tradeInfo)
                     
-                    -- Auto accept incoming trades
-                    if isAutoTradeActive and tradeInfo and tradeInfo.sender then
-                        local Promise = require(ReplicatedStorage.Packages.Promise)
-                        print("[AUTO ACCEPT] Auto accepting trade from:", tradeInfo.sender.DisplayName)
-                        
-                        -- Try to call the server response function directly
-                        task.spawn(function()
-                            local Net = require(ReplicatedStorage.Packages.Net)
-                            local AwaitTradeResponse = Net:RemoteFunction("AwaitTradeResponse")
-                            
-                            if AwaitTradeResponse and AwaitTradeResponse.OnClientInvoke then
-                                print("[AUTO ACCEPT] Calling server response directly...")
-                                local result = AwaitTradeResponse.OnClientInvoke(itemData, tradeInfo.sender)
-                                print("[AUTO ACCEPT] Server response result:", result)
-                            end
-                        end)
-                        
-                        return Promise.resolve(true)
-                    end
-                    
-                    -- Auto accept outgoing trades (giving items)
+                    -- Auto accept outgoing trades (giving items) only
                     if isAutoGiveActive and tradeInfo and tradeInfo.target then
                         local Promise = require(ReplicatedStorage.Packages.Promise)
-                        print("[AUTO ACCEPT] Auto giving item to:", tradeInfo.target.DisplayName)
+                        print("[AUTO GIVE] Auto giving item to:", tradeInfo.target.DisplayName)
                         
                         task.spawn(function()
                             task.wait(0.2)
-                            print("[AUTO ACCEPT] Returning true for outgoing trade")
+                            print("[AUTO GIVE] Returning true for outgoing trade")
                         end)
                         
                         return Promise.resolve(true)
                     end
                     
-                    -- Fall back to original function
+                    -- For all other cases (including incoming trades), use original function
                     if originalCreateTradePrompt then
-                        print("[AUTO ACCEPT] Calling original CreateTradePrompt")
+                        print("[AUTO GIVE] Calling original CreateTradePrompt (not auto-giving)")
                         return originalCreateTradePrompt(self, itemData, itemInfo, tradeInfo)
                     else
                         local Promise = require(ReplicatedStorage.Packages.Promise)
-                        warn("[AUTO ACCEPT] Original function not found")
+                        warn("[AUTO GIVE] Original function not found")
                         return Promise.reject("Original function not found")
                     end
                 end
@@ -649,32 +629,32 @@ local function setupAutoTrade()
                     if math.floor(tick()) % 3 == 0 and tick() % 1 < 0.1 then
                         local currentController = require(ItemTradingController)
                         if currentController.CreateTradePrompt ~= controller.CreateTradePrompt then
-                            print("[AUTO ACCEPT] Re-applying CreateTradePrompt hook")
+                            print("[AUTO GIVE] Re-applying CreateTradePrompt hook")
                             currentController.CreateTradePrompt = controller.CreateTradePrompt
                         end
                     end
                 end)
                 
-                print("[AUTO ACCEPT] Hook successfully applied!")
+                print("[AUTO GIVE] Hook successfully applied!")
                 return true
             else
-                warn("[AUTO ACCEPT] ItemTradingController not found!")
+                warn("[AUTO GIVE] ItemTradingController not found!")
             end
         else
-            warn("[AUTO ACCEPT] Controllers folder not found!")
+            warn("[AUTO GIVE] Controllers folder not found!")
         end
         
         return false
     end)
     
     if not success then
-        warn("[AUTO ACCEPT] Setup error:", tostring(error))
+        warn("[AUTO GIVE] Setup error:", tostring(error))
         return false
     end
     return success
 end
 
-local function disableAutoTrade()
+local function disableAutoGive()
     local success, error = pcall(function()
         local ReplicatedStorage = game:GetService("ReplicatedStorage")
         local Controllers = ReplicatedStorage:FindFirstChild("Controllers")
@@ -684,7 +664,7 @@ local function disableAutoTrade()
             if ItemTradingController then
                 local controller = require(ItemTradingController)
                 if originalCreateTradePrompt then
-                    print("[AUTO ACCEPT] Restoring original CreateTradePrompt function")
+                    print("[AUTO GIVE] Restoring original CreateTradePrompt function")
                     controller.CreateTradePrompt = originalCreateTradePrompt
                 end
             end
@@ -696,117 +676,44 @@ local function disableAutoTrade()
         end
         
         hookApplied = false
-        print("[AUTO ACCEPT] Hook disabled!")
+        print("[AUTO GIVE] Hook disabled!")
         return true
     end)
     
     if not success then
-        warn("[AUTO ACCEPT] Disable error:", tostring(error))
+        warn("[AUTO GIVE] Disable error:", tostring(error))
         return false
     end
     return success
 end
 
--- Enhanced monitoring to see what's happening
-local function setupMonitoring()
-    local ReplicatedStorage = game:GetService("ReplicatedStorage")
-    
-    -- Monitor the Net package for RemoteFunction calls
-    local success, Net = pcall(function()
-        return require(ReplicatedStorage.Packages.Net)
-    end)
-    
-    if success and Net then
-        print("[MONITOR] Net package found, monitoring RemoteFunctions...")
-        
-        -- Try to find and monitor AwaitTradeResponse differently
-        spawn(function()
-            while true do
-                local success2, AwaitTradeResponse = pcall(function()
-                    return Net:RemoteFunction("AwaitTradeResponse")
-                end)
-                
-                if success2 and AwaitTradeResponse then
-                    print("[MONITOR] AwaitTradeResponse found:", AwaitTradeResponse)
-                    
-                    -- Try to hook this without using OnClientInvoke directly
-                    local originalMeta = getmetatable(AwaitTradeResponse)
-                    if originalMeta then
-                        local originalNewIndex = originalMeta.__newindex
-                        
-                        originalMeta.__newindex = function(self, key, value)
-                            if key == "OnClientInvoke" and isAutoTradeActive then
-                                print("[MONITOR] Someone is setting OnClientInvoke!")
-                                
-                                -- Wrap the new function
-                                local newFunction = function(...)
-                                    local args = {...}
-                                    print("[MONITOR] OnClientInvoke called with:", unpack(args))
-                                    
-                                    if #args >= 2 and args[2] and typeof(args[2]) == "Instance" and args[2]:IsA("Player") then
-                                        print("[MONITOR] Auto accepting trade from:", args[2].DisplayName)
-                                        return true
-                                    end
-                                    
-                                    if typeof(value) == "function" then
-                                        return value(...)
-                                    end
-                                    return false
-                                end
-                                
-                                if originalNewIndex then
-                                    return originalNewIndex(self, key, newFunction)
-                                else
-                                    rawset(self, key, newFunction)
-                                end
-                            else
-                                if originalNewIndex then
-                                    return originalNewIndex(self, key, value)
-                                else
-                                    rawset(self, key, value)
-                                end
-                            end
-                        end
-                    end
-                    
-                    break
-                end
-                
-                task.wait(1)
-            end
-        end)
-    end
-end
-
--- Auto Trade Toggle
-local autoTradeToggle = Tabs.Player:AddToggle("AutoTrade", {
-    Title = "Auto Trade",
-    Description = "Automatically accept and give trades",
+-- Auto Give Toggle
+local autoGiveToggle = Tabs.Player:AddToggle("AutoGive", {
+    Title = "Auto Give",
+    Description = "Automatically give items when trading",
     Default = false,
     Callback = function(Value)
         if Value then
-            if not isAutoTradeActive and not isAutoGiveActive then
-                print("[AUTO ACCEPT] Enabling auto trade...")
+            if not isAutoGiveActive then
+                print("[AUTO GIVE] Enabling auto give...")
                 
-                local success = setupAutoTrade()
-                setupMonitoring() -- Add monitoring
+                local success = setupAutoGive()
                 
                 if success then
-                    isAutoTradeActive = true
                     isAutoGiveActive = true
-                    print("[AUTO ACCEPT] Auto trade enabled successfully!")
+                    print("[AUTO GIVE] Auto give enabled successfully!")
+                    print("[AUTO GIVE] Will automatically confirm when giving items to other players")
                 else
-                    print("[AUTO ACCEPT] Failed to enable auto trade")
-                    Options.AutoTrade:SetValue(false)
+                    print("[AUTO GIVE] Failed to enable auto give")
+                    Options.AutoGive:SetValue(false)
                 end
             end
         else
-            if isAutoTradeActive or isAutoGiveActive then
-                print("[AUTO ACCEPT] Disabling auto trade...")
-                isAutoTradeActive = false
+            if isAutoGiveActive then
+                print("[AUTO GIVE] Disabling auto give...")
                 isAutoGiveActive = false
-                disableAutoTrade()
-                print("[AUTO ACCEPT] Auto trade disabled!")
+                disableAutoGive()
+                print("[AUTO GIVE] Auto give disabled!")
             end
         end
     end
@@ -814,11 +721,10 @@ local autoTradeToggle = Tabs.Player:AddToggle("AutoTrade", {
 
 -- Debug button to test the system
 Tabs.Player:AddButton({
-    Title = "Test Hook Status", 
-    Description = "Check if hooks are working",
+    Title = "Test Auto Give Status", 
+    Description = "Check if auto give hook is working",
     Callback = function()
-        print("[DEBUG] === HOOK STATUS ===")
-        print("Auto Trade Active:", isAutoTradeActive)
+        print("[DEBUG] === AUTO GIVE STATUS ===")
         print("Auto Give Active:", isAutoGiveActive)
         print("Hook Applied:", hookApplied)
         print("Connection Active:", autoTradeConnection ~= nil)
@@ -833,11 +739,11 @@ Tabs.Player:AddButton({
                 print("Original function stored:", originalCreateTradePrompt ~= nil)
             end
         end
-        print("====================")
+        print("=============================")
     end
 })
 
-print("[AUTO ACCEPT] Script loaded successfully!") ---yw
+print("[AUTO GIVE] Auto give script loaded! Only outgoing trades will be auto-confirmed.")
 end
 do
 local isAutoFishActive = false

@@ -565,124 +565,236 @@ do
             end
         end
     })
-    -- Auto Trade Section
     local isAutoTradeActive = false
-    local isAutoGiveActive = false
-    local autoTradeConnection = nil
-    local hookApplied = false
-    local originalCreateTradePrompt = nil
+local isAutoGiveActive = false
+local autoTradeConnection = nil
+local hookApplied = false
+local originalCreateTradePrompt = nil
 
-    local function setupAutoTrade()
-        local success, error = pcall(function()
-            local ReplicatedStorage = game:GetService("ReplicatedStorage")
-            local Controllers = ReplicatedStorage:FindFirstChild("Controllers")
-            if Controllers then
-                local ItemTradingController = Controllers:FindFirstChild("ItemTradingController")
-                if ItemTradingController then
-                    local controller = require(ItemTradingController)
-                    if not originalCreateTradePrompt and controller.CreateTradePrompt then
-                        originalCreateTradePrompt = controller.CreateTradePrompt
-                    end
-                    
-                    controller.CreateTradePrompt = function(self, itemData, itemInfo, tradeInfo)
-                        if isAutoTradeActive and tradeInfo and tradeInfo.sender then
-                            local Promise = require(ReplicatedStorage.Packages.Promise)
-                            return Promise.resolve(true)
-                        end
-                        
-                        if isAutoGiveActive and tradeInfo and tradeInfo.target then
-                            local Promise = require(ReplicatedStorage.Packages.Promise)
-                            return Promise.resolve(true)
-                        end
-                        
-                        if originalCreateTradePrompt then
-                            return originalCreateTradePrompt(self, itemData, itemInfo, tradeInfo)
-                        else
-                            local Promise = require(ReplicatedStorage.Packages.Promise)
-                            return Promise.reject("Original function not found")
-                        end
-                    end
-                    hookApplied = true
-                    if autoTradeConnection then
-                        autoTradeConnection:Disconnect()
-                    end
-                    autoTradeConnection = game:GetService("RunService").Heartbeat:Connect(function()
-                        if tick() % 5 < 0.1 then
-                            local currentController = require(ItemTradingController)
-                            if currentController.CreateTradePrompt ~= controller.CreateTradePrompt then
-                                currentController.CreateTradePrompt = controller.CreateTradePrompt
-                            end
-                        end
-                    end)
-                    
-                    return true
+local function setupAutoTrade()
+    local success, error = pcall(function()
+        local ReplicatedStorage = game:GetService("ReplicatedStorage")
+        local Controllers = ReplicatedStorage:FindFirstChild("Controllers")
+        if Controllers then
+            local ItemTradingController = Controllers:FindFirstChild("ItemTradingController")
+            if ItemTradingController then
+                local controller = require(ItemTradingController)
+                
+                -- Store original function if not already stored
+                if not originalCreateTradePrompt and controller.CreateTradePrompt then
+                    originalCreateTradePrompt = controller.CreateTradePrompt
                 end
-            end
-            
-            warn("[AUTO ACCEPT] ItemTradingController not found!")
-            return false
-        end)
-        
-        if not success then
-            warn("Auto accept setup error: " .. tostring(error))
-            return false
-        end
-        return success
-    end
-
-    local function disableAutoTrade()
-        local success, error = pcall(function()
-            local ReplicatedStorage = game:GetService("ReplicatedStorage")
-            local Controllers = ReplicatedStorage:FindFirstChild("Controllers")
-            
-            if Controllers then
-                local ItemTradingController = Controllers:FindFirstChild("ItemTradingController")
-                if ItemTradingController then
-                    local controller = require(ItemTradingController)
+                
+                -- Hook the CreateTradePrompt function
+                controller.CreateTradePrompt = function(self, itemData, itemInfo, tradeInfo)
+                    -- Auto accept incoming trades
+                    if isAutoTradeActive and tradeInfo and tradeInfo.sender then
+                        local Promise = require(ReplicatedStorage.Packages.Promise)
+                        print("[AUTO ACCEPT] Auto accepting trade from:", tradeInfo.sender.DisplayName)
+                        return Promise.resolve(true)
+                    end
+                    
+                    -- Auto accept outgoing trades (giving items)
+                    if isAutoGiveActive and tradeInfo and tradeInfo.target then
+                        local Promise = require(ReplicatedStorage.Packages.Promise)
+                        print("[AUTO GIVE] Auto giving item to:", tradeInfo.target.DisplayName)
+                        return Promise.resolve(true)
+                    end
+                    
+                    -- Fall back to original function
                     if originalCreateTradePrompt then
-                        controller.CreateTradePrompt = originalCreateTradePrompt
-                    end
-                end
-            end
-            
-            if autoTradeConnection then
-                autoTradeConnection:Disconnect()
-                autoTradeConnection = nil
-            end
-            
-            hookApplied = false
-            return true
-        end)
-        
-        if not success then
-            warn("Disable auto accept error: " .. tostring(error))
-            return false
-        end
-        return success
-    end
-    local autoTradeToggle = Tabs.Player:AddToggle("AutoTrade", {
-        Title = "Auto Trade",
-        Description = "Automatically accept and give",
-        Default = false,
-        Callback = function(Value)
-            if Value then
-                if not isAutoTradeActive and not isAutoGiveActive then
-                    if setupAutoTrade() then
-                        isAutoTradeActive = true
-                        isAutoGiveActive = true
+                        return originalCreateTradePrompt(self, itemData, itemInfo, tradeInfo)
                     else
-                        Options.AutoTrade:SetValue(false)
+                        local Promise = require(ReplicatedStorage.Packages.Promise)
+                        return Promise.reject("Original function not found")
                     end
                 end
+                
+                hookApplied = true
+                
+                -- Maintain the hook with a heartbeat connection
+                if autoTradeConnection then
+                    autoTradeConnection:Disconnect()
+                end
+                
+                autoTradeConnection = game:GetService("RunService").Heartbeat:Connect(function()
+                    -- Check every 5 seconds to maintain hook
+                    if tick() % 5 < 0.1 then
+                        local currentController = require(ItemTradingController)
+                        if currentController.CreateTradePrompt ~= controller.CreateTradePrompt then
+                            print("[AUTO ACCEPT] Re-hooking CreateTradePrompt function")
+                            currentController.CreateTradePrompt = controller.CreateTradePrompt
+                        end
+                    end
+                end)
+                
+                print("[AUTO ACCEPT] Hook successfully applied!")
+                return true
             else
-                if isAutoTradeActive or isAutoGiveActive then
-                    isAutoTradeActive = false
-                    isAutoGiveActive = false
-                    disableAutoTrade()
+                warn("[AUTO ACCEPT] ItemTradingController not found in Controllers!")
+            end
+        else
+            warn("[AUTO ACCEPT] Controllers folder not found in ReplicatedStorage!")
+        end
+        
+        return false
+    end)
+    
+    if not success then
+        warn("Auto accept setup error: " .. tostring(error))
+        return false
+    end
+    return success
+end
+
+local function disableAutoTrade()
+    local success, error = pcall(function()
+        local ReplicatedStorage = game:GetService("ReplicatedStorage")
+        local Controllers = ReplicatedStorage:FindFirstChild("Controllers")
+        
+        if Controllers then
+            local ItemTradingController = Controllers:FindFirstChild("ItemTradingController")
+            if ItemTradingController then
+                local controller = require(ItemTradingController)
+                if originalCreateTradePrompt then
+                    print("[AUTO ACCEPT] Restoring original CreateTradePrompt function")
+                    controller.CreateTradePrompt = originalCreateTradePrompt
                 end
             end
         end
-    })
+        
+        if autoTradeConnection then
+            autoTradeConnection:Disconnect()
+            autoTradeConnection = nil
+        end
+        
+        hookApplied = false
+        print("[AUTO ACCEPT] Hook disabled!")
+        return true
+    end)
+    
+    if not success then
+        warn("Disable auto accept error: " .. tostring(error))
+        return false
+    end
+    return success
+end
+
+-- Alternative approach: Hook the PromptController directly
+local function setupPromptControllerHook()
+    local success, error = pcall(function()
+        local ReplicatedStorage = game:GetService("ReplicatedStorage")
+        local Controllers = ReplicatedStorage:FindFirstChild("Controllers")
+        if Controllers then
+            local PromptController = Controllers:FindFirstChild("PromptController")
+            if PromptController then
+                local controller = require(PromptController)
+                
+                if not controller.originalDrawPrompt then
+                    controller.originalDrawPrompt = controller.DrawPrompt
+                end
+                
+                -- Hook DrawPrompt to auto-accept trade prompts
+                controller.DrawPrompt = function(self, promptData)
+                    if promptData and promptData.TextPrompt then
+                        local text = promptData.TextPrompt
+                        
+                        -- Check if it's a trade prompt
+                        if (isAutoTradeActive and text:find("Accept.*from:")) or 
+                           (isAutoGiveActive and text:find("Would you like to give")) then
+                            print("[AUTO ACCEPT] Auto accepting prompt:", text:gsub("<[^>]*>", ""))
+                            return true -- Auto accept
+                        end
+                    end
+                    
+                    -- Fall back to original function
+                    return controller.originalDrawPrompt(self, promptData)
+                end
+                
+                print("[AUTO ACCEPT] PromptController hook applied!")
+                return true
+            end
+        end
+        return false
+    end)
+    
+    if not success then
+        warn("PromptController hook error: " .. tostring(error))
+        return false
+    end
+    return success
+end
+
+-- Toggle functionality
+local autoTradeToggle = Tabs.Player:AddToggle("AutoTrade", {
+    Title = "Auto Trade",
+    Description = "Automatically accept and give trades",
+    Default = false,
+    Callback = function(Value)
+        if Value then
+            if not isAutoTradeActive and not isAutoGiveActive then
+                print("[AUTO ACCEPT] Enabling auto trade...")
+                
+                -- Try primary method first
+                local success = setupAutoTrade()
+                
+                -- If primary method fails, try alternative
+                if not success then
+                    print("[AUTO ACCEPT] Primary method failed, trying alternative...")
+                    success = setupPromptControllerHook()
+                end
+                
+                if success then
+                    isAutoTradeActive = true
+                    isAutoGiveActive = true
+                    print("[AUTO ACCEPT] Auto trade enabled successfully!")
+                else
+                    print("[AUTO ACCEPT] Failed to enable auto trade")
+                    Options.AutoTrade:SetValue(false)
+                end
+            end
+        else
+            if isAutoTradeActive or isAutoGiveActive then
+                print("[AUTO ACCEPT] Disabling auto trade...")
+                isAutoTradeActive = false
+                isAutoGiveActive = false
+                disableAutoTrade()
+                print("[AUTO ACCEPT] Auto trade disabled!")
+            end
+        end
+    end
+})
+local function debugTradeSystem()
+    print("=== TRADE SYSTEM DEBUG ===")
+    local ReplicatedStorage = game:GetService("ReplicatedStorage")
+    local Controllers = ReplicatedStorage:FindFirstChild("Controllers")
+    
+    if Controllers then
+        print("Controllers found:", Controllers)
+        local ItemTradingController = Controllers:FindFirstChild("ItemTradingController")
+        local PromptController = Controllers:FindFirstChild("PromptController")
+        
+        print("ItemTradingController:", ItemTradingController and "Found" or "Not Found")
+        print("PromptController:", PromptController and "Found" or "Not Found")
+        
+        if ItemTradingController then
+            local controller = require(ItemTradingController)
+            print("CreateTradePrompt function:", controller.CreateTradePrompt and "Found" or "Not Found")
+        end
+        
+        if PromptController then
+            local controller = require(PromptController)
+            print("DrawPrompt function:", controller.DrawPrompt and "Found" or "Not Found")
+        end
+    else
+        print("Controllers folder not found!")
+    end
+    print("========================")
+end
+
+-- Call debug function to help troubleshoot
+task.wait(2) -- Wait for game to load
+debugTradeSystem()
 end
 do
 local isAutoFishActive = false
@@ -1836,11 +1948,9 @@ do
             end
         end
     })
- -- Improved Event Detection System for Roblox Fishing Game
+ -- Complete Auto Event Teleport System - Fixed Version
 teleportTab:AddSection("Events")
 
-local detectedEvents = {}
-local selectedEvent = nil
 local eventCoordinates = {
     ["Shark Hunt"] = {
         Vector3.new(1.64999, 5, 2095.72),
@@ -1873,65 +1983,66 @@ local eventCoordinates = {
     },
     ["Admin - Meteor Rain"] = {
         Vector3.new(383, 5, 2452)
-    },
-    ["Storm"] = {Vector3.new(-1492.293091, 3.500000, 1903.266235)},
-    ["Snow"] = {Vector3.new(-1492.293091, 3.500000, 1903.266235)},
-    ["Wind"] = {Vector3.new(-1492.293091, 3.500000, 1903.266235)},
-    ["Cloudy"] = {Vector3.new(-1492.293091, 3.500000, 1903.266235)},
-    ["Radiant"] = {Vector3.new(-1492.293091, 3.500000, 1903.266235)},
-    ["Mutation"] = {Vector3.new(-1492.293091, 3.500000, 1903.266235)}
+    }
 }
 
-local function detectActiveEvents()
+-- Variables with anti-spam protection
+local selectedEvents = {}
+local autoTeleportEnabled = false
+local teleportRadius = 20
+local savedPosition = nil
+local currentEventName = nil
+local currentEventPosition = nil
+local hasTeleportedToEvent = false
+local lastTeleportTime = 0
+local teleportCooldown = 10 -- 10 second cooldown
+
+-- Function to detect active events
+local function getActiveEvents()
     local activeEvents = {}
     
-    local success, error = pcall(function()
+    pcall(function()
         local ReplicatedStorage = game:GetService("ReplicatedStorage")
-        local Players = game:GetService("Players")
-        local LocalPlayer = Players.LocalPlayer
-        local Lighting = game:GetService("Lighting")
+        local LocalPlayer = game.Players.LocalPlayer
         local workspace = game:GetService("Workspace")
         
-        -- Method 1: Check Replion Events (most reliable based on game code)
+        -- Method 1: Check Replion system
         local Client = ReplicatedStorage.Packages:FindFirstChild("Replion")
         if Client then
             local clientModule = require(Client).Client
-            local eventsReplion = clientModule:GetReplion("Events")
+            local eventsReplion = clientModule:WaitReplion("Events", 1)
             if eventsReplion then
-                local events = eventsReplion:Get("Events")
-                if events then
-                    for _, eventName in ipairs(events) do
+                local eventsList = eventsReplion:GetExpected("Events")
+                if eventsList then
+                    for _, eventName in ipairs(eventsList) do
                         if eventName and eventName ~= "" then
-                            table.insert(activeEvents, eventName .. " 🟢")
+                            table.insert(activeEvents, eventName)
                         end
                     end
                 end
             end
         end
         
-        -- Method 2: Check PlayerGui Events (secondary check)
+        -- Method 2: Check PlayerGui
         local PlayerGui = LocalPlayer:FindFirstChild("PlayerGui")
         if PlayerGui then
             local eventsGui = PlayerGui:FindFirstChild("Events")
-            if eventsGui then
-                local frame = eventsGui:FindFirstChild("Frame")
-                if frame then
-                    local eventsFrame = frame:FindFirstChild("Events")
-                    if eventsFrame then
-                        for _, eventTile in pairs(eventsFrame:GetChildren()) do
-                            if eventTile:IsA("GuiObject") and eventTile.Visible then
-                                local eventName = eventTile.Name
-                                -- Avoid duplicates
-                                local alreadyExists = false
-                                for _, existing in pairs(activeEvents) do
-                                    if string.find(existing, eventName) then
-                                        alreadyExists = true
-                                        break
-                                    end
+            if eventsGui and eventsGui:FindFirstChild("Frame") then
+                local eventsFrame = eventsGui.Frame:FindFirstChild("Events")
+                if eventsFrame then
+                    for _, eventTile in pairs(eventsFrame:GetChildren()) do
+                        if eventTile:IsA("GuiObject") and eventTile.Visible and 
+                           eventTile.Name ~= "UIListLayout" and eventTile.Name ~= "UIPadding" then
+                            local eventName = eventTile.Name
+                            local exists = false
+                            for _, existing in pairs(activeEvents) do
+                                if existing == eventName then
+                                    exists = true
+                                    break
                                 end
-                                if not alreadyExists and eventName ~= "UIListLayout" then
-                                    table.insert(activeEvents, eventName .. " 🟢")
-                                end
+                            end
+                            if not exists then
+                                table.insert(activeEvents, eventName)
                             end
                         end
                     end
@@ -1939,408 +2050,328 @@ local function detectActiveEvents()
             end
         end
         
-        -- Method 3: Check workspace Props for physical event objects
-        local workspaceProps = workspace:FindFirstChild("Props")
-        if workspaceProps then
-            -- Shark Hunt detection
-            if workspaceProps:FindFirstChild("Shark Hunt") or workspaceProps:FindFirstChild("SharkHunt") then
-                local alreadyExists = false
-                for _, existing in pairs(activeEvents) do
-                    if string.find(existing, "Shark Hunt") then
-                        alreadyExists = true
-                        break
-                    end
-                end
-                if not alreadyExists then
-                    table.insert(activeEvents, "Shark Hunt 🟢")
-                end
-            end
-            
-            -- Ghost Shark Hunt detection
-            if workspaceProps:FindFirstChild("Ghost Shark Hunt") or workspaceProps:FindFirstChild("GhostSharkHunt") then
-                local alreadyExists = false
-                for _, existing in pairs(activeEvents) do
-                    if string.find(existing, "Ghost Shark Hunt") then
-                        alreadyExists = true
-                        break
-                    end
-                end
-                if not alreadyExists then
-                    table.insert(activeEvents, "Ghost Shark Hunt 🟢")
-                end
-            end
-            
-            -- Worm Hunt detection
-            if workspaceProps:FindFirstChild("Worm Hunt") or workspaceProps:FindFirstChild("WormHunt") then
-                local alreadyExists = false
-                for _, existing in pairs(activeEvents) do
-                    if string.find(existing, "Worm Hunt") then
-                        alreadyExists = true
-                        break
-                    end
-                end
-                if not alreadyExists then
-                    table.insert(activeEvents, "Worm Hunt 🟢")
-                end
-            end
-        end
-        
-        -- Method 4: Weather detection based on game's weather system
-        if Lighting then
-            -- Storm detection (from game code: high brightness + blue ambient)
-            if Lighting.Brightness >= 3.5 and Lighting.Ambient.B >= 0.6 and Lighting.Ambient.R < 0.4 then
-                table.insert(activeEvents, "Storm 🟢")
-            end
-            
-            -- Snow detection (from game code: low color shift + low brightness)
-            if Lighting.ColorShift_Top.R <= 0.03 and Lighting.ColorShift_Top.G <= 0.03 and 
-               Lighting.ColorShift_Top.B <= 0.03 and Lighting.Brightness < 1 then
-                table.insert(activeEvents, "Snow 🟢")
-            end
-            
-            -- Cloudy detection (from game code: Clouds with high cover + fog effects)
-            local terrain = workspace:FindFirstChild("Terrain")
-            if terrain then
-                local clouds = terrain:FindFirstChild("Clouds")
-                if clouds and clouds.Cover >= 0.9 then
-                    table.insert(activeEvents, "Cloudy 🟢")
-                end
-            end
-            
-            -- Radiant/Wind detection (high atmosphere density + brightness)
-            local atmosphere = Lighting:FindFirstChild("Atmosphere")
-            if atmosphere and atmosphere.Density >= 1.0 and Lighting.Brightness > 1.2 then
-                -- Check for radiant particles or wind effects
-                for _, obj in pairs(workspace:GetDescendants()) do
-                    if obj.Name == "Radiant" and obj.Parent == workspace then
-                        table.insert(activeEvents, "Radiant 🟢")
-                        break
-                    elseif obj.Name == "Wind" and obj.Parent == workspace then
-                        table.insert(activeEvents, "Wind 🟢")
-                        break
-                    end
-                end
-            end
-            
-            -- Sparkling Cove detection (high brightness + high color shift)
-            if Lighting.Brightness > 1.5 and Lighting.ColorShift_Top.R > 0.8 and 
-               Lighting.ColorShift_Top.G > 0.8 then
-                table.insert(activeEvents, "Sparkling Cove 🟢")
-            end
-        end
-        
-        -- Method 5: Admin Events detection
-        local adminAreas = workspace:FindFirstChild("AdminAreas") or workspace:FindFirstChild("AdminEvents")
-        if adminAreas then
-            for _, area in pairs(adminAreas:GetChildren()) do
-                if area.Name == "Shocked" or area.Name == "ShockedArea" then
-                    table.insert(activeEvents, "Admin - Shocked 🟢")
-                elseif area.Name == "BlackHole" or area.Name == "Black Hole" then
-                    table.insert(activeEvents, "Admin - Black Hole 🟢")
-                elseif area.Name == "GhostWorm" or area.Name == "Ghost Worm" then
-                    table.insert(activeEvents, "Admin - Ghost Worm 🟢")
-                elseif area.Name == "MeteorRain" or area.Name == "Meteor Rain" then
-                    table.insert(activeEvents, "Admin - Meteor Rain 🟢")
-                end
-            end
-        end
-        
-        -- Method 6: Sound-based detection for weather events
-        local SoundService = game:GetService("SoundService")
-        if SoundService then
-            -- Check for storm sounds
-            for _, sound in pairs(SoundService:GetDescendants()) do
-                if sound:IsA("Sound") and sound.IsPlaying then
-                    if sound.SoundId == "rbxassetid://18214464638" then -- Storm sound ID from code
-                        local alreadyExists = false
+        -- Method 3: Check Props folder
+        local props = workspace:FindFirstChild("Props")
+        if props then
+            for _, prop in pairs(props:GetChildren()) do
+                local propName = string.lower(prop.Name)
+                
+                if string.find(propName, "shark") and string.find(propName, "hunt") then
+                    if string.find(propName, "ghost") then
+                        local exists = false
                         for _, existing in pairs(activeEvents) do
-                            if string.find(existing, "Storm") then
-                                alreadyExists = true
+                            if existing == "Ghost Shark Hunt" then
+                                exists = true
                                 break
                             end
                         end
-                        if not alreadyExists then
-                            table.insert(activeEvents, "Storm 🟢")
+                        if not exists then
+                            table.insert(activeEvents, "Ghost Shark Hunt")
                         end
+                    else
+                        local exists = false
+                        for _, existing in pairs(activeEvents) do
+                            if existing == "Shark Hunt" then
+                                exists = true
+                                break
+                            end
+                        end
+                        if not exists then
+                            table.insert(activeEvents, "Shark Hunt")
+                        end
+                    end
+                elseif string.find(propName, "worm") and string.find(propName, "hunt") then
+                    local exists = false
+                    for _, existing in pairs(activeEvents) do
+                        if existing == "Worm Hunt" then
+                            exists = true
+                            break
+                        end
+                    end
+                    if not exists then
+                        table.insert(activeEvents, "Worm Hunt")
+                    end
+                elseif string.find(propName, "sparkling") or string.find(propName, "cove") then
+                    local exists = false
+                    for _, existing in pairs(activeEvents) do
+                        if existing == "Sparkling Cove" then
+                            exists = true
+                            break
+                        end
+                    end
+                    if not exists then
+                        table.insert(activeEvents, "Sparkling Cove")
                     end
                 end
             end
         end
-        
     end)
     
-    if success then
-        detectedEvents = activeEvents
-        if #detectedEvents == 0 then
-            detectedEvents = {"No active events"}
-        end
-    else
-        warn("Error detecting events: " .. tostring(error))
-        detectedEvents = {"Error detecting events"}
-    end
-    
-    return detectedEvents
+    return activeEvents
 end
-
-local function detectActiveEventLocation(eventName)
-    local cleanName = string.gsub(eventName, " 🟢", "")
-    cleanName = string.gsub(cleanName, "^%s*(.-)%s*$", "%1")
-    
-    -- For weather events, always return weather machine location
-    local weatherEvents = {"Storm", "Snow", "Wind", "Cloudy", "Radiant", "Mutation"}
-    for _, weather in pairs(weatherEvents) do
-        if cleanName == weather then
-            return Vector3.new(-1492.293091, 3.500000, 1903.266235)
-        end
+local function getEventLocation(eventName)
+    if not eventCoordinates[eventName] then
+        return nil
     end
+    local coords = eventCoordinates[eventName]
+    if #coords == 1 then
+        return coords[1]
+    end
+    local bestCoord = nil
+    local highestScore = 0
     
-    -- For events with multiple locations, detect the active one
-    if eventCoordinates[cleanName] then
-        local coords = eventCoordinates[cleanName]
-        
-        if #coords == 1 then
-            return coords[1]
-        end
-        
-        -- Detect active location for multi-location events
-        local success, activeLocation = pcall(function()
-            local workspace = game:GetService("Workspace")
-            local closestDistance = math.huge
-            local activeCoord = nil
-            
-            -- Method 1: Check for event objects near coordinates
-            for _, coord in pairs(coords) do
-                local region = Region3.new(
-                    coord - Vector3.new(100, 50, 100),
-                    coord + Vector3.new(100, 50, 100)
-                )
+    local success, result = pcall(function()
+        local workspace = game:GetService("Workspace")
+        local props = workspace:FindFirstChild("Props")
+        if props then
+            for _, prop in pairs(props:GetChildren()) do
+                local propName = string.lower(prop.Name)
+                local isEventMatch = false
                 
-                -- Look for event-related objects in the area
-                for _, obj in pairs(workspace:GetPartBoundsInRegion(region, 100)) do
-                    if obj.Parent and obj.Parent.Name then
-                        local parentName = string.lower(obj.Parent.Name)
-                        local eventNameLower = string.lower(cleanName)
-                        
-                        -- Check if object name contains event name
-                        if string.find(parentName, string.gsub(eventNameLower, " ", "")) or
-                           string.find(parentName, "event") or
-                           string.find(parentName, "hunt") or
-                           string.find(parentName, "shark") or
-                           string.find(parentName, "worm") then
-                            return coord
-                        end
-                    end
+                if eventName == "Shark Hunt" and string.find(propName, "shark") and string.find(propName, "hunt") and not string.find(propName, "ghost") then
+                    isEventMatch = true
+                elseif eventName == "Ghost Shark Hunt" and (string.find(propName, "ghost") and string.find(propName, "shark")) then
+                    isEventMatch = true
+                elseif eventName == "Worm Hunt" and string.find(propName, "worm") and string.find(propName, "hunt") then
+                    isEventMatch = true
+                elseif eventName == "Sparkling Cove" and (string.find(propName, "sparkling") or string.find(propName, "cove")) then
+                    isEventMatch = true
                 end
-            end
-            
-            -- Method 2: Check Props folder for event objects
-            local props = workspace:FindFirstChild("Props")
-            if props then
-                for _, prop in pairs(props:GetChildren()) do
-                    if string.find(string.lower(prop.Name), string.lower(cleanName:gsub(" ", ""))) then
-                        local propPosition = prop:GetPivot().Position
-                        -- Find closest coordinate to the prop
-                        for _, coord in pairs(coords) do
+                if isEventMatch then
+                    local propPosition
+                    if prop:IsA("Model") and prop.PrimaryPart then
+                        propPosition = prop.PrimaryPart.Position
+                    elseif prop:IsA("Model") then
+                        propPosition = prop:GetPivot().Position
+                    elseif prop:IsA("Part") then
+                        propPosition = prop.Position
+                    end
+                    if propPosition then
+                        local closestDistance = math.huge
+                        local closestCoord = nil
+                        for i, coord in ipairs(coords) do
                             local distance = (propPosition - coord).Magnitude
                             if distance < closestDistance then
                                 closestDistance = distance
-                                activeCoord = coord
+                                closestCoord = coord
                             end
                         end
-                        if activeCoord then
-                            return activeCoord
+                        if closestCoord and closestDistance < 2000 then
+                            return closestCoord
                         end
                     end
                 end
             end
-            
-            -- Method 3: Check for NPCs or special effects near coordinates
-            for _, coord in pairs(coords) do
-                local playersNearby = 0
-                local specialEffects = 0
-                
-                -- Count players near this coordinate (events usually attract players)
-                for _, player in pairs(game.Players:GetPlayers()) do
-                    if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-                        local distance = (player.Character.HumanoidRootPart.Position - coord).Magnitude
-                        if distance < 200 then -- Within 200 studs
-                            playersNearby = playersNearby + 1
-                        end
-                    end
-                end
-                
-                -- Look for particle effects, sounds, or other indicators
-                local region = Region3.new(
-                    coord - Vector3.new(150, 100, 150),
-                    coord + Vector3.new(150, 100, 150)
-                )
-                
-                for _, obj in pairs(workspace:GetDescendants()) do
-                    if obj:IsA("ParticleEmitter") and obj.Enabled then
-                        local distance = (obj.Parent.Position - coord).Magnitude
-                        if distance < 150 then
-                            specialEffects = specialEffects + 1
-                        end
-                    elseif obj:IsA("Sound") and obj.IsPlaying then
-                        local distance = (obj.Parent.Position - coord).Magnitude
-                        if distance < 150 then
-                            specialEffects = specialEffects + 1
-                        end
-                    end
-                end
-                
-                -- Prioritize locations with more activity
-                local activityScore = playersNearby * 2 + specialEffects
-                if activityScore > 0 and (not activeCoord or activityScore > closestDistance) then
-                    activeCoord = coord
-                    closestDistance = activityScore
-                end
-            end
-            
-            return activeCoord
-        end)
-        
-        if success and activeLocation then
-            print("Detected active location for " .. cleanName .. ": " .. tostring(activeLocation))
-            return activeLocation
-        else
-            -- Fallback to random selection if detection fails
-            print("Could not detect active location for " .. cleanName .. ", using random selection")
-            return coords[math.random(1, #coords)]
         end
+        return coords[1]
+    end)
+    
+    if success and result then
+        return result
+    else
+        return coords[1]
+    end
+end
+local function saveCurrentPosition()
+    if savedPosition then
+        return true
     end
     
-    return nil
+    local player = game.Players.LocalPlayer
+    if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+        savedPosition = player.Character.HumanoidRootPart.CFrame
+        return true
+    end
+    return false
 end
-
-local function getEventCoordinates(selection)
-    return detectActiveEventLocation(selection)
+local function isPlayerNearEvent()
+    if not currentEventPosition or not hasTeleportedToEvent then
+        return false
+    end
+    
+    local player = game.Players.LocalPlayer
+    if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+        return false
+    end
+    
+    local currentPosition = player.Character.HumanoidRootPart.Position
+    local distance = (currentPosition - currentEventPosition).Magnitude
+    
+    return distance <= teleportRadius
 end
-
--- Initialize event detection
-detectActiveEvents()
-local eventDropdown = teleportTab:AddDropdown("EventTeleport", {
-    Title = "Active Events",
-    Description = "Select an active event to teleport to",
-    Values = #detectedEvents > 0 and (function()
-        local options = {"Select Event..."}
-        for _, event in ipairs(detectedEvents) do
-            table.insert(options, event)
+local function teleportToEvent(eventName)
+    local currentTime = tick()
+    if currentTime - lastTeleportTime < teleportCooldown then
+        local remainingCooldown = teleportCooldown - (currentTime - lastTeleportTime)
+        return false
+    end
+    local player = game.Players.LocalPlayer
+    if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+        return false
+    end
+    if not savedPosition then
+        saveCurrentPosition()
+    end
+    local targetPos = getEventLocation(eventName)
+    if targetPos then
+        local backwardOffset = Vector3.new(0, 0, 15) -- 10m backward
+        local offsetPos = targetPos + Vector3.new(
+            math.random(-5, 5), -- Random X offset (smaller range since we're moving back)
+            -3, -- Lower by 2m from original position
+            math.random(-5, 5) -- Random Z offset
+        ) + backwardOffset -- Add 10m backward
+        player.Character.HumanoidRootPart.CFrame = CFrame.new(offsetPos)
+        currentEventName = eventName
+        currentEventPosition = targetPos
+        hasTeleportedToEvent = true
+        lastTeleportTime = currentTime
+        if Options.FlyToggle then
+            Options.FlyToggle:SetValue(true)
         end
-        return options
-    end)() or {"Select Event...", "No events detected"},
-    Multi = false,
-    Default = 1,
-    Searchable = true,
-    Callback = function(Value)
-        if Value == "Select Event..." or Value == "No events detected" or Value == "Error detecting events" then
-            return
-        end
-        
-        selectedEvent = Value
-        
-        -- Auto teleport when selected
-        local player = game.Players.LocalPlayer
-        if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
-            return
-        end
-        
-        local targetPos = getEventCoordinates(selectedEvent)
-        if targetPos then
-            local offsetPos = targetPos + Vector3.new(
-                math.random(-5, 5),
-                0,
-                math.random(-5, 5)
-            )
-            player.Character.HumanoidRootPart.CFrame = CFrame.new(offsetPos)
-            
-            -- Enable fly if available
-            if Options.FlyToggle then
-                Options.FlyToggle:SetValue(true)
-            end
-            
-            spawn(function()
-                wait(0.1)
-                Options.EventTeleport:SetValue("Select Event...")
-            end)
+        return true
+    else
+        warn("No coordinates found for " .. eventName)
+        return false
+    end
+end
+local function returnToSavedPosition()
+    local player = game.Players.LocalPlayer
+    if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+        return false
+    end
+    if savedPosition then
+        local success, err = pcall(function()
+            player.Character.HumanoidRootPart.CFrame = savedPosition
+        end)
+        if success then
+            return true
         else
-            warn("No coordinates found for event: " .. selectedEvent)
+            warn("Failed to return to saved position: " .. tostring(err))
+            return false
+        end
+    else
+        return false
+    end
+end
+local function resetTracking()
+    currentEventName = nil
+    currentEventPosition = nil
+    hasTeleportedToEvent = false
+    savedPosition = nil
+    lastTeleportTime = 0
+end
+local function checkAndTeleportToSelectedEvents()
+    if not autoTeleportEnabled or #selectedEvents == 0 then
+        return
+    end
+    local currentTime = tick()
+    if currentTime - lastTeleportTime < teleportCooldown then
+        return -- Still in cooldown, don't check anything
+    end
+    local activeEvents = getActiveEvents()
+    local activeSelectedEvent = nil
+    for _, selectedEvent in pairs(selectedEvents) do
+        for _, activeEvent in pairs(activeEvents) do
+            if selectedEvent == activeEvent then
+                activeSelectedEvent = selectedEvent
+                break
+            end
+        end
+        if activeSelectedEvent then break end
+    end
+    
+    if activeSelectedEvent then
+        if not hasTeleportedToEvent then
+            teleportToEvent(activeSelectedEvent)
+        elseif currentEventName ~= activeSelectedEvent then
+            teleportToEvent(activeSelectedEvent)
+        elseif not isPlayerNearEvent() then
+            -- MOVED AWAY: Same event but player moved away
+            local player = game.Players.LocalPlayer
+            if player.Character and player.Character:FindFirstChild("HumanoidRootPart") and currentEventPosition then
+                local distance = (player.Character.HumanoidRootPart.Position - currentEventPosition).Magnitude
+                teleportToEvent(activeSelectedEvent)
+            end
+        else
+        end
+    else
+        if hasTeleportedToEvent then
+            if returnToSavedPosition() then
+                resetTracking()
+            end
         end
     end
-})
+end
 
-local refreshEventsButton = teleportTab:AddButton({
-    Title = "Refresh Events",
-    Description = "Scan for currently active events",
-    Callback = function()
-        detectActiveEvents()
-        if Options.EventTeleport then
-            local options = {"Select Event..."}
-            for _, event in ipairs(detectedEvents) do
-                table.insert(options, event)
-            end
-            Options.EventTeleport:SetValues(options)
-            selectedEvent = nil
-            
-            local activeCount = 0
-            for _, event in ipairs(detectedEvents) do
-                if string.find(event, "🟢") then
-                    activeCount = activeCount + 1
+-- UI Components
+local eventDropdown = teleportTab:AddDropdown("SelectEvents", {
+    Title = "Select Events",
+    Description = "Choose which events to automatically teleport to when they become active",
+    Values = {"Shark Hunt", "Ghost Shark Hunt", "Sparkling Cove", "Worm Hunt", 
+              "Admin - Shocked", "Admin - Black Hole", "Admin - Ghost Worm", "Admin - Meteor Rain"},
+    Multi = true,
+    Default = {},
+})
+eventDropdown:OnChanged(function(Value)
+    local Values = {}
+    if type(Value) == "table" then
+        for k, v in pairs(Value) do
+        end
+        if #Value > 0 then
+            Values = Value
+        else
+            for EventName, State in pairs(Value) do
+                if State == true then
+                    table.insert(Values, EventName)
                 end
             end
-            
-            print("Detected " .. activeCount .. " active events")
         end
+    elseif Value then
+        Values = {Value}
     end
-})
+    selectedEvents = Values
+end)
 
-local teleportEventButton = teleportTab:AddButton({
-    Title = "Teleport To Event",
-    Description = "Teleport to the selected event location",
-    Callback = function()
-        if not selectedEvent or selectedEvent == "No active events" or 
-           selectedEvent == "Error detecting events" or selectedEvent == "Select Event..." then
-            print("No event selected")
-            return
-        end
+local autoTeleportToggle = teleportTab:AddToggle("AutoTeleportEvents", {
+    Title = "Auto Teleport to Events",
+    Description = "Enable/disable automatic teleportation to selected events",
+    Default = false,
+})
+autoTeleportToggle:OnChanged(function(value)
+    autoTeleportEnabled = value
+    if value then
         
-        local player = game.Players.LocalPlayer
-        if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
-            print("Character not found")
-            return
+    else
+        if hasTeleportedToEvent and savedPosition then
+            returnToSavedPosition()
         end
-        
-        local targetPos = getEventCoordinates(selectedEvent)
-        if targetPos then
-            local offsetPos = targetPos + Vector3.new(
-                math.random(-5, 5),
-                0,
-                math.random(-5, 5)
-            )
-            player.Character.HumanoidRootPart.CFrame = CFrame.new(offsetPos)
-            
-            if Options.FlyToggle then
-                Options.FlyToggle:SetValue(true)
-            end
-            
-            print("Teleported to: " .. selectedEvent)
-        else
-            print("No coordinates found for: " .. selectedEvent)
-        end
+        resetTracking()
     end
-})
+end)
 
--- Auto-refresh events every 30 secondszzzz
 spawn(function()
     while true do
-        wait(30)
-        if Options.EventTeleport then
-            detectActiveEvents()
-            local options = {"Select Event..."}
-            for _, event in ipairs(detectedEvents) do
-                table.insert(options, event)
+        wait(5) -- Check every 5 seconds
+        if autoTeleportEnabled then
+            local success, err = pcall(checkAndTeleportToSelectedEvents)
+            if not success then
+                warn("Error in auto-teleport: " .. tostring(err))
             end
-            Options.EventTeleport:SetValues(options)
+        end
+        local statusText = ""
+        if autoTeleportEnabled and #selectedEvents > 0 then
+            local cooldownRemaining = math.max(0, teleportCooldown - (tick() - lastTeleportTime))
+            if cooldownRemaining > 0 then
+                statusText = "ACTIVE - Cooldown: " .. math.ceil(cooldownRemaining) .. "s"
+            elseif hasTeleportedToEvent then
+                statusText = "ACTIVE - Monitoring " .. (currentEventName or "events") .. " (Near: " .. tostring(isPlayerNearEvent()) .. ")"
+            else
+                statusText = "ACTIVE - Waiting for events: " .. table.concat(selectedEvents, ", ")
+            end
+        elseif autoTeleportEnabled then
+            statusText = "ENABLED - No events selected"
+        else
+            statusText = "DISABLED"
         end
     end
 end)

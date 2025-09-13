@@ -190,7 +190,7 @@ end
 
 -- Window Creation
 local Window = Fluent:CreateWindow({
-    Title = "#DJSTEST - FISH IT V.09",
+    Title = "#DJSTEST - FISH IT V.10",
     SubTitle = "  https://discord.gg/uwXYuxj6cF",
     TabWidth = 160,
     Size = UDim2.fromOffset(650, 400),
@@ -565,124 +565,149 @@ do
             end
         end
     })
-    -- Auto Trade Section
-    local isAutoTradeActive = false
-    local isAutoGiveActive = false
-    local autoTradeConnection = nil
-    local hookApplied = false
-    local originalCreateTradePrompt = nil
+    -- Auto Give Only Section
+local isAutoGiveActive = false
+local autoTradeConnection = nil
+local hookApplied = false
+local originalCreateTradePrompt = nil
 
-    local function setupAutoTrade()
-        local success, error = pcall(function()
-            local ReplicatedStorage = game:GetService("ReplicatedStorage")
-            local Controllers = ReplicatedStorage:FindFirstChild("Controllers")
-            if Controllers then
-                local ItemTradingController = Controllers:FindFirstChild("ItemTradingController")
-                if ItemTradingController then
-                    local controller = require(ItemTradingController)
-                    if not originalCreateTradePrompt and controller.CreateTradePrompt then
-                        originalCreateTradePrompt = controller.CreateTradePrompt
-                    end
-                    
-                    controller.CreateTradePrompt = function(self, itemData, itemInfo, tradeInfo)
-                        if isAutoTradeActive and tradeInfo and tradeInfo.sender then
-                            local Promise = require(ReplicatedStorage.Packages.Promise)
-                            return Promise.resolve(true)
-                        end
-                        
-                        if isAutoGiveActive and tradeInfo and tradeInfo.target then
-                            local Promise = require(ReplicatedStorage.Packages.Promise)
-                            return Promise.resolve(true)
-                        end
-                        
-                        if originalCreateTradePrompt then
-                            return originalCreateTradePrompt(self, itemData, itemInfo, tradeInfo)
-                        else
-                            local Promise = require(ReplicatedStorage.Packages.Promise)
-                            return Promise.reject("Original function not found")
-                        end
-                    end
-                    hookApplied = true
-                    if autoTradeConnection then
-                        autoTradeConnection:Disconnect()
-                    end
-                    autoTradeConnection = game:GetService("RunService").Heartbeat:Connect(function()
-                        if tick() % 5 < 0.1 then
-                            local currentController = require(ItemTradingController)
-                            if currentController.CreateTradePrompt ~= controller.CreateTradePrompt then
-                                currentController.CreateTradePrompt = controller.CreateTradePrompt
-                            end
-                        end
-                    end)
-                    
-                    return true
+local function setupAutoGive()
+    local success, error = pcall(function()
+        local ReplicatedStorage = game:GetService("ReplicatedStorage")
+        local Controllers = ReplicatedStorage:FindFirstChild("Controllers")
+        if Controllers then
+            local ItemTradingController = Controllers:FindFirstChild("ItemTradingController")
+            if ItemTradingController then
+                local controller = require(ItemTradingController)
+                
+                -- Store original function if not already stored
+                if not originalCreateTradePrompt and controller.CreateTradePrompt then
+                    originalCreateTradePrompt = controller.CreateTradePrompt
+                    print("[AUTO GIVE] Original CreateTradePrompt function stored")
                 end
-            end
-            
-            warn("[AUTO ACCEPT] ItemTradingController not found!")
-            return false
-        end)
-        
-        if not success then
-            warn("Auto accept setup error: " .. tostring(error))
-            return false
-        end
-        return success
-    end
-
-    local function disableAutoTrade()
-        local success, error = pcall(function()
-            local ReplicatedStorage = game:GetService("ReplicatedStorage")
-            local Controllers = ReplicatedStorage:FindFirstChild("Controllers")
-            
-            if Controllers then
-                local ItemTradingController = Controllers:FindFirstChild("ItemTradingController")
-                if ItemTradingController then
-                    local controller = require(ItemTradingController)
+                
+                -- Hook the CreateTradePrompt function for outgoing trades only
+                controller.CreateTradePrompt = function(self, itemData, itemInfo, tradeInfo)
+                    print("[AUTO GIVE] CreateTradePrompt called:")
+                    print("  itemData:", itemData)
+                    print("  itemInfo:", itemInfo) 
+                    print("  tradeInfo:", tradeInfo)
+                    
+                    -- Auto accept outgoing trades (giving items) only
+                    if isAutoGiveActive and tradeInfo and tradeInfo.target then
+                        local Promise = require(ReplicatedStorage.Packages.Promise)
+                        print("[AUTO GIVE] Auto giving item to:", tradeInfo.target.DisplayName)
+                        
+                        task.spawn(function()
+                            task.wait(0.2)
+                            print("[AUTO GIVE] Returning true for outgoing trade")
+                        end)
+                        
+                        return Promise.resolve(true)
+                    end
+                    
+                    -- For all other cases (including incoming trades), use original function
                     if originalCreateTradePrompt then
-                        controller.CreateTradePrompt = originalCreateTradePrompt
-                    end
-                end
-            end
-            
-            if autoTradeConnection then
-                autoTradeConnection:Disconnect()
-                autoTradeConnection = nil
-            end
-            
-            hookApplied = false
-            return true
-        end)
-        
-        if not success then
-            warn("Disable auto accept error: " .. tostring(error))
-            return false
-        end
-        return success
-    end
-    local autoTradeToggle = Tabs.Player:AddToggle("AutoTrade", {
-        Title = "Auto Trade",
-        Description = "Automatically accept and give",
-        Default = false,
-        Callback = function(Value)
-            if Value then
-                if not isAutoTradeActive and not isAutoGiveActive then
-                    if setupAutoTrade() then
-                        isAutoTradeActive = true
-                        isAutoGiveActive = true
+                        print("[AUTO GIVE] Calling original CreateTradePrompt (not auto-giving)")
+                        return originalCreateTradePrompt(self, itemData, itemInfo, tradeInfo)
                     else
-                        Options.AutoTrade:SetValue(false)
+                        local Promise = require(ReplicatedStorage.Packages.Promise)
+                        warn("[AUTO GIVE] Original function not found")
+                        return Promise.reject("Original function not found")
                     end
                 end
+                
+                hookApplied = true
+                
+                -- Maintain the hook with RunService connection
+                if autoTradeConnection then
+                    autoTradeConnection:Disconnect()
+                end
+                
+                autoTradeConnection = game:GetService("RunService").Heartbeat:Connect(function()
+                    -- Check every 3 seconds to maintain hook
+                    if math.floor(tick()) % 3 == 0 and tick() % 1 < 0.1 then
+                        local currentController = require(ItemTradingController)
+                        if currentController.CreateTradePrompt ~= controller.CreateTradePrompt then
+                            print("[AUTO GIVE] Re-applying CreateTradePrompt hook")
+                            currentController.CreateTradePrompt = controller.CreateTradePrompt
+                        end
+                    end
+                end)
+                
+                print("[AUTO GIVE] Hook successfully applied!")
+                return true
             else
-                if isAutoTradeActive or isAutoGiveActive then
-                    isAutoTradeActive = false
-                    isAutoGiveActive = false
-                    disableAutoTrade()
+                warn("[AUTO GIVE] ItemTradingController not found!")
+            end
+        else
+            warn("[AUTO GIVE] Controllers folder not found!")
+        end
+        
+        return false
+    end)
+    
+    if not success then
+        warn("[AUTO GIVE] Setup error:", tostring(error))
+        return false
+    end
+    return success
+end
+
+local function disableAutoGive()
+    local success, error = pcall(function()
+        local ReplicatedStorage = game:GetService("ReplicatedStorage")
+        local Controllers = ReplicatedStorage:FindFirstChild("Controllers")
+        
+        if Controllers then
+            local ItemTradingController = Controllers:FindFirstChild("ItemTradingController")
+            if ItemTradingController then
+                local controller = require(ItemTradingController)
+                if originalCreateTradePrompt then
+                    print("[AUTO GIVE] Restoring original CreateTradePrompt function")
+                    controller.CreateTradePrompt = originalCreateTradePrompt
                 end
             end
         end
-    })
+        
+        if autoTradeConnection then
+            autoTradeConnection:Disconnect()
+            autoTradeConnection = nil
+        end
+        
+        hookApplied = false
+        print("[AUTO GIVE] Hook disabled!")
+        return true
+    end)
+    
+    if not success then
+        warn("[AUTO GIVE] Disable error:", tostring(error))
+        return false
+    end
+    return success
+end
+local autoGiveToggle = Tabs.Player:AddToggle("AutoGive", {
+    Title = "Skip Prompt Give",
+    Description = "Automatically give items when trading",
+    Default = false,
+    Callback = function(Value)
+        if Value then
+            if not isAutoGiveActive then
+                local success = setupAutoGive()
+                if success then
+                    isAutoGiveActive = true
+                else
+                    Options.AutoGive:SetValue(false)
+                end
+            end
+        else
+            if isAutoGiveActive then
+                isAutoGiveActive = false
+                disableAutoGive()
+            end
+        end
+    end
+})
 end
 do
 local isAutoFishActive = false
@@ -700,6 +725,10 @@ local lastToolRefreshTimeV2 = 0
 local toolRefreshIntervalV2 = 300
 local autoFishV2Thread = nil -- Track main thread
 local characterConnection = nil -- Track character respawn
+
+-- Global variables untuk instant restart system
+local fishingCompletionConnection = nil
+local isWaitingForCompletion = false
 
 local function equipFishingTool()
    local success, error = pcall(function()
@@ -813,7 +842,7 @@ local function performFishingCycle()
          local currentTime = tick()
          if currentTime - lastToolRefreshTime >= toolRefreshInterval then
              lastToolRefreshTime = currentTime
-             task.wait(1)
+             task.wait(0.5)
          end
      end
  end)
@@ -829,7 +858,7 @@ local FishingDelaySlider = Tabs.Fishing:AddSlider("FishingDelay", {
     Default = 2.3,
     Min = 2.3,
     Max = 10,
-    Rounding = 1,
+    Rounding = 0.1,
     Callback = function(Value)
         fishingDelay = Value
     end
@@ -914,18 +943,13 @@ local SellFishButton = Tabs.Fishing:AddButton({
 })
 
 Tabs.Fishing:AddSection("Auto Fishing V2")
-
--- Reset controller module when character respawns
 local function resetFishingController()
     fishingControllerModule = nil
 end
-
 local function getFishingController()
-    -- Always try to get fresh controller if player respawned
     if not isPlayerValid() then
         return nil
     end
-    
     local success, result = pcall(function()
         local ReplicatedStorage = game:GetService("ReplicatedStorage")
         local Controllers = ReplicatedStorage:FindFirstChild("Controllers")
@@ -945,28 +969,6 @@ local function getFishingController()
     
     return nil
 end
-
-local function canStartFishing()
-    if not isPlayerValid() then
-        return false, "Player not valid"
-    end
-    
-    local controller = getFishingController()
-    if not controller then
-        return false, "Controller not found"
-    end
-    
-    local success, result = pcall(function()
-        return not controller:OnCooldown()
-    end)
-    
-    if success then
-        return result, result and "Ready" or "On cooldown"
-    end
-    
-    return false, "Error checking cooldown"
-end
-
 local function ensureFishingToolEquipped()
     if not isPlayerValid() then
         return false
@@ -980,10 +982,9 @@ local function ensureFishingToolEquipped()
     return true
 end
 
-local function performNaturalFishingCycle()
-    -- Check if player is still valid before starting
+-- Function untuk start fishing cycle dengan zero delay
+local function startFishingCycleOnly()
     if not isPlayerValid() then
-        warn("[AUTO FISHING V2] Player not valid - stopping cycle")
         return false
     end
     
@@ -1007,65 +1008,123 @@ local function performNaturalFishingCycle()
         
         local screenCenter = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2)
         
-        local canFish, reason = canStartFishing()
-        if not canFish then
-            return false
-        end
-        
+        -- Langsung start tanpa check cooldown untuk speed maksimal
+        -- (cooldown check akan dilakukan oleh controller sendiri)
         controller:RequestChargeFishingRod(screenCenter, true, true)
+        isWaitingForCompletion = true -- Set flag bahwa sedang tunggu completion
         
-        local waitTime = 0
-        local maxWait = 15
-
-        while waitTime < maxWait and isAutoFishV2Active and isPlayerValid() do
-            local currentGUID = controller:GetCurrentGUID()
-            if currentGUID then
-                controller:RequestFishingMinigameClick()
-            else
-                local stillInFishing = controller:GetCurrentGUID()
-                if not stillInFishing and waitTime > 1 then
-                    break
-                end
-            end
-            task.wait(0.1)
-            waitTime = waitTime + 0.1
-        end
         return true
     end)
     
     if not success then
         warn("[AUTO FISHING V2] Error: " .. tostring(error))
+        isWaitingForCompletion = false
         return false
     end
     return success
 end
 
--- Clean shutdown function
-local function stopAutoFishingV2()
-    isAutoFishV2Active = false
-    
-    -- Disconnect character connection
-    if characterConnection then
-        characterConnection:Disconnect()
-        characterConnection = nil
-    end
-    
-    -- Wait for main thread to finish
-    if autoFishV2Thread then
-        task.wait(0.5) -- Give time for thread to exit gracefully
-        autoFishV2Thread = nil
-    end
-    
-    -- Reset controller
-    resetFishingController()
-    
-    -- Unequip tool
-    pcall(function()
-        unequipFishingTool()
+-- Function untuk monitor dan auto-click selama fishing (lebih agresif)
+local function monitorFishingProcess()
+    spawn(function()
+        while isAutoFishV2Active and isWaitingForCompletion do
+            if not isPlayerValid() then
+                break
+            end
+            
+            local success = pcall(function()
+                local controller = getFishingController()
+                if controller then
+                    local currentGUID = controller:GetCurrentGUID()
+                    if currentGUID then
+                        -- Click multiple times untuk ensure minigame completion
+                        for i = 1, 2 do
+                            controller:RequestFishingMinigameClick()
+                        end
+                    end
+                end
+            end)
+            
+            task.wait(0.03) -- Very fast clicking seperti original tapi lebih cepat
+        end
     end)
 end
 
--- Start function with respawn protection
+-- Function untuk setup completion event listener (dengan safety checks)
+local function setupCompletionListener()
+    if fishingCompletionConnection then
+        fishingCompletionConnection:Disconnect()
+    end
+    
+    -- Monitor network events untuk detect completion
+    local RunService = game:GetService("RunService")
+    fishingCompletionConnection = RunService.Heartbeat:Connect(function()
+        if not isAutoFishV2Active or not isPlayerValid() then
+            if fishingCompletionConnection then
+                fishingCompletionConnection:Disconnect()
+                fishingCompletionConnection = nil
+            end
+            return
+        end
+        
+        -- Jika sedang menunggu completion
+        if isWaitingForCompletion then
+            local success = pcall(function()
+                local controller = getFishingController()
+                if controller then
+                    local currentGUID = controller:GetCurrentGUID()
+                    if currentGUID then
+                        -- Fire completion event
+                        local ReplicatedStorage = game:GetService("ReplicatedStorage")
+                        local netFolder = ReplicatedStorage.Packages._Index:FindFirstChild("sleitnick_net@0.2.0")
+                        if netFolder and netFolder:FindFirstChild("net") then
+                            local net = netFolder.net
+                            local fishingCompleted = net:FindFirstChild("RE/FishingCompleted")
+                            if fishingCompleted then
+                                fishingCompleted:FireServer()
+                                
+                                -- LANGSUNG START CYCLE BARU!
+                                isWaitingForCompletion = false
+                                
+                                -- Apply user delay jika ada
+                                local delayTime = tonumber(fishingV2DelayTime) or 0
+                                if delayTime > 0 then
+                                    task.wait(delayTime)
+                                else
+                                    task.wait(0.05) -- Minimal delay untuk server response
+                                end
+                                
+                                -- Start cycle baru immediately
+                                if isAutoFishV2Active and isPlayerValid() then
+                                    if startFishingCycleOnly() then
+                                        monitorFishingProcess()
+                                    end
+                                end
+                            end
+                        end
+                    else
+                        -- Jika tidak ada GUID tapi masih waiting, coba restart setelah delay
+                        local waitTime = 0
+                        while waitTime < 3 and isWaitingForCompletion and not controller:GetCurrentGUID() do
+                           -- task.wait(0.05)
+                            waitTime = waitTime + 0.1
+                        end
+                        
+                        -- Jika masih tidak ada GUID, restart cycle
+                        if isWaitingForCompletion and not controller:GetCurrentGUID() then
+                            isWaitingForCompletion = false
+                            if isAutoFishV2Active and isPlayerValid() then
+                                if startFishingCycleOnly() then
+                                    monitorFishingProcess()
+                                end
+                            end
+                        end
+                    end
+                end
+            end)
+        end
+    end)
+end
 local function startAutoFishingV2()
     if not isPlayerValid() then
         warn("[AUTO FISHING V2] Player not valid")
@@ -1082,8 +1141,6 @@ local function startAutoFishingV2()
         warn("[AUTO FISHING V2] Controller not found")
         return false
     end
-    
-    -- Set up character respawn detection
     local player = game.Players.LocalPlayer
     if characterConnection then
         characterConnection:Disconnect()
@@ -1094,37 +1151,43 @@ local function startAutoFishingV2()
             Options.AutoFishingV2:SetValue(false)
         end
     end)
-    autoFishV2Thread = spawn(function()
-        while isAutoFishV2Active do
-            -- Double check if player is still valid
-            if not isPlayerValid() then
-                if Options and Options.AutoFishingV2 then
-                    Options.AutoFishingV2:SetValue(false)
-                end
-                break
-            end
-            
-            if not isAutoFishV2Active then break end
-            
-            local cycleSuccess = performNaturalFishingCycle()
-            
-            -- Use smaller wait intervals to check validity more often
-            local delaySteps = math.max(1, fishingV2DelayTime * 10)
-            for i = 1, delaySteps do
-                if not isAutoFishV2Active or not isPlayerValid() then 
-                    break 
-                end
-                task.wait(0.1)
-            end
-        end
-    end)
+    setupCompletionListener()
+    if startFishingCycleOnly() then
+        monitorFishingProcess()
+    else
+        return false
+    end
     
     return true
+end
+local function stopAutoFishingV2()
+    isAutoFishV2Active = false
+    isWaitingForCompletion = false
+    
+    if fishingCompletionConnection then
+        fishingCompletionConnection:Disconnect()
+        fishingCompletionConnection = nil
+    end
+    
+    if characterConnection then
+        characterConnection:Disconnect()
+        characterConnection = nil
+    end
+    
+    if autoFishV2Thread then
+      --  task.wait(0.5)
+        autoFishV2Thread = nil
+    end
+    
+    resetFishingController()
+    pcall(function()
+        unequipFishingTool()
+    end)
 end
 
 local autoFishV2Toggle = Tabs.Fishing:AddToggle("AutoFishingV2", {
     Title = "Auto Fishing V2",
-    Description = "Advanced auto fishing",
+    Description = "Instant restart after completion",
     Default = false,
     Callback = function(Value)
         if Value then
@@ -1142,16 +1205,15 @@ local autoFishV2Toggle = Tabs.Fishing:AddToggle("AutoFishingV2", {
         end
     end
 })
-
 local fishingV2DelaySlider = Tabs.Fishing:AddSlider("FishingV2Delay", {
     Title = "Fishing Delay V2",
     Description = "Delay between fishing cycles (seconds)",
     Default = 0,
     Min = 0,
     Max = 10,
-    Rounding = 0.1,
+    Rounding = 1,
     Callback = function(Value)
-        fishingV2DelayTime = Value
+        fishingV2DelayTime = tonumber(Value) or 0
     end
 })
 
@@ -1190,7 +1252,7 @@ local autoClickV2Toggle = Tabs.Fishing:AddToggle("AutoClickV2", {
                     if not success then
                         warn("[AUTO CLICK V2] Error: " .. tostring(error))
                     end
-                    task.wait(0.1)
+                    task.wait(0.05)
                 end
             end)
         else
@@ -1200,6 +1262,7 @@ local autoClickV2Toggle = Tabs.Fishing:AddToggle("AutoClickV2", {
         end
     end
 })
+
 local isInstantReelActive = false
 local instantReelConnection = nil
 
@@ -1261,8 +1324,7 @@ local instantReelToggle = Tabs.Fishing:AddToggle("instrail", {
     end
 })
 
--- Rest of your Auto Farm code here...
--- (keeping the original Auto Farm V1 and V2 code as they seem to work fine)
+-- Auto Farm V1
 Tabs.Fishing:AddSection("Auto Farm V1")
 local selectedFarmLocation = nil
 local isAutoFarmActive = false
@@ -1330,11 +1392,8 @@ local function startAutoFarm()
                      Options.AutoFishing:SetValue(true)
                   else
                      Options.AutoFishingV2:SetValue(false)
-                     Options.AutoClickV2:SetValue(false)
                      wait(1)
                      Options.AutoFishingV2:SetValue(true)
-                     Options.AutoClickV2:SetValue(true)
-                     
                   end
                end
             end
@@ -1380,10 +1439,16 @@ local AutoFarmV1Toggle = Tabs.Fishing:AddToggle("AutoFarmV1", {
       end
    end,
 })
+
+-- Auto Farm V2
 Tabs.Fishing:AddSection("Auto Farm V2")
 local selectedFarmMethodV2 = "V1"
+local isAutoFarmV2Active = false
+local checkpointPosition = nil
+local hasCheckpoint = false
+
 local CheckpointInput = Tabs.Fishing:AddInput("CheckpointInput", {
-    Title = "Dont' touch this!",
+    Title = "Don't touch this!",
     Description = "Checkpoint Status",
     Default = "",
     Placeholder = "......",
@@ -1406,11 +1471,13 @@ local CheckpointInput = Tabs.Fishing:AddInput("CheckpointInput", {
         end
     end
 })
+
 local function cframeToString(cframe)
     if not cframe then return "" end
     local components = {cframe:GetComponents()}
     return string.format("%.2f, %.2f, %.2f, %.3f, %.3f, %.3f, %.3f, %.3f, %.3f, %.3f, %.3f, %.3f", unpack(components))
 end
+
 local SetCheckpointButton = Tabs.Fishing:AddButton({
     Title = "Set Location",
     Description = "Save current position as farming location",
@@ -1424,6 +1491,7 @@ local SetCheckpointButton = Tabs.Fishing:AddButton({
         end
     end,
 })
+
 local ClearCheckpointButton = Tabs.Fishing:AddButton({
     Title = "Clear Location",
     Description = "Remove saved position",
@@ -1436,6 +1504,7 @@ local ClearCheckpointButton = Tabs.Fishing:AddButton({
         Options.CheckpointInput:SetValue("")
     end,
 })
+
 local function startAutoFarmV2()
     local player = game.Players.LocalPlayer
     if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then return false end
@@ -1467,10 +1536,8 @@ local function startAutoFarmV2()
                         Options.AutoFishing:SetValue(true)
                     else
                         Options.AutoFishingV2:SetValue(false)
-                        Options.AutoClickV2:SetValue(false)
                         wait(1)
                         Options.AutoFishingV2:SetValue(true)
-                        Options.AutoClickV2:SetValue(true)
                     end
                 end
             end
@@ -1489,6 +1556,7 @@ local FarmMethodV2Dropdown = Tabs.Fishing:AddDropdown("FarmMethodV2", {
 FarmMethodV2Dropdown:OnChanged(function(Value)
     selectedFarmMethodV2 = Value
 end)
+
 local function stopAutoFarmV2()
     isAutoFarmV2Active = false
     Options.AutoFishing:SetValue(false)
@@ -1557,6 +1625,8 @@ if player then
         isAutoFishV2Active = false
         isAutoClickV2Active = false
         isInstantReelActive = false
+        isWaitingForCompletion = false
+        
         if characterConnection then
             characterConnection:Disconnect()
             characterConnection = nil
@@ -1565,6 +1635,10 @@ if player then
             instantReelConnection:Disconnect()
             instantReelConnection = nil
         end
+        if fishingCompletionConnection then
+            fishingCompletionConnection:Disconnect()
+            fishingCompletionConnection = nil
+        end
         resetFishingController()
         if Options then
             pcall(function() if Options.AutoFishingV2 then Options.AutoFishingV2:SetValue(false) end end)
@@ -1572,10 +1646,10 @@ if player then
             pcall(function() if Options.instrail then Options.instrail:SetValue(false) end end)
         end
     end)
-    
     player.CharacterAdded:Connect(function()
         resetFishingController()
         lastToolRefreshTimeV2 = 0
+        isWaitingForCompletion = false
         wait(2)
     end)
 end
@@ -1787,262 +1861,449 @@ do
             end
         end
     })
- teleportTab:AddSection("Events")
-    
-    local detectedEvents = {}
-    local selectedEvent = nil
-    local eventCoordinates = {
-        ["Shark Hunt"] = {
-            Vector3.new(1.64999, 5, 2095.72),
-            Vector3.new(1369.94, 5, 930.125),
-            Vector3.new(-1585.5, 5, 1242.87),
-            Vector3.new(-1896.8, 5, 2634.37)
-        },
-        ["Ghost Shark Hunt"] = {
-            Vector3.new(489.558, 5, 25.4060),
-            Vector3.new(1976.51, 5, 2915.93),
-            Vector3.new(-1358.2, 5, 4100.55),
-            Vector3.new(627.859, 5, 3798.08)
-        },
-        ["Sparkling Cove"] = {
-            Vector3.new(195.378, 5, 2976.27)
-        },
-        ["Worm Hunt"] = {
-            Vector3.new(1591.55, 5, -105.92),
-            Vector3.new(-2450.6, 5, 139.731),
-            Vector3.new(-267.47, 5, 5188.53)
-        },
-        ["Admin - Shocked"] = {
-            Vector3.new(383, 5, 2452)
-        },
-        ["Admin - Black Hole"] = {
-            Vector3.new(883, 5, 2542)
-        },
-        ["Admin - Ghost Worm"] = {
-            Vector3.new(-327, 5, 2422)
-        },
-        ["Admin - Meteor Rain"] = {
-            Vector3.new(383, 5, 2452)
-        },
-        ["Storm"] = {Vector3.new(-1492.293091, 3.500000, 1903.266235)},
-        ["Snow"] = {Vector3.new(-1492.293091, 3.500000, 1903.266235)},
-        ["Wind"] = {Vector3.new(-1492.293091, 3.500000, 1903.266235)},
-        ["Cloudy"] = {Vector3.new(-1492.293091, 3.500000, 1903.266235)}
-    }
+ -- Complete Auto Event Teleport System - Fixed Version
+teleportTab:AddSection("Events")
 
-    local function detectActiveEvents()
-        local activeEvents = {}
+local eventCoordinates = {
+    ["Shark Hunt"] = {
+        Vector3.new(1.64999, 5, 2095.72),
+        Vector3.new(1369.94, 5, 930.125),
+        Vector3.new(-1585.5, 5, 1242.87),
+        Vector3.new(-1896.8, 5, 2634.37)
+    },
+    ["Ghost Shark Hunt"] = {
+        Vector3.new(489.558, 5, 25.4060),
+        Vector3.new(1976.51, 5, 2915.93),
+        Vector3.new(-1358.2, 5, 4100.55),
+        Vector3.new(627.859, 5, 3798.08)
+    },
+    ["Sparkling Cove"] = {
+        Vector3.new(195.378, 5, 2976.27)
+    },
+    ["Worm Hunt"] = {
+        Vector3.new(1591.55, 5, -105.92),
+        Vector3.new(-2450.6, 5, 139.731),
+        Vector3.new(-267.47, 5, 5188.53)
+    },
+    ["Admin - Shocked"] = {
+        Vector3.new(383, 5, 2452)
+    },
+    ["Admin - Black Hole"] = {
+        Vector3.new(883, 5, 2542)
+    },
+    ["Admin - Ghost Worm"] = {
+        Vector3.new(-327, 5, 2422)
+    },
+    ["Admin - Meteor Rain"] = {
+        Vector3.new(383, 5, 2452)
+    }
+}
+
+-- Variables with anti-spam protection
+local selectedEvents = {}
+local autoTeleportEnabled = false
+local teleportRadius = 20
+local savedPosition = nil
+local currentEventName = nil
+local currentEventPosition = nil
+local hasTeleportedToEvent = false
+local lastTeleportTime = 0
+local teleportCooldown = 10 -- 10 second cooldown
+
+-- Function to detect active events
+local function getActiveEvents()
+    local activeEvents = {}
+    
+    pcall(function()
+        local ReplicatedStorage = game:GetService("ReplicatedStorage")
+        local LocalPlayer = game.Players.LocalPlayer
+        local workspace = game:GetService("Workspace")
         
-        local success, error = pcall(function()
-            local ReplicatedStorage = game:GetService("ReplicatedStorage")
-            local workspaceProps = workspace:FindFirstChild("Props")
-            
-            if workspaceProps and workspaceProps:FindFirstChild("Shark Hunt") then
-                table.insert(activeEvents, "Shark Hunt ðŸŸ¢")
-            end
-            if workspaceProps and workspaceProps:FindFirstChild("Ghost Shark Hunt") then
-                table.insert(activeEvents, "Ghost Shark Hunt ðŸŸ¢")
-            end
-            
-            local lighting = game:GetService("Lighting")
-            if lighting:FindFirstChild("SparklingCoveEffect") or 
-               (lighting.Brightness > 1.5 and lighting.ColorShift_Top.R > 0.8 and lighting.ColorShift_Top.G > 0.8) then
-                table.insert(activeEvents, "Sparkling Cove ðŸŸ¢")
-            end
-            
-            local PlayerGui = game.Players.LocalPlayer:FindFirstChild("PlayerGui")
-            local wormHuntActive = false
-            if PlayerGui then
-                for _, gui in pairs(PlayerGui:GetDescendants()) do
-                    if gui:IsA("TextLabel") and gui.Text then
-                        if string.match(gui.Text, "Worm Hunt") and 
-                           (string.match(gui.Text, "%d+:%d+") or string.match(gui.Text, "ACTIVE")) then
-                            wormHuntActive = true
-                            break
+        -- Method 1: Check Replion system
+        local Client = ReplicatedStorage.Packages:FindFirstChild("Replion")
+        if Client then
+            local clientModule = require(Client).Client
+            local eventsReplion = clientModule:WaitReplion("Events", 1)
+            if eventsReplion then
+                local eventsList = eventsReplion:GetExpected("Events")
+                if eventsList then
+                    for _, eventName in ipairs(eventsList) do
+                        if eventName and eventName ~= "" then
+                            table.insert(activeEvents, eventName)
                         end
                     end
                 end
             end
-            
-            if wormHuntActive or (workspaceProps and workspaceProps:FindFirstChild("Worm Hunt")) then
-                table.insert(activeEvents, "Worm Hunt ðŸŸ¢")
-            end
-            
-            local adminAreas = workspace:FindFirstChild("AdminAreas") or workspace:FindFirstChild("AdminEvents")
-            if adminAreas then
-                if adminAreas:FindFirstChild("Shocked") or adminAreas:FindFirstChild("ShockedArea") then
-                    table.insert(activeEvents, "Admin - Shocked ðŸŸ¢")
-                end
-                if adminAreas:FindFirstChild("BlackHole") or adminAreas:FindFirstChild("Black Hole") then
-                    table.insert(activeEvents, "Admin - Black Hole ðŸŸ¢")
-                end
-                if adminAreas:FindFirstChild("GhostWorm") or adminAreas:FindFirstChild("Ghost Worm") then
-                    table.insert(activeEvents, "Admin - Ghost Worm ðŸŸ¢")
-                end
-                if adminAreas:FindFirstChild("MeteorRain") or adminAreas:FindFirstChild("Meteor Rain") then
-                    table.insert(activeEvents, "Admin - Meteor Rain ðŸŸ¢")
-                end
-            end
-            
-            if lighting.Brightness >= 3.5 and lighting.Ambient.B >= 0.6 and lighting.Ambient.R < 0.4 then
-                table.insert(activeEvents, "Storm ðŸŸ¢")
-            end
-            if lighting.ColorShift_Top.R <= 0.03 and lighting.ColorShift_Top.G <= 0.03 and lighting.ColorShift_Top.B <= 0.03 and
-               lighting.Brightness < 1 then
-                table.insert(activeEvents, "Snow ðŸŸ¢")
-            end
-            local atmosphere = lighting:FindFirstChild("Atmosphere")
-            if atmosphere and atmosphere.Density >= 1.0 and lighting.Brightness > 1.2 then
-                table.insert(activeEvents, "Wind ðŸŸ¢")
-            end
-            if lighting.Brightness <= 0.4 and 
-               lighting.ColorShift_Top.R >= 0.8 and lighting.ColorShift_Top.G >= 0.8 and lighting.ColorShift_Top.B >= 0.8 then
-                table.insert(activeEvents, "Cloudy ðŸŸ¢")
-            end
-        end)
-        
-        if success then
-            detectedEvents = activeEvents
-            if #detectedEvents == 0 then
-                detectedEvents = {"No active events"}
-            end
-        else
-            warn("Error detecting events: " .. tostring(error))
-            detectedEvents = {"Error detecting events"}
         end
         
-        return detectedEvents
-    end
-
-    local function getEventCoordinates(selection)
-        local cleanName = string.gsub(selection, " ðŸŸ¢", "")
-        cleanName = string.gsub(cleanName, "^%s*(.-)%s*$", "%1") 
-        if eventCoordinates[cleanName] then
-            local coords = eventCoordinates[cleanName]
-            
-            if #coords > 1 then
-                local selectedCoord = coords[math.random(1, #coords)]
-                return selectedCoord
-            else
-                return coords[1]
-            end
-        end
-        return nil
-    end
-
-    detectActiveEvents()
-    local eventDropdown = teleportTab:AddDropdown("EventTeleport", {
-        Title = "Active Events",
-        Description = "Select an active event to teleport to",
-        Values = #detectedEvents > 0 and (function()
-            local options = {"Select Event..."}
-            for _, event in ipairs(detectedEvents) do
-                table.insert(options, event)
-            end
-            return options
-        end)() or {"Select Event...", "No events detected"},
-        Multi = false,
-        Default = 1,
-        Searchable = true,
-        Callback = function(Value)
-            if Value == "Select Event..." or Value == "No events detected" then
-                return
-            end
-            
-            selectedEvent = Value
-            
-            -- Auto teleport when selected
-            local player = game.Players.LocalPlayer
-            if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
-                return
-            end
-            
-            local targetPos = getEventCoordinates(selectedEvent)
-            if targetPos then
-                local offsetPos = targetPos + Vector3.new(
-                    math.random(-5, 5),
-                    0,
-                    math.random(-5, 5)
-                )
-                player.Character.HumanoidRootPart.CFrame = CFrame.new(offsetPos)
-                
-                if Options.FlyToggle then
-                    Options.FlyToggle:SetValue(true)
-                end
-                spawn(function()
-                    wait(0.1)
-                    Options.EventTeleport:SetValue("Select Event...")
-                end)
-            end
-        end
-    })
-    local refreshEventsButton = teleportTab:AddButton({
-        Title = "Refresh Events",
-        Description = "Scan for currently active events",
-        Callback = function()
-            detectActiveEvents()
-            if Options.EventTeleport then
-                local options = {}
-                for _, event in ipairs(detectedEvents) do
-                    table.insert(options, event)
-                end
-                Options.EventTeleport:SetValues(options)
-                selectedEvent = nil
-                
-                local activeCount = 0
-                for _, event in ipairs(detectedEvents) do
-                    if string.find(event, "ðŸŸ¢") then
-                        activeCount = activeCount + 1
+        -- Method 2: Check PlayerGui
+        local PlayerGui = LocalPlayer:FindFirstChild("PlayerGui")
+        if PlayerGui then
+            local eventsGui = PlayerGui:FindFirstChild("Events")
+            if eventsGui and eventsGui:FindFirstChild("Frame") then
+                local eventsFrame = eventsGui.Frame:FindFirstChild("Events")
+                if eventsFrame then
+                    for _, eventTile in pairs(eventsFrame:GetChildren()) do
+                        if eventTile:IsA("GuiObject") and eventTile.Visible and 
+                           eventTile.Name ~= "UIListLayout" and eventTile.Name ~= "UIPadding" then
+                            local eventName = eventTile.Name
+                            local exists = false
+                            for _, existing in pairs(activeEvents) do
+                                if existing == eventName then
+                                    exists = true
+                                    break
+                                end
+                            end
+                            if not exists then
+                                table.insert(activeEvents, eventName)
+                            end
+                        end
                     end
                 end
             end
         end
-    })
-
-    local teleportEventButton = teleportTab:AddButton({
-        Title = "Teleport To Event",
-        Description = "Teleport to the selected event location",
-        Callback = function()
-            if not selectedEvent or selectedEvent == "No active events" or selectedEvent == "Error detecting events" then
-                return
-            end
-            
-            local player = game.Players.LocalPlayer
-            if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
-                return
-            end
-            
-            local targetPos = getEventCoordinates(selectedEvent)
-            if targetPos then
-                local offsetPos = targetPos + Vector3.new(
-                    math.random(-5, 5),
-                    0,
-                    math.random(-5, 5)
-                )
-                player.Character.HumanoidRootPart.CFrame = CFrame.new(offsetPos)
+        
+        -- Method 3: Check Props folder
+        local props = workspace:FindFirstChild("Props")
+        if props then
+            for _, prop in pairs(props:GetChildren()) do
+                local propName = string.lower(prop.Name)
                 
-                if Options.FlyToggle then
-                    Options.FlyToggle:SetValue(true)
+                if string.find(propName, "shark") and string.find(propName, "hunt") then
+                    if string.find(propName, "ghost") then
+                        local exists = false
+                        for _, existing in pairs(activeEvents) do
+                            if existing == "Ghost Shark Hunt" then
+                                exists = true
+                                break
+                            end
+                        end
+                        if not exists then
+                            table.insert(activeEvents, "Ghost Shark Hunt")
+                        end
+                    else
+                        local exists = false
+                        for _, existing in pairs(activeEvents) do
+                            if existing == "Shark Hunt" then
+                                exists = true
+                                break
+                            end
+                        end
+                        if not exists then
+                            table.insert(activeEvents, "Shark Hunt")
+                        end
+                    end
+                elseif string.find(propName, "worm") and string.find(propName, "hunt") then
+                    local exists = false
+                    for _, existing in pairs(activeEvents) do
+                        if existing == "Worm Hunt" then
+                            exists = true
+                            break
+                        end
+                    end
+                    if not exists then
+                        table.insert(activeEvents, "Worm Hunt")
+                    end
+                elseif string.find(propName, "sparkling") or string.find(propName, "cove") then
+                    local exists = false
+                    for _, existing in pairs(activeEvents) do
+                        if existing == "Sparkling Cove" then
+                            exists = true
+                            break
+                        end
+                    end
+                    if not exists then
+                        table.insert(activeEvents, "Sparkling Cove")
+                    end
                 end
             end
         end
+    end)
+    
+    return activeEvents
+end
+local function getEventLocation(eventName)
+    if not eventCoordinates[eventName] then
+        return nil
+    end
+    local coords = eventCoordinates[eventName]
+    if #coords == 1 then
+        return coords[1]
+    end
+    local bestCoord = nil
+    local highestScore = 0
+    
+    local success, result = pcall(function()
+        local workspace = game:GetService("Workspace")
+        local props = workspace:FindFirstChild("Props")
+        if props then
+            for _, prop in pairs(props:GetChildren()) do
+                local propName = string.lower(prop.Name)
+                local isEventMatch = false
+                
+                if eventName == "Shark Hunt" and string.find(propName, "shark") and string.find(propName, "hunt") and not string.find(propName, "ghost") then
+                    isEventMatch = true
+                elseif eventName == "Ghost Shark Hunt" and (string.find(propName, "ghost") and string.find(propName, "shark")) then
+                    isEventMatch = true
+                elseif eventName == "Worm Hunt" and string.find(propName, "worm") and string.find(propName, "hunt") then
+                    isEventMatch = true
+                elseif eventName == "Sparkling Cove" and (string.find(propName, "sparkling") or string.find(propName, "cove")) then
+                    isEventMatch = true
+                end
+                if isEventMatch then
+                    local propPosition
+                    if prop:IsA("Model") and prop.PrimaryPart then
+                        propPosition = prop.PrimaryPart.Position
+                    elseif prop:IsA("Model") then
+                        propPosition = prop:GetPivot().Position
+                    elseif prop:IsA("Part") then
+                        propPosition = prop.Position
+                    end
+                    if propPosition then
+                        local closestDistance = math.huge
+                        local closestCoord = nil
+                        for i, coord in ipairs(coords) do
+                            local distance = (propPosition - coord).Magnitude
+                            if distance < closestDistance then
+                                closestDistance = distance
+                                closestCoord = coord
+                            end
+                        end
+                        if closestCoord and closestDistance < 2000 then
+                            return closestCoord
+                        end
+                    end
+                end
+            end
+        end
+        return coords[1]
+    end)
+    
+    if success and result then
+        return result
+    else
+        return coords[1]
+    end
+end
+local function saveCurrentPosition()
+    if savedPosition then
+        return true
+    end
+    
+    local player = game.Players.LocalPlayer
+    if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+        savedPosition = player.Character.HumanoidRootPart.CFrame
+        return true
+    end
+    return false
+end
+local function isPlayerNearEvent()
+    if not currentEventPosition or not hasTeleportedToEvent then
+        return false
+    end
+    
+    local player = game.Players.LocalPlayer
+    if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+        return false
+    end
+    
+    local currentPosition = player.Character.HumanoidRootPart.Position
+    local distance = (currentPosition - currentEventPosition).Magnitude
+    
+    return distance <= teleportRadius
+end
+local function teleportToEvent(eventName)
+    local currentTime = tick()
+    if currentTime - lastTeleportTime < teleportCooldown then
+        local remainingCooldown = teleportCooldown - (currentTime - lastTeleportTime)
+        return false
+    end
+    local player = game.Players.LocalPlayer
+    if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+        return false
+    end
+    if not savedPosition then
+        saveCurrentPosition()
+    end
+    local targetPos = getEventLocation(eventName)
+    if targetPos then
+        local backwardOffset = Vector3.new(0, 0, 15) -- 10m backward
+        local offsetPos = targetPos + Vector3.new(
+            math.random(-5, 5), -- Random X offset (smaller range since we're moving back)
+            -3, -- Lower by 2m from original position
+            math.random(-5, 5) -- Random Z offset
+        ) + backwardOffset -- Add 10m backward
+        player.Character.HumanoidRootPart.CFrame = CFrame.new(offsetPos)
+        currentEventName = eventName
+        currentEventPosition = targetPos
+        hasTeleportedToEvent = true
+        lastTeleportTime = currentTime
+        if Options.FlyToggle then
+            Options.FlyToggle:SetValue(true)
+        end
+        return true
+    else
+        warn("No coordinates found for " .. eventName)
+        return false
+    end
+end
+local function returnToSavedPosition()
+    local player = game.Players.LocalPlayer
+    if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+        return false
+    end
+    if savedPosition then
+        local success, err = pcall(function()
+            player.Character.HumanoidRootPart.CFrame = savedPosition
+        end)
+        if success then
+            return true
+        else
+            warn("Failed to return to saved position: " .. tostring(err))
+            return false
+        end
+    else
+        return false
+    end
+end
+local function resetTracking()
+    currentEventName = nil
+    currentEventPosition = nil
+    hasTeleportedToEvent = false
+    savedPosition = nil
+    lastTeleportTime = 0
+end
+local function checkAndTeleportToSelectedEvents()
+    if not autoTeleportEnabled or #selectedEvents == 0 then
+        return
+    end
+    local currentTime = tick()
+    if currentTime - lastTeleportTime < teleportCooldown then
+        return -- Still in cooldown, don't check anything
+    end
+    local activeEvents = getActiveEvents()
+    local activeSelectedEvent = nil
+    for _, selectedEvent in pairs(selectedEvents) do
+        for _, activeEvent in pairs(activeEvents) do
+            if selectedEvent == activeEvent then
+                activeSelectedEvent = selectedEvent
+                break
+            end
+        end
+        if activeSelectedEvent then break end
+    end
+    
+    if activeSelectedEvent then
+        if not hasTeleportedToEvent then
+            teleportToEvent(activeSelectedEvent)
+        elseif currentEventName ~= activeSelectedEvent then
+            teleportToEvent(activeSelectedEvent)
+        elseif not isPlayerNearEvent() then
+            -- MOVED AWAY: Same event but player moved away
+            local player = game.Players.LocalPlayer
+            if player.Character and player.Character:FindFirstChild("HumanoidRootPart") and currentEventPosition then
+                local distance = (player.Character.HumanoidRootPart.Position - currentEventPosition).Magnitude
+                teleportToEvent(activeSelectedEvent)
+            end
+        else
+        end
+    else
+        if hasTeleportedToEvent then
+            if returnToSavedPosition() then
+                resetTracking()
+            end
+        end
+    end
+end
+
+-- UI Components
+local eventDropdown = teleportTab:AddDropdown("SelectEvents", {
+    Title = "Select Events",
+    Description = "Choose which events to automatically teleport to when they become active",
+    Values = {"Shark Hunt", "Ghost Shark Hunt", "Sparkling Cove", "Worm Hunt", 
+              "Admin - Shocked", "Admin - Black Hole", "Admin - Ghost Worm", "Admin - Meteor Rain"},
+    Multi = true,
+    Default = {},
+})
+eventDropdown:OnChanged(function(Value)
+    local Values = {}
+    if type(Value) == "table" then
+        for k, v in pairs(Value) do
+        end
+        if #Value > 0 then
+            Values = Value
+        else
+            for EventName, State in pairs(Value) do
+                if State == true then
+                    table.insert(Values, EventName)
+                end
+            end
+        end
+    elseif Value then
+        Values = {Value}
+    end
+    selectedEvents = Values
+end)
+
+local autoTeleportToggle = teleportTab:AddToggle("AutoTeleportEvents", {
+    Title = "Auto Teleport to Events",
+    Description = "Enable/disable automatic teleportation to selected events",
+    Default = false,
+})
+autoTeleportToggle:OnChanged(function(value)
+    autoTeleportEnabled = value
+    if value then
+        
+    else
+        if hasTeleportedToEvent and savedPosition then
+            returnToSavedPosition()
+        end
+        resetTracking()
+    end
+end)
+
+spawn(function()
+    while true do
+        wait(5) -- Check every 5 seconds
+        if autoTeleportEnabled then
+            local success, err = pcall(checkAndTeleportToSelectedEvents)
+            if not success then
+                warn("Error in auto-teleport: " .. tostring(err))
+            end
+        end
+        local statusText = ""
+        if autoTeleportEnabled and #selectedEvents > 0 then
+            local cooldownRemaining = math.max(0, teleportCooldown - (tick() - lastTeleportTime))
+            if cooldownRemaining > 0 then
+                statusText = "ACTIVE - Cooldown: " .. math.ceil(cooldownRemaining) .. "s"
+            elseif hasTeleportedToEvent then
+                statusText = "ACTIVE - Monitoring " .. (currentEventName or "events") .. " (Near: " .. tostring(isPlayerNearEvent()) .. ")"
+            else
+                statusText = "ACTIVE - Waiting for events: " .. table.concat(selectedEvents, ", ")
+            end
+        elseif autoTeleportEnabled then
+            statusText = "ENABLED - No events selected"
+        else
+            statusText = "DISABLED"
+        end
+    end
+end)
+    local copycords = teleportTab:AddButton({
+        Title = "Copy Coords",
+        Description = "copy coords",
+        Callback = function()
+                    local player = game.Players.LocalPlayer
+        if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            local pos = player.Character.HumanoidRootPart.CFrame
+            -- Format ke string
+            local coordsString = string.format(
+                "CFrame.new(%.6f, %.6f, %.6f, %.6f, %.6f, %.6f, %.6f, %.6f, %.6f, %.6f, %.6f, %.6f)",
+                pos:GetComponents()
+            )
+            setclipboard(coordsString)
+        end
+        end
     })
-    -- local copycords = teleportTab:AddButton({
-    --     Title = "Copy Coords",
-    --     Description = "copy coords",
-    --     Callback = function()
-    --                 local player = game.Players.LocalPlayer
-    --     if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-    --         local pos = player.Character.HumanoidRootPart.CFrame
-    --         -- Format ke string
-    --         local coordsString = string.format(
-    --             "CFrame.new(%.6f, %.6f, %.6f, %.6f, %.6f, %.6f, %.6f, %.6f, %.6f, %.6f, %.6f, %.6f)",
-    --             pos:GetComponents()
-    --         )
-    --         setclipboard(coordsString)
-    --     end
-    --     end
-    -- })
 end
 
 do

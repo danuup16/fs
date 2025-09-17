@@ -3363,10 +3363,47 @@ do
 
         priceDisplayConnection = spawn(function()
             while showFishPrices do
-                updateFishPriceDisplay()
-                wait(2) -- Update every 2 seconds
+                -- Check if inventory is actually open
+                local PlayerGui = game.Players.LocalPlayer.PlayerGui
+                local inventoryGui = PlayerGui:FindFirstChild("Inventory")
+                
+                if inventoryGui and inventoryGui.Enabled then
+                    print("DEBUG: Inventory is open, updating price display...")
+                    updateFishPriceDisplay()
+                else
+                    print("DEBUG: Inventory not open, skipping update")
+                end
+                
+                wait(3) -- Check every 3 seconds
             end
         end)
+        
+        -- Also add a connection to detect when inventory opens
+        local PlayerGui = game.Players.LocalPlayer.PlayerGui
+        local inventoryGui = PlayerGui:FindFirstChild("Inventory")
+        
+        if inventoryGui then
+            -- Monitor when inventory becomes enabled
+            local inventoryEnabledConnection
+            inventoryEnabledConnection = inventoryGui:GetPropertyChangedSignal("Enabled"):Connect(function()
+                if inventoryGui.Enabled and showFishPrices then
+                    print("DEBUG: Inventory just opened, updating price display...")
+                    -- Wait a bit for the inventory to fully load
+                    wait(0.5)
+                    updateFishPriceDisplay()
+                end
+            end)
+            
+            -- Clean up the connection when monitoring stops
+            spawn(function()
+                while showFishPrices and priceDisplayConnection do
+                    wait(1)
+                end
+                if inventoryEnabledConnection then
+                    inventoryEnabledConnection:Disconnect()
+                end
+            end)
+        end
     end
 
     -- NEW FUNCTION: Stop price display monitoring
@@ -3644,4 +3681,4 @@ do
 end
 Window:SelectTab(1)
 AutoConfig:Initialize(Fluent)
-end --rrrr
+end

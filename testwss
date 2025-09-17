@@ -3119,10 +3119,10 @@ do
 
     local priceFrame = Instance.new("Frame")
     priceFrame.Name = "PriceOverlay"
-    priceFrame.Size = UDim2.new(1, -6, 0.25, 0) -- Full width minus padding, 25% height
-    priceFrame.Position = UDim2.new(0, 3, 0.15, 0) -- Top center position moved down 2% more
+    priceFrame.Size = UDim2.new(1, -10, 0.3, 0) -- Slightly smaller width, 30% height
+    priceFrame.Position = UDim2.new(0, 5, 0.35, 0) -- Centered vertically on the fish icon
     priceFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0) -- Black background
-    priceFrame.BackgroundTransparency = 0.9 -- Semi-transparent
+    priceFrame.BackgroundTransparency = 0.85 -- Less transparent for better visibility
     priceFrame.BorderSizePixel = 0
     priceFrame.ZIndex = 200 -- Very high Z-Index
 
@@ -3135,32 +3135,32 @@ do
     -- Format price with commas
     local formattedPrice = tostring(fishData.sellPrice):reverse():gsub("(%d%d%d)", "%1,"):reverse():gsub("^,", "")
     priceLabel.Text = formattedPrice .. " coins"
-    priceLabel.TextColor3 = Color3.fromRGB(255, 255, 255) -- WHITE TEXT
+    priceLabel.TextColor3 = Color3.fromRGB(255, 255, 0) -- Yellow text for better visibility
     priceLabel.TextScaled = true
     priceLabel.Font = Enum.Font.GothamBold
-    priceLabel.TextStrokeTransparency = 0.2 -- Slight text stroke for better visibility
+    priceLabel.TextStrokeTransparency = 0.1 -- Stronger text stroke for better visibility
     priceLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0) -- Black text stroke
     priceLabel.ZIndex = 201
     priceLabel.Parent = priceFrame
 
     -- Add rounded corners
     local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 6)
+    corner.CornerRadius = UDim.new(0, 8)
     corner.Parent = priceFrame
 
     -- Add subtle gradient background for better visibility
     local gradient = Instance.new("UIGradient")
     gradient.Color = ColorSequence.new{
         ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 0, 0)),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(50, 50, 50))
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(40, 40, 40))
     }
     gradient.Rotation = 90
     gradient.Parent = priceFrame
 
     -- Add subtle border for better definition
     local border = Instance.new("UIStroke")
-    border.Color = Color3.fromRGB(100, 100, 100)
-    border.Transparency = 0.5
+    border.Color = Color3.fromRGB(255, 255, 0) -- Yellow border to match text
+    border.Transparency = 0.3
     border.Thickness = 1
     border.Parent = priceFrame
 
@@ -3169,6 +3169,7 @@ do
     
     print("DEBUG: Price overlay created successfully for:", fishData.name)
 end
+
 
     -- Remove price overlay
     local function removePriceOverlay(fishTile)
@@ -3231,11 +3232,37 @@ end
             if tile:IsA("ImageButton") and tile.Visible then
                 tilesFound = tilesFound + 1
                 
-                -- Look for fish name in the tile
-                local itemNameLabel = tile:FindFirstChild("ItemName", true)
+                -- IMPROVED: Look for fish name in multiple possible locations within the tile
+                local fishName = nil
                 
+                -- Method 1: Look for ItemName label (most common)
+                local itemNameLabel = tile:FindFirstChild("ItemName", true)
                 if itemNameLabel and itemNameLabel.Text ~= "" then
-                    local fishName = itemNameLabel.Text
+                    fishName = itemNameLabel.Text
+                end
+                
+                -- Method 2: Look for any TextLabel that might contain the fish name
+                if not fishName then
+                    for _, child in pairs(tile:GetDescendants()) do
+                        if child:IsA("TextLabel") and child.Text and child.Text ~= "" then
+                            -- Skip weight and price labels
+                            if not string.find(child.Text:lower(), "kg") and 
+                               not string.find(child.Text:lower(), "coin") and
+                               not string.find(child.Text:lower(), "%.") and
+                               string.len(child.Text) > 3 then -- Fish names are usually longer than 3 characters
+                                fishName = child.Text
+                                break
+                            end
+                        end
+                    end
+                end
+                
+                -- Method 3: Check tile name itself
+                if not fishName and tile.Name and tile.Name ~= "ImageButton" then
+                    fishName = tile.Name
+                end
+                
+                if fishName then
                     print("DEBUG: Found tile with fish name:", fishName)
                     
                     -- IMPROVED: Try multiple methods to find fish price
@@ -3356,17 +3383,9 @@ end
                         overlaysCreated = overlaysCreated + 1
                     else
                         print("DEBUG: No price data found for fish:", fishName)
-                        
-                        -- Optional: Create a placeholder overlay showing "Price not found"
-                        local placeholderData = {
-                            name = fishName,
-                            sellPrice = 0 -- This will show as "0 coins"
-                        }
-                        -- Uncomment the line below if you want to show "0 coins" for unknown fish
-                        -- createPriceOverlay(tile, placeholderData)
                     end
                 else
-                    print("DEBUG: No ItemName found in tile:", tile.Name)
+                    print("DEBUG: No fish name found in tile:", tile.Name)
                 end
             end
         end
@@ -3780,4 +3799,5 @@ end
 Window:SelectTab(1)
 AutoConfig:Initialize(Fluent)
 end
----dsa
+
+-xsax

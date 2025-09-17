@@ -3173,116 +3173,206 @@ do
 
     -- IMPROVED: Update fish price display using cached data
     local function updateFishPriceDisplay()
-        print("DEBUG: updateFishPriceDisplay called, showFishPrices:", showFishPrices)
-        print("DEBUG: Cached inventory items:", table.getn(cachedInventoryData) or 0)
+    print("DEBUG: updateFishPriceDisplay called, showFishPrices:", showFishPrices)
+    
+    local success, error = pcall(function()
+        local PlayerGui = game.Players.LocalPlayer.PlayerGui
+        local inventoryGui = PlayerGui:FindFirstChild("Inventory")
         
-        local success, error = pcall(function()
-            local PlayerGui = game.Players.LocalPlayer.PlayerGui
-            local inventoryGui = PlayerGui:FindFirstChild("Inventory")
-            
-            if not inventoryGui or not inventoryGui.Enabled then
-                print("DEBUG: Inventory GUI not found or not enabled")
-                return
-            end
-            
-            local mainFrame = inventoryGui:FindFirstChild("Main")
-            if not mainFrame then return end
-            
-            local contentFrame = mainFrame:FindFirstChild("Content")
-            if not contentFrame then return end
-            
-            local pagesFrame = contentFrame:FindFirstChild("Pages")
-            if not pagesFrame then return end
-            
-            local inventoryPage = pagesFrame:FindFirstChild("Inventory")
-            if not inventoryPage or not inventoryPage.Visible then 
-                print("DEBUG: Inventory page not found or not visible")
-                return 
-            end
+        if not inventoryGui or not inventoryGui.Enabled then
+            print("DEBUG: Inventory GUI not found or not enabled")
+            return
+        end
+        
+        local mainFrame = inventoryGui:FindFirstChild("Main")
+        if not mainFrame then return end
+        
+        local contentFrame = mainFrame:FindFirstChild("Content")
+        if not contentFrame then return end
+        
+        local pagesFrame = contentFrame:FindFirstChild("Pages")
+        if not pagesFrame then return end
+        
+        local inventoryPage = pagesFrame:FindFirstChild("Inventory")
+        if not inventoryPage or not inventoryPage.Visible then 
+            print("DEBUG: Inventory page not found or not visible")
+            return 
+        end
 
-            -- Clear existing overlays first
-            local clearedCount = 0
-            for fishTile, overlay in pairs(fishPriceOverlays) do
-                if overlay and overlay.Parent then
-                    overlay:Destroy()
-                    clearedCount = clearedCount + 1
-                end
+        -- Clear existing overlays first
+        local clearedCount = 0
+        for fishTile, overlay in pairs(fishPriceOverlays) do
+            if overlay and overlay.Parent then
+                overlay:Destroy()
+                clearedCount = clearedCount + 1
             end
-            print("DEBUG: Cleared", clearedCount, "existing overlays")
-            fishPriceOverlays = {}
+        end
+        print("DEBUG: Cleared", clearedCount, "existing overlays")
+        fishPriceOverlays = {}
 
-            if not showFishPrices then
-                print("DEBUG: showFishPrices is false, exiting")
-                return
-            end
+        if not showFishPrices then
+            print("DEBUG: showFishPrices is false, exiting")
+            return
+        end
 
-            print("DEBUG: Starting to scan inventory tiles with cached data...")
-            local tilesFound = 0
-            local overlaysCreated = 0
+        print("DEBUG: Starting to scan inventory tiles...")
+        local tilesFound = 0
+        local overlaysCreated = 0
 
-            -- Scan through all inventory tiles
-            for _, tile in pairs(inventoryPage:GetChildren()) do
-                if tile:IsA("ImageButton") and tile.Visible then
-                    tilesFound = tilesFound + 1
+        -- Scan through all inventory tiles
+        for _, tile in pairs(inventoryPage:GetChildren()) do
+            if tile:IsA("ImageButton") and tile.Visible then
+                tilesFound = tilesFound + 1
+                
+                -- Look for fish name in the tile
+                local itemNameLabel = tile:FindFirstChild("ItemName", true)
+                
+                if itemNameLabel and itemNameLabel.Text ~= "" then
+                    local fishName = itemNameLabel.Text
+                    print("DEBUG: Found tile with fish name:", fishName)
                     
-                    -- Look for fish name in the tile
-                    local itemNameLabel = tile:FindFirstChild("ItemName", true) -- Search recursively
+                    -- IMPROVED: Try multiple methods to find fish price
+                    local fishData = nil
                     
-                    if itemNameLabel and itemNameLabel.Text ~= "" then
-                        local fishName = itemNameLabel.Text
-                        print("DEBUG: Found tile with fish name:", fishName)
-                        
-                        -- Try to match with cached data
-                        local matchedFish = nil
-                        for uuid, fishData in pairs(cachedInventoryData) do
-                            -- Match by name (exact or partial)
-                            if fishData.name == fishName or 
-                               string.find(fishData.name:lower(), fishName:lower()) or 
-                               string.find(fishName:lower(), fishData.name:lower()) then
-                                matchedFish = fishData
-                                print("DEBUG: Matched fish:", fishName, "with cached data:", fishData.name, "Price:", fishData.sellPrice)
+                    -- Method 1: Try to match with cached data (if var2_upvw is available)
+                    if var2_upvw and table.getn(cachedInventoryData) > 0 then
+                        for uuid, data in pairs(cachedInventoryData) do
+                            if data.name == fishName or 
+                               string.find(data.name:lower(), fishName:lower()) or 
+                               string.find(fishName:lower(), data.name:lower()) then
+                                fishData = data
+                                print("DEBUG: Matched with cached data:", data.name, "Price:", data.sellPrice)
                                 break
                             end
                         end
+                    end
+                    
+                    -- Method 2: Try fishList matching (improved)
+                    if not fishData then
+                        for _, fish in pairs(fishList) do
+                            if fish.name == fishName or
+                               string.find(fish.name:lower(), fishName:lower()) or 
+                               string.find(fishName:lower(), fish.name:lower()) then
+                                local itemData = getItemData(fish.id)
+                                if itemData and itemData.SellPrice then
+                                    fishData = {
+                                        name = fish.name,
+                                        sellPrice = itemData.SellPrice
+                                    }
+                                    print("DEBUG: Matched with fishList:", fish.name, "Price:", itemData.SellPrice)
+                                    break
+                                end
+                            end
+                        end
+                    end
+                    
+                    -- Method 3: Try direct item data lookup by scanning all items
+                    if not fishData then
+                        print("DEBUG: Trying direct item lookup for:", fishName)
+                        local foundItemData = nil
                         
-                        if matchedFish then
-                            createPriceOverlay(tile, matchedFish)
-                            overlaysCreated = overlaysCreated + 1
-                        else
-                            print("DEBUG: No cached data found for fish:", fishName)
+                        -- Scan through all item modules to find matching fish
+                        local success2, result = pcall(function()
+                            local ReplicatedStorage = game:GetService("ReplicatedStorage")
+                            local itemsFolder = ReplicatedStorage:FindFirstChild("Items")
                             
-                            -- Try to get price from fishList as fallback
+                            if itemsFolder then
+                                for _, itemModule in pairs(itemsFolder:GetChildren()) do
+                                    if itemModule:IsA("ModuleScript") then
+                                        local success3, data = pcall(function()
+                                            return require(itemModule)
+                                        end)
+                                        
+                                        if success3 and data and data.Data and data.Data.Name then
+                                            local itemName = data.Data.Name
+                                            -- Try exact and partial matching
+                                            if itemName == fishName or
+                                               string.find(itemName:lower(), fishName:lower()) or
+                                               string.find(fishName:lower(), itemName:lower()) then
+                                                
+                                                -- Make sure it's a fish
+                                                if data.Data.Type == "Fishes" and data.SellPrice then
+                                                    foundItemData = {
+                                                        name = itemName,
+                                                        sellPrice = data.SellPrice
+                                                    }
+                                                    print("DEBUG: Found via direct lookup:", itemName, "Price:", data.SellPrice)
+                                                    return foundItemData
+                                                end
+                                            end
+                                        end
+                                    end
+                                end
+                            end
+                        end)
+                        
+                        if foundItemData then
+                            fishData = foundItemData
+                        end
+                    end
+                    
+                    -- Method 4: Try alternative name patterns (for variants and special names)
+                    if not fishData then
+                        print("DEBUG: Trying alternative name patterns for:", fishName)
+                        
+                        -- Common name variations to try
+                        local nameVariations = {}
+                        
+                        -- Remove common prefixes/suffixes
+                        local cleanName = fishName:gsub("^Shiny ", ""):gsub("^Big ", ""):gsub("^Giant ", "")
+                        cleanName = cleanName:gsub("^Golden ", ""):gsub("^Chrome ", "")
+                        table.insert(nameVariations, cleanName)
+                        
+                        -- Try each variation
+                        for _, variation in pairs(nameVariations) do
                             for _, fish in pairs(fishList) do
-                                if string.find(fish.name:lower(), fishName:lower()) or 
-                                   string.find(fishName:lower(), fish.name:lower()) then
+                                if string.find(fish.name:lower(), variation:lower()) or
+                                   string.find(variation:lower(), fish.name:lower()) then
                                     local itemData = getItemData(fish.id)
                                     if itemData and itemData.SellPrice then
-                                        local fallbackData = {
+                                        fishData = {
                                             name = fish.name,
                                             sellPrice = itemData.SellPrice
                                         }
-                                        createPriceOverlay(tile, fallbackData)
-                                        overlaysCreated = overlaysCreated + 1
-                                        print("DEBUG: Used fallback data for:", fishName)
+                                        print("DEBUG: Matched with variation:", variation, "->", fish.name, "Price:", itemData.SellPrice)
                                         break
                                     end
                                 end
                             end
+                            if fishData then break end
                         end
-                    else
-                        print("DEBUG: No ItemName found in tile:", tile.Name)
                     end
+                    
+                    -- Create overlay if we found fish data
+                    if fishData then
+                        createPriceOverlay(tile, fishData)
+                        overlaysCreated = overlaysCreated + 1
+                    else
+                        print("DEBUG: No price data found for fish:", fishName)
+                        
+                        -- Optional: Create a placeholder overlay showing "Price not found"
+                        local placeholderData = {
+                            name = fishName,
+                            sellPrice = 0 -- This will show as "0 coins"
+                        }
+                        -- Uncomment the line below if you want to show "0 coins" for unknown fish
+                        -- createPriceOverlay(tile, placeholderData)
+                    end
+                else
+                    print("DEBUG: No ItemName found in tile:", tile.Name)
                 end
             end
-            
-            print("DEBUG: Summary - Tiles found:", tilesFound, "Overlays created:", overlaysCreated)
-            
-        end)
-        
-        if not success then
-            warn("ERROR: updateFishPriceDisplay failed:", error)
         end
+        
+        print("DEBUG: Summary - Tiles found:", tilesFound, "Overlays created:", overlaysCreated)
+        
+    end)
+    
+    if not success then
+        warn("ERROR: updateFishPriceDisplay failed:", error)
     end
+end
+
 
     -- IMPROVED: Start price display monitoring with inventory caching
     local function startPriceDisplayMonitoring()
@@ -3683,5 +3773,4 @@ end
 Window:SelectTab(1)
 AutoConfig:Initialize(Fluent)
 end
-
----xsa
+--qwdq

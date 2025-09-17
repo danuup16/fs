@@ -3163,16 +3163,22 @@ do
             local PlayerGui = game.Players.LocalPlayer.PlayerGui
             print("DEBUG: PlayerGui found:", PlayerGui ~= nil)
             
-            -- Try StarterGui first (as shown in workspace explorer)
-            local inventoryGui = game:GetService("StarterGui"):FindFirstChild("Inventory")
-            if not inventoryGui then
-                inventoryGui = PlayerGui:FindFirstChild("Inventory")
-            end
-            print("DEBUG: Inventory GUI found:", inventoryGui ~= nil, inventoryGui and inventoryGui.Parent.Name or "N/A")
+            -- Focus on PlayerGui instead of StarterGui for actual tiles
+            local inventoryGui = PlayerGui:FindFirstChild("Inventory")
+            print("DEBUG: Inventory GUI found in PlayerGui:", inventoryGui ~= nil)
             
             if not inventoryGui then 
-                print("DEBUG: Inventory GUI not found in both StarterGui and PlayerGui")
+                print("DEBUG: Inventory GUI not found in PlayerGui, children:")
+                for _, child in pairs(PlayerGui:GetChildren()) do
+                    print("  - " .. child.Name)
+                end
                 return 
+            end
+            
+            -- Check if inventory is actually open
+            if not inventoryGui.Enabled then
+                print("DEBUG: Inventory GUI is not enabled/visible")
+                return
             end
             
             local mainFrame = inventoryGui:FindFirstChild("Main")
@@ -3241,22 +3247,27 @@ do
             local tilesProcessed = 0
             local overlaysCreated = 0
 
-            -- Look for the actual fish tiles - they might be clones of the template "Tile"
+            -- Look for actual fish tiles - check both Frame and ImageButton types
             for _, tile in pairs(inventoryPage:GetChildren()) do
-                -- Skip UI elements like UIGridLayout, UICorner, etc.
-                if tile:IsA("Frame") and not tile:IsA("UIGridLayout") and not tile:IsA("UIListLayout") then
-                    print("DEBUG: Found frame child:", tile.Name, "Type:", tile.ClassName)
-                    
-                    -- Check if tile has Visible property (Frames do, UI elements don't)
-                    local isVisible = true
-                    local hasVisibleProperty = pcall(function() return tile.Visible end)
-                    if hasVisibleProperty then
-                        isVisible = tile.Visible
-                    end
-                    
-                    print("DEBUG: Processing tile:", tile.Name, "Visible:", isVisible)
+                print("DEBUG: Found child:", tile.Name, "Type:", tile.ClassName)
+                
+                -- Check for both Frame and ImageButton (since template was ImageButton)
+                if (tile:IsA("Frame") or tile:IsA("ImageButton")) and 
+                   tile.Name ~= "Tile" and 
+                   not tile:IsA("UIGridLayout") and 
+                   not tile:IsA("UIListLayout") then
                     
                     tilesFound = tilesFound + 1
+                    print("DEBUG: Processing potential tile:", tile.Name, "Type:", tile.ClassName)
+                    
+                    -- Check if tile has Visible property
+                    local isVisible = true
+                    local hasVisibleProperty, visibleValue = pcall(function() return tile.Visible end)
+                    if hasVisibleProperty then
+                        isVisible = visibleValue
+                    end
+                    
+                    print("DEBUG: Tile visible:", isVisible)
                     
                     -- List all children of this tile to understand structure
                     print("DEBUG: Tile children:")
@@ -3267,9 +3278,33 @@ do
                     if isVisible then
                         tilesProcessed = tilesProcessed + 1
                         
-                        -- Look for fish data based on actual structure
+                        -- Look for fish data - try different possible structures
                         local itemNameLabel = tile:FindFirstChild("ItemName")
                         local vectorImage = tile:FindFirstChild("Vector")
+                        
+                        -- If not found, search recursively in children
+                        if not itemNameLabel or not vectorImage then
+                            for _, child in pairs(tile:GetChildren()) do
+                                if child:IsA("Frame") then -- Maybe fish data is in a sub-frame
+                                    if not itemNameLabel then
+                                        itemNameLabel = child:FindFirstChild("ItemName")
+                                    end
+                                    if not vectorImage then
+                                        vectorImage = child:FindFirstChild("Vector")
+                                    end
+                                    
+                                    -- Check children of children
+                                    for _, grandchild in pairs(child:GetChildren()) do
+                                        if not itemNameLabel and grandchild:IsA("TextLabel") then
+                                            itemNameLabel = grandchild
+                                        end
+                                        if not vectorImage and grandchild:IsA("ImageLabel") then
+                                            vectorImage = grandchild
+                                        end
+                                    end
+                                end
+                            end
+                        end
                         
                         print("DEBUG: ItemNameLabel found:", itemNameLabel ~= nil)
                         print("DEBUG: VectorImage found:", vectorImage ~= nil)
@@ -3278,63 +3313,39 @@ do
                             local fishName = itemNameLabel.Text
                             print("DEBUG: Processing fish:", fishName)
                             
-                            -- For debugging, let's create overlay for ANY fish with default price
-                            local foundPrice = 1000 -- Debug price for all fish
+                            -- For debugging, create overlay for ANY fish
+                            local foundPrice = 1500 -- Debug price
                             print("DEBUG: Using debug price:", foundPrice, "for fish:", fishName)
                             
                             -- Create overlay
-                            if foundPrice and foundPrice > 0 then
-                                createPriceOverlay(tile, foundPrice)
-                                overlaysCreated = overlaysCreated + 1
-                            else
-                                print("DEBUG: No valid price for", fishName)
-                            end
+                            createPriceOverlay(tile, foundPrice)
+                            overlaysCreated = overlaysCreated + 1
                         else
                             print("DEBUG: Missing ItemNameLabel or Vector in tile:", tile.Name)
                             
-                            -- Alternative search - maybe structure is different
-                            for _, child in pairs(tile:GetChildren()) do
-                                if child:IsA("TextLabel") then
-                                    print("DEBUG: Found TextLabel:", child.Name, "Text:", child.Text)
-                                elseif child:IsA("ImageLabel") then
-                                    print("DEBUG: Found ImageLabel:", child.Name, "Image:", child.Image ~= "" and "Has Image" or "No Image")
+                            -- Show all text labels and image labels for debugging
+                            for _, child in pairs(tile:GetDescendants()) do
+                                if child:IsA("TextLabel") and child.Text ~= "" then
+                                    print("DEBUG: Found TextLabel descendant:", child.Name, "Text:", child.Text, "Parent:", child.Parent.Name)
+                                elseif child:IsA("ImageLabel") and child.Image ~= "" then
+                                    print("DEBUG: Found ImageLabel descendant:", child.Name, "Parent:", child.Parent.Name)
                                 end
                             end
                         end
                     end
                 else
-                    -- Log non-frame children for debugging
-                    print("DEBUG: Skipping non-frame child:", tile.Name, "Type:", tile.ClassName)
+                    print("DEBUG: Skipping child:", tile.Name, "Type:", tile.ClassName)
                 end
             end
             
             print("DEBUG: Summary - Tiles found:", tilesFound, "Tiles processed:", tilesProcessed, "Overlays created:", overlaysCreated)
             
-            -- If no tiles found, let's also check if we're looking at the right inventory
-            -- Maybe we need to look at the actual PlayerGui instance that's active
+            -- If still no tiles found, show total children count and their types
             if tilesFound == 0 then
-                print("DEBUG: No tiles found, checking active PlayerGui inventory...")
-                local activeInventoryGui = PlayerGui:FindFirstChild("Inventory")
-                if activeInventoryGui and activeInventoryGui.Enabled then
-                    print("DEBUG: Found active inventory in PlayerGui, rescanning...")
-                    local activePath = activeInventoryGui:FindFirstChild("Main")
-                    if activePath then
-                        activePath = activePath:FindFirstChild("Content")
-                        if activePath then
-                            activePath = activePath:FindFirstChild("Pages")
-                            if activePath then
-                                activePath = activePath:FindFirstChild("Inventory")
-                                if activePath then
-                                    print("DEBUG: Active inventory path found, children count:", #activePath:GetChildren())
-                                    for i, child in pairs(activePath:GetChildren()) do
-                                        if child:IsA("Frame") and i <= 5 then -- Only log first 5 for brevity
-                                            print("DEBUG: Active tile", i, ":", child.Name, child.Visible)
-                                        end
-                                    end
-                                end
-                            end
-                        end
-                    end
+                print("DEBUG: No tiles found. Total children in inventory page:", #inventoryPage:GetChildren())
+                print("DEBUG: All children:")
+                for i, child in pairs(inventoryPage:GetChildren()) do
+                    print("  " .. i .. ". " .. child.Name .. " (" .. child.ClassName .. ")")
                 end
             end
         end)
@@ -3438,8 +3449,8 @@ do
                     end
                     local fishImageURL = getFishImageURL(itemData.Id)
                     local embedData = {
-                    ["title"] = "ðŸŽ£ FISH IT - #DJSTEST!",
-                    ["color"] = tierInfo.color,
+                        ["title"] = "🎣 FISH IT - #DJSTEST!",
+                        ["color"] = tierInfo.color,
                     ["fields"] = {
                        {
                             ["name"] = "**Profile : **",
@@ -3633,4 +3644,4 @@ do
 end
 Window:SelectTab(1)
 AutoConfig:Initialize(Fluent)
-end --sada
+end --rrrr

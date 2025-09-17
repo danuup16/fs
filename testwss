@@ -3102,66 +3102,73 @@ do
 
     -- IMPROVED: Create price overlay with better positioning and styling
     local function createPriceOverlay(fishTile, fishData)
-        print("DEBUG: createPriceOverlay called with tile:", fishTile.Name, "fishData:", fishData and fishData.name or "nil")
-        
-        if not fishTile or not fishData then
-            print("DEBUG: fishTile or fishData is nil")
-            return
-        end
-        
-        if fishPriceOverlays[fishTile] then
-            print("DEBUG: Overlay already exists for tile:", fishTile.Name)
-            fishPriceOverlays[fishTile]:Destroy()
-            fishPriceOverlays[fishTile] = nil
-        end
-
-        print("DEBUG: Creating price overlay for:", fishData.name, "with price:", fishData.sellPrice)
-
-        local priceFrame = Instance.new("Frame")
-        priceFrame.Name = "PriceOverlay"
-        priceFrame.Size = UDim2.new(1, -4, 0.3, 0) -- Full width minus padding, 30% height
-        priceFrame.Position = UDim2.new(0, 2, 0.68, 0) -- Bottom position with small margin
-        priceFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0) -- Black background
-        priceFrame.BackgroundTransparency = 0.2 -- Semi-transparent
-        priceFrame.BorderSizePixel = 0
-        priceFrame.ZIndex = 200 -- Very high Z-Index
-
-        local priceLabel = Instance.new("TextLabel")
-        priceLabel.Name = "PriceLabel"
-        priceLabel.Size = UDim2.new(1, 0, 1, 0)
-        priceLabel.Position = UDim2.new(0, 0, 0, 0)
-        priceLabel.BackgroundTransparency = 1
-        
-        -- Format price with commas
-        local formattedPrice = tostring(fishData.sellPrice):reverse():gsub("(%d%d%d)", "%1,"):reverse():gsub("^,", "")
-        priceLabel.Text = formattedPrice .. " coins"
-        priceLabel.TextColor3 = Color3.fromRGB(255, 215, 0) -- Gold color
-        priceLabel.TextScaled = true
-        priceLabel.Font = Enum.Font.GothamBold
-        priceLabel.TextStrokeTransparency = 0
-        priceLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-        priceLabel.ZIndex = 201
-        priceLabel.Parent = priceFrame
-
-        -- Add rounded corners
-        local corner = Instance.new("UICorner")
-        corner.CornerRadius = UDim.new(0, 4)
-        corner.Parent = priceFrame
-
-        -- Add subtle gradient background
-        local gradient = Instance.new("UIGradient")
-        gradient.Color = ColorSequence.new{
-            ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 0, 0)),
-            ColorSequenceKeypoint.new(1, Color3.fromRGB(40, 40, 40))
-        }
-        gradient.Rotation = 90
-        gradient.Parent = priceFrame
-
-        priceFrame.Parent = fishTile
-        fishPriceOverlays[fishTile] = priceFrame
-        
-        print("DEBUG: Price overlay created successfully for:", fishData.name)
+    print("DEBUG: createPriceOverlay called with tile:", fishTile.Name, "fishData:", fishData and fishData.name or "nil")
+    
+    if not fishTile or not fishData then
+        print("DEBUG: fishTile or fishData is nil")
+        return
     end
+    
+    if fishPriceOverlays[fishTile] then
+        print("DEBUG: Overlay already exists for tile:", fishTile.Name)
+        fishPriceOverlays[fishTile]:Destroy()
+        fishPriceOverlays[fishTile] = nil
+    end
+
+    print("DEBUG: Creating price overlay for:", fishData.name, "with price:", fishData.sellPrice)
+
+    local priceFrame = Instance.new("Frame")
+    priceFrame.Name = "PriceOverlay"
+    priceFrame.Size = UDim2.new(1, -6, 0.25, 0) -- Full width minus padding, 25% height
+    priceFrame.Position = UDim2.new(0, 3, 0.05, 0) -- Top center position with small margin from top
+    priceFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0) -- Black background
+    priceFrame.BackgroundTransparency = 0.3 -- Semi-transparent
+    priceFrame.BorderSizePixel = 0
+    priceFrame.ZIndex = 200 -- Very high Z-Index
+
+    local priceLabel = Instance.new("TextLabel")
+    priceLabel.Name = "PriceLabel"
+    priceLabel.Size = UDim2.new(1, 0, 1, 0)
+    priceLabel.Position = UDim2.new(0, 0, 0, 0)
+    priceLabel.BackgroundTransparency = 1
+    
+    -- Format price with commas
+    local formattedPrice = tostring(fishData.sellPrice):reverse():gsub("(%d%d%d)", "%1,"):reverse():gsub("^,", "")
+    priceLabel.Text = formattedPrice .. " coins"
+    priceLabel.TextColor3 = Color3.fromRGB(255, 255, 255) -- WHITE TEXT
+    priceLabel.TextScaled = true
+    priceLabel.Font = Enum.Font.GothamBold
+    priceLabel.TextStrokeTransparency = 0.2 -- Slight text stroke for better visibility
+    priceLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0) -- Black text stroke
+    priceLabel.ZIndex = 201
+    priceLabel.Parent = priceFrame
+
+    -- Add rounded corners
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 6)
+    corner.Parent = priceFrame
+
+    -- Add subtle gradient background for better visibility
+    local gradient = Instance.new("UIGradient")
+    gradient.Color = ColorSequence.new{
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 0, 0)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(50, 50, 50))
+    }
+    gradient.Rotation = 90
+    gradient.Parent = priceFrame
+
+    -- Add subtle border for better definition
+    local border = Instance.new("UIStroke")
+    border.Color = Color3.fromRGB(100, 100, 100)
+    border.Transparency = 0.5
+    border.Thickness = 1
+    border.Parent = priceFrame
+
+    priceFrame.Parent = fishTile
+    fishPriceOverlays[fishTile] = priceFrame
+    
+    print("DEBUG: Price overlay created successfully for:", fishData.name)
+end
 
     -- Remove price overlay
     local function removePriceOverlay(fishTile)
@@ -3773,4 +3780,3 @@ end
 Window:SelectTab(1)
 AutoConfig:Initialize(Fluent)
 end
---qwdq

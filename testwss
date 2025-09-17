@@ -3078,74 +3078,57 @@ do
 
     -- NEW FUNCTION: Create price overlay for fish tiles (centered on fish image)
     local function createPriceOverlay(fishTile, price)
-        print("DEBUG: createPriceOverlay called with tile:", fishTile.Name, "price:", price)
-        
-        if not fishTile then
-            print("DEBUG: fishTile is nil")
-            return
-        end
-        
-        if fishPriceOverlays[fishTile] then
-            print("DEBUG: Overlay already exists for tile:", fishTile.Name)
-            return
-        end
-
-        -- Find the Vector (fish image) element
-        local vectorImage = fishTile:FindFirstChild("Vector")
-        if not vectorImage then
-            print("DEBUG: Vector image not found in tile:", fishTile.Name)
-            -- Let's check what children exist
-            print("DEBUG: Tile children:")
-            for _, child in pairs(fishTile:GetChildren()) do
-                print("  - " .. child.Name .. " (" .. child.ClassName .. ")")
-            end
-            return
-        end
-
-        print("DEBUG: Creating price overlay for tile:", fishTile.Name, "with price:", price)
-
-        local priceFrame = Instance.new("Frame")
-        priceFrame.Name = "PriceOverlay"
-        priceFrame.Size = UDim2.new(0.8, 0, 0.3, 0) -- Smaller, centered frame
-        priceFrame.Position = UDim2.new(0.1, 0, 0.35, 0) -- Centered position
-        priceFrame.BackgroundColor3 = Color3.fromRGB(255, 0, 0) -- Red for debugging
-        priceFrame.BackgroundTransparency = 0.2 -- Less transparent for debugging
-        priceFrame.BorderSizePixel = 0
-        priceFrame.ZIndex = 20 -- Higher Z-Index for debugging
-
-        local priceLabel = Instance.new("TextLabel")
-        priceLabel.Name = "PriceLabel"
-        priceLabel.Size = UDim2.new(1, 0, 1, 0)
-        priceLabel.Position = UDim2.new(0, 0, 0, 0)
-        priceLabel.BackgroundTransparency = 1
-        
-        -- Format price with commas for better readability
-        local formattedPrice = tostring(price):reverse():gsub("(%d%d%d)", "%1,"):reverse():gsub("^,", "")
-        priceLabel.Text = formattedPrice .. " coins"
-        priceLabel.TextColor3 = Color3.fromRGB(255, 255, 255) -- White for debugging
-        priceLabel.TextScaled = true
-        priceLabel.Font = Enum.Font.GothamBold
-        priceLabel.TextStrokeTransparency = 0.5
-        priceLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-        priceLabel.ZIndex = 21
-        priceLabel.Parent = priceFrame
-
-        local corner = Instance.new("UICorner")
-        corner.CornerRadius = UDim.new(0, 6)
-        corner.Parent = priceFrame
-
-        -- Add subtle glow effect
-        local uiStroke = Instance.new("UIStroke")
-        uiStroke.Color = Color3.fromRGB(255, 255, 255)
-        uiStroke.Transparency = 0.5
-        uiStroke.Thickness = 2
-        uiStroke.Parent = priceFrame
-
-        priceFrame.Parent = fishTile
-        fishPriceOverlays[fishTile] = priceFrame
-        
-        print("DEBUG: Price overlay created successfully for:", fishTile.Name)
+    print("DEBUG: createPriceOverlay called with tile:", fishTile.Name, "price:", price)
+    
+    if not fishTile then
+        print("DEBUG: fishTile is nil")
+        return
     end
+    
+    if fishPriceOverlays[fishTile] then
+        print("DEBUG: Overlay already exists for tile:", fishTile.Name)
+        fishPriceOverlays[fishTile]:Destroy()
+        fishPriceOverlays[fishTile] = nil
+    end
+
+    print("DEBUG: Creating price overlay for tile:", fishTile.Name, "with price:", price)
+
+    local priceFrame = Instance.new("Frame")
+    priceFrame.Name = "PriceOverlay"
+    priceFrame.Size = UDim2.new(1, 0, 0.25, 0) -- Full width, quarter height
+    priceFrame.Position = UDim2.new(0, 0, 0.75, 0) -- Bottom of the tile
+    priceFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0) -- Black background
+    priceFrame.BackgroundTransparency = 0.3 -- Semi-transparent
+    priceFrame.BorderSizePixel = 0
+    priceFrame.ZIndex = 100 -- Very high Z-Index to appear on top
+
+    local priceLabel = Instance.new("TextLabel")
+    priceLabel.Name = "PriceLabel"
+    priceLabel.Size = UDim2.new(1, 0, 1, 0)
+    priceLabel.Position = UDim2.new(0, 0, 0, 0)
+    priceLabel.BackgroundTransparency = 1
+    
+    -- Format price with commas for better readability
+    local formattedPrice = tostring(price):reverse():gsub("(%d%d%d)", "%1,"):reverse():gsub("^,", "")
+    priceLabel.Text = formattedPrice .. " coins"
+    priceLabel.TextColor3 = Color3.fromRGB(255, 255, 0) -- Yellow text
+    priceLabel.TextScaled = true
+    priceLabel.Font = Enum.Font.GothamBold
+    priceLabel.TextStrokeTransparency = 0.2
+    priceLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+    priceLabel.ZIndex = 101
+    priceLabel.Parent = priceFrame
+
+    -- Add rounded corners
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 4)
+    corner.Parent = priceFrame
+
+    priceFrame.Parent = fishTile
+    fishPriceOverlays[fishTile] = priceFrame
+    
+    print("DEBUG: Price overlay created successfully for:", fishTile.Name)
+end
 
     -- NEW FUNCTION: Remove price overlay
     local function removePriceOverlay(fishTile)
@@ -3157,203 +3140,207 @@ do
 
     -- NEW FUNCTION: Update all fish price displays
     local function updateFishPriceDisplay()
-        print("DEBUG: updateFishPriceDisplay called, showFishPrices:", showFishPrices)
+    print("DEBUG: updateFishPriceDisplay called, showFishPrices:", showFishPrices)
+    
+    local success, error = pcall(function()
+        local PlayerGui = game.Players.LocalPlayer.PlayerGui
+        print("DEBUG: PlayerGui found:", PlayerGui ~= nil)
         
-        local success, error = pcall(function()
-            local PlayerGui = game.Players.LocalPlayer.PlayerGui
-            print("DEBUG: PlayerGui found:", PlayerGui ~= nil)
-            
-            -- Focus on PlayerGui instead of StarterGui for actual tiles
-            local inventoryGui = PlayerGui:FindFirstChild("Inventory")
-            print("DEBUG: Inventory GUI found in PlayerGui:", inventoryGui ~= nil)
-            
-            if not inventoryGui then 
-                print("DEBUG: Inventory GUI not found in PlayerGui, children:")
-                for _, child in pairs(PlayerGui:GetChildren()) do
-                    print("  - " .. child.Name)
-                end
-                return 
-            end
-            
-            -- Check if inventory is actually open
-            if not inventoryGui.Enabled then
-                print("DEBUG: Inventory GUI is not enabled/visible")
-                return
-            end
-            
-            local mainFrame = inventoryGui:FindFirstChild("Main")
-            print("DEBUG: Main frame found:", mainFrame ~= nil)
-            
-            if not mainFrame then 
-                print("DEBUG: Main frame not found, children of inventoryGui:")
-                for _, child in pairs(inventoryGui:GetChildren()) do
-                    print("  - " .. child.Name)
-                end
-                return 
-            end
-            
-            local contentFrame = mainFrame:FindFirstChild("Content")
-            print("DEBUG: Content frame found:", contentFrame ~= nil)
-            
-            if not contentFrame then 
-                print("DEBUG: Content frame not found, children of mainFrame:")
-                for _, child in pairs(mainFrame:GetChildren()) do
-                    print("  - " .. child.Name)
-                end
-                return 
-            end
-            
-            local pagesFrame = contentFrame:FindFirstChild("Pages")
-            print("DEBUG: Pages frame found:", pagesFrame ~= nil)
-            
-            if not pagesFrame then 
-                print("DEBUG: Pages frame not found, children of contentFrame:")
-                for _, child in pairs(contentFrame:GetChildren()) do
-                    print("  - " .. child.Name)
-                end
-                return 
-            end
-            
-            local inventoryPage = pagesFrame:FindFirstChild("Inventory")
-            print("DEBUG: Inventory page found:", inventoryPage ~= nil)
-            print("DEBUG: Inventory page visible:", inventoryPage and inventoryPage.Visible or "N/A")
-            
-            if not inventoryPage then 
-                print("DEBUG: Inventory page not found, children of pagesFrame:")
-                for _, child in pairs(pagesFrame:GetChildren()) do
-                    print("  - " .. child.Name .. " (Visible: " .. tostring(child.Visible) .. ")")
-                end
-                return 
-            end
-
-            -- Clear existing overlays first
-            local clearedCount = 0
-            for fishTile, overlay in pairs(fishPriceOverlays) do
-                if overlay and overlay.Parent then
-                    overlay:Destroy()
-                    clearedCount = clearedCount + 1
-                end
-            end
-            print("DEBUG: Cleared", clearedCount, "existing overlays")
-            fishPriceOverlays = {}
-
-            if not showFishPrices then
-                print("DEBUG: showFishPrices is false, exiting")
-                return
-            end
-
-            print("DEBUG: Starting to scan inventory tiles...")
-            local tilesFound = 0
-            local tilesProcessed = 0
-            local overlaysCreated = 0
-
-            -- Look for actual fish tiles - check both Frame and ImageButton types
-            for _, tile in pairs(inventoryPage:GetChildren()) do
-                print("DEBUG: Found child:", tile.Name, "Type:", tile.ClassName)
-                
-                -- Check for both Frame and ImageButton (since template was ImageButton)
-                if (tile:IsA("Frame") or tile:IsA("ImageButton")) and 
-                   tile.Name ~= "Tile" and 
-                   not tile:IsA("UIGridLayout") and 
-                   not tile:IsA("UIListLayout") then
-                    
-                    tilesFound = tilesFound + 1
-                    print("DEBUG: Processing potential tile:", tile.Name, "Type:", tile.ClassName)
-                    
-                    -- Check if tile has Visible property
-                    local isVisible = true
-                    local hasVisibleProperty, visibleValue = pcall(function() return tile.Visible end)
-                    if hasVisibleProperty then
-                        isVisible = visibleValue
-                    end
-                    
-                    print("DEBUG: Tile visible:", isVisible)
-                    
-                    -- List all children of this tile to understand structure
-                    print("DEBUG: Tile children:")
-                    for _, child in pairs(tile:GetChildren()) do
-                        print("  - " .. child.Name .. " (" .. child.ClassName .. ")")
-                    end
-                    
-                    if isVisible then
-                        tilesProcessed = tilesProcessed + 1
-                        
-                        -- Look for fish data - try different possible structures
-                        local itemNameLabel = tile:FindFirstChild("ItemName")
-                        local vectorImage = tile:FindFirstChild("Vector")
-                        
-                        -- If not found, search recursively in children
-                        if not itemNameLabel or not vectorImage then
-                            for _, child in pairs(tile:GetChildren()) do
-                                if child:IsA("Frame") then -- Maybe fish data is in a sub-frame
-                                    if not itemNameLabel then
-                                        itemNameLabel = child:FindFirstChild("ItemName")
-                                    end
-                                    if not vectorImage then
-                                        vectorImage = child:FindFirstChild("Vector")
-                                    end
-                                    
-                                    -- Check children of children
-                                    for _, grandchild in pairs(child:GetChildren()) do
-                                        if not itemNameLabel and grandchild:IsA("TextLabel") then
-                                            itemNameLabel = grandchild
-                                        end
-                                        if not vectorImage and grandchild:IsA("ImageLabel") then
-                                            vectorImage = grandchild
-                                        end
-                                    end
-                                end
-                            end
-                        end
-                        
-                        print("DEBUG: ItemNameLabel found:", itemNameLabel ~= nil)
-                        print("DEBUG: VectorImage found:", vectorImage ~= nil)
-                        
-                        if itemNameLabel and vectorImage then
-                            local fishName = itemNameLabel.Text
-                            print("DEBUG: Processing fish:", fishName)
-                            
-                            -- For debugging, create overlay for ANY fish
-                            local foundPrice = 1500 -- Debug price
-                            print("DEBUG: Using debug price:", foundPrice, "for fish:", fishName)
-                            
-                            -- Create overlay
-                            createPriceOverlay(tile, foundPrice)
-                            overlaysCreated = overlaysCreated + 1
-                        else
-                            print("DEBUG: Missing ItemNameLabel or Vector in tile:", tile.Name)
-                            
-                            -- Show all text labels and image labels for debugging
-                            for _, child in pairs(tile:GetDescendants()) do
-                                if child:IsA("TextLabel") and child.Text ~= "" then
-                                    print("DEBUG: Found TextLabel descendant:", child.Name, "Text:", child.Text, "Parent:", child.Parent.Name)
-                                elseif child:IsA("ImageLabel") and child.Image ~= "" then
-                                    print("DEBUG: Found ImageLabel descendant:", child.Name, "Parent:", child.Parent.Name)
-                                end
-                            end
-                        end
-                    end
-                else
-                    print("DEBUG: Skipping child:", tile.Name, "Type:", tile.ClassName)
-                end
-            end
-            
-            print("DEBUG: Summary - Tiles found:", tilesFound, "Tiles processed:", tilesProcessed, "Overlays created:", overlaysCreated)
-            
-            -- If still no tiles found, show total children count and their types
-            if tilesFound == 0 then
-                print("DEBUG: No tiles found. Total children in inventory page:", #inventoryPage:GetChildren())
-                print("DEBUG: All children:")
-                for i, child in pairs(inventoryPage:GetChildren()) do
-                    print("  " .. i .. ". " .. child.Name .. " (" .. child.ClassName .. ")")
-                end
-            end
-        end)
+        local inventoryGui = PlayerGui:FindFirstChild("Inventory")
+        print("DEBUG: Inventory GUI found in PlayerGui:", inventoryGui ~= nil)
         
-        if not success then
-            warn("ERROR: updateFishPriceDisplay failed:", error)
+        if not inventoryGui then 
+            print("DEBUG: Inventory GUI not found")
+            return 
         end
+        
+        -- Check if inventory is actually open
+        if not inventoryGui.Enabled then
+            print("DEBUG: Inventory GUI is not enabled/visible")
+            return
+        end
+        
+        local mainFrame = inventoryGui:FindFirstChild("Main")
+        if not mainFrame then 
+            print("DEBUG: Main frame not found")
+            return 
+        end
+        
+        local contentFrame = mainFrame:FindFirstChild("Content")
+        if not contentFrame then 
+            print("DEBUG: Content frame not found")
+            return 
+        end
+        
+        local pagesFrame = contentFrame:FindFirstChild("Pages")
+        if not pagesFrame then 
+            print("DEBUG: Pages frame not found")
+            return 
+        end
+        
+        local inventoryPage = pagesFrame:FindFirstChild("Inventory")
+        if not inventoryPage then 
+            print("DEBUG: Inventory page not found")
+            return 
+        end
+
+        -- Clear existing overlays first
+        local clearedCount = 0
+        for fishTile, overlay in pairs(fishPriceOverlays) do
+            if overlay and overlay.Parent then
+                overlay:Destroy()
+                clearedCount = clearedCount + 1
+            end
+        end
+        print("DEBUG: Cleared", clearedCount, "existing overlays")
+        fishPriceOverlays = {}
+
+        if not showFishPrices then
+            print("DEBUG: showFishPrices is false, exiting")
+            return
+        end
+
+        print("DEBUG: Starting to scan inventory tiles...")
+        local tilesFound = 0
+        local tilesProcessed = 0
+        local overlaysCreated = 0
+
+        -- FIXED: Now we INCLUDE tiles named "Tile" since those are the actual fish tiles
+        for _, tile in pairs(inventoryPage:GetChildren()) do
+            -- Look for ImageButton tiles (including ones named "Tile")
+            if tile:IsA("ImageButton") and 
+               not tile:IsA("UIGridLayout") and 
+               not tile:IsA("UIListLayout") then
+                
+                tilesFound = tilesFound + 1
+                print("DEBUG: Processing tile:", tile.Name, "Type:", tile.ClassName)
+                
+                -- Check if tile is visible
+                local isVisible = tile.Visible
+                print("DEBUG: Tile visible:", isVisible)
+                
+                if isVisible then
+                    tilesProcessed = tilesProcessed + 1
+                    
+                    -- Look for fish data in the tile structure
+                    local itemNameLabel = nil
+                    local vectorImage = nil
+                    
+                    -- Search through all descendants to find the fish name and image
+                    for _, descendant in pairs(tile:GetDescendants()) do
+                        if descendant:IsA("TextLabel") and descendant.Text ~= "" and not itemNameLabel then
+                            -- Common names for fish name labels
+                            if descendant.Name == "ItemName" or 
+                               descendant.Name == "Name" or 
+                               descendant.Name == "FishName" or
+                               string.find(descendant.Name:lower(), "name") then
+                                itemNameLabel = descendant
+                                print("DEBUG: Found fish name label:", descendant.Name, "Text:", descendant.Text)
+                            end
+                        end
+                        
+                        if descendant:IsA("ImageLabel") and descendant.Image ~= "" and not vectorImage then
+                            -- Common names for fish images
+                            if descendant.Name == "Vector" or 
+                               descendant.Name == "Image" or 
+                               descendant.Name == "FishImage" or
+                               string.find(descendant.Name:lower(), "image") or
+                               string.find(descendant.Name:lower(), "icon") then
+                                vectorImage = descendant
+                                print("DEBUG: Found fish image:", descendant.Name)
+                            end
+                        end
+                    end
+                    
+                    -- If we still haven't found the fish name, look for any TextLabel with meaningful text
+                    if not itemNameLabel then
+                        for _, descendant in pairs(tile:GetDescendants()) do
+                            if descendant:IsA("TextLabel") and 
+                               descendant.Text ~= "" and 
+                               descendant.Text ~= "0" and
+                               not string.find(descendant.Text, "%%") and
+                               string.len(descendant.Text) > 2 then
+                                itemNameLabel = descendant
+                                print("DEBUG: Found potential fish name label:", descendant.Name, "Text:", descendant.Text)
+                                break
+                            end
+                        end
+                    end
+                    
+                    -- If we still haven't found the image, take the first ImageLabel we find
+                    if not vectorImage then
+                        for _, descendant in pairs(tile:GetDescendants()) do
+                            if descendant:IsA("ImageLabel") and descendant.Image ~= "" then
+                                vectorImage = descendant
+                                print("DEBUG: Found potential fish image:", descendant.Name)
+                                break
+                            end
+                        end
+                    end
+                    
+                    print("DEBUG: ItemNameLabel found:", itemNameLabel ~= nil)
+                    print("DEBUG: VectorImage found:", vectorImage ~= nil)
+                    
+                    if itemNameLabel and vectorImage then
+                        local fishName = itemNameLabel.Text
+                        print("DEBUG: Processing fish:", fishName)
+                        
+                        -- Try to get real fish price from fishList
+                        local fishPrice = nil
+                        for _, fish in pairs(fishList) do
+                            if string.find(fish.name:lower(), fishName:lower()) or 
+                               string.find(fishName:lower(), fish.name:lower()) then
+                                -- Get item data for this fish
+                                local itemData = getItemData(fish.id)
+                                if itemData and itemData.SellPrice then
+                                    fishPrice = itemData.SellPrice
+                                    print("DEBUG: Found real price for", fishName, ":", fishPrice)
+                                    break
+                                end
+                            end
+                        end
+                        
+                        -- If no real price found, use a default/estimated price
+                        if not fishPrice then
+                            fishPrice = 1500 -- Default price for debugging
+                            print("DEBUG: Using default price:", fishPrice, "for fish:", fishName)
+                        end
+                        
+                        -- Create overlay on the tile itself
+                        createPriceOverlay(tile, fishPrice)
+                        overlaysCreated = overlaysCreated + 1
+                        
+                    else
+                        print("DEBUG: Missing ItemNameLabel or Vector in tile:", tile.Name)
+                        
+                        -- Show what we found for debugging
+                        print("DEBUG: All TextLabels in tile:")
+                        for _, descendant in pairs(tile:GetDescendants()) do
+                            if descendant:IsA("TextLabel") and descendant.Text ~= "" then
+                                print("  -", descendant.Name, ":", descendant.Text)
+                            end
+                        end
+                        
+                        print("DEBUG: All ImageLabels in tile:")
+                        for _, descendant in pairs(tile:GetDescendants()) do
+                            if descendant:IsA("ImageLabel") and descendant.Image ~= "" then
+                                print("  -", descendant.Name)
+                            end
+                        end
+                    end
+                end
+            end
+        end
+        
+        print("DEBUG: Summary - Tiles found:", tilesFound, "Tiles processed:", tilesProcessed, "Overlays created:", overlaysCreated)
+        
+    end)
+    
+    if not success then
+        warn("ERROR: updateFishPriceDisplay failed:", error)
     end
+end
+
 
     -- NEW FUNCTION: Start price display monitoring
     local function startPriceDisplayMonitoring()
@@ -3682,3 +3669,4 @@ end
 Window:SelectTab(1)
 AutoConfig:Initialize(Fluent)
 end
+---rwr

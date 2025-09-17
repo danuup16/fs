@@ -3078,24 +3078,40 @@ do
 
     -- NEW FUNCTION: Create price overlay for fish tiles (centered on fish image)
     local function createPriceOverlay(fishTile, price)
-        if not fishTile or fishPriceOverlays[fishTile] then
+        print("DEBUG: createPriceOverlay called with tile:", fishTile.Name, "price:", price)
+        
+        if not fishTile then
+            print("DEBUG: fishTile is nil")
+            return
+        end
+        
+        if fishPriceOverlays[fishTile] then
+            print("DEBUG: Overlay already exists for tile:", fishTile.Name)
             return
         end
 
         -- Find the Vector (fish image) element
         local vectorImage = fishTile:FindFirstChild("Vector")
         if not vectorImage then
+            print("DEBUG: Vector image not found in tile:", fishTile.Name)
+            -- Let's check what children exist
+            print("DEBUG: Tile children:")
+            for _, child in pairs(fishTile:GetChildren()) do
+                print("  - " .. child.Name .. " (" .. child.ClassName .. ")")
+            end
             return
         end
+
+        print("DEBUG: Creating price overlay for tile:", fishTile.Name, "with price:", price)
 
         local priceFrame = Instance.new("Frame")
         priceFrame.Name = "PriceOverlay"
         priceFrame.Size = UDim2.new(0.8, 0, 0.3, 0) -- Smaller, centered frame
         priceFrame.Position = UDim2.new(0.1, 0, 0.35, 0) -- Centered position
-        priceFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-        priceFrame.BackgroundTransparency = 0.4
+        priceFrame.BackgroundColor3 = Color3.fromRGB(255, 0, 0) -- Red for debugging
+        priceFrame.BackgroundTransparency = 0.2 -- Less transparent for debugging
         priceFrame.BorderSizePixel = 0
-        priceFrame.ZIndex = 15
+        priceFrame.ZIndex = 20 -- Higher Z-Index for debugging
 
         local priceLabel = Instance.new("TextLabel")
         priceLabel.Name = "PriceLabel"
@@ -3106,12 +3122,12 @@ do
         -- Format price with commas for better readability
         local formattedPrice = tostring(price):reverse():gsub("(%d%d%d)", "%1,"):reverse():gsub("^,", "")
         priceLabel.Text = formattedPrice .. " coins"
-        priceLabel.TextColor3 = Color3.fromRGB(255, 215, 0) -- Gold color
+        priceLabel.TextColor3 = Color3.fromRGB(255, 255, 255) -- White for debugging
         priceLabel.TextScaled = true
         priceLabel.Font = Enum.Font.GothamBold
         priceLabel.TextStrokeTransparency = 0.5
         priceLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-        priceLabel.ZIndex = 16
+        priceLabel.ZIndex = 21
         priceLabel.Parent = priceFrame
 
         local corner = Instance.new("UICorner")
@@ -3120,13 +3136,15 @@ do
 
         -- Add subtle glow effect
         local uiStroke = Instance.new("UIStroke")
-        uiStroke.Color = Color3.fromRGB(255, 215, 0)
-        uiStroke.Transparency = 0.7
-        uiStroke.Thickness = 1
+        uiStroke.Color = Color3.fromRGB(255, 255, 255)
+        uiStroke.Transparency = 0.5
+        uiStroke.Thickness = 2
         uiStroke.Parent = priceFrame
 
         priceFrame.Parent = fishTile
         fishPriceOverlays[fishTile] = priceFrame
+        
+        print("DEBUG: Price overlay created successfully for:", fishTile.Name)
     end
 
     -- NEW FUNCTION: Remove price overlay
@@ -3139,126 +3157,206 @@ do
 
     -- NEW FUNCTION: Update all fish price displays
     local function updateFishPriceDisplay()
+        print("DEBUG: updateFishPriceDisplay called, showFishPrices:", showFishPrices)
+        
         local success, error = pcall(function()
             local PlayerGui = game.Players.LocalPlayer.PlayerGui
-            local inventoryGui = PlayerGui:FindFirstChild("Inventory")
+            print("DEBUG: PlayerGui found:", PlayerGui ~= nil)
             
-            if not inventoryGui then return end
+            local inventoryGui = PlayerGui:FindFirstChild("Inventory")
+            print("DEBUG: Inventory GUI found:", inventoryGui ~= nil)
+            
+            if not inventoryGui then 
+                print("DEBUG: Inventory GUI not found, children of PlayerGui:")
+                for _, child in pairs(PlayerGui:GetChildren()) do
+                    print("  - " .. child.Name)
+                end
+                return 
+            end
             
             local mainFrame = inventoryGui:FindFirstChild("Main")
-            if not mainFrame then return end
+            print("DEBUG: Main frame found:", mainFrame ~= nil)
+            
+            if not mainFrame then 
+                print("DEBUG: Main frame not found, children of inventoryGui:")
+                for _, child in pairs(inventoryGui:GetChildren()) do
+                    print("  - " .. child.Name)
+                end
+                return 
+            end
             
             local contentFrame = mainFrame:FindFirstChild("Content")
-            if not contentFrame then return end
+            print("DEBUG: Content frame found:", contentFrame ~= nil)
+            
+            if not contentFrame then 
+                print("DEBUG: Content frame not found, children of mainFrame:")
+                for _, child in pairs(mainFrame:GetChildren()) do
+                    print("  - " .. child.Name)
+                end
+                return 
+            end
             
             local pagesFrame = contentFrame:FindFirstChild("Pages")
-            if not pagesFrame then return end
+            print("DEBUG: Pages frame found:", pagesFrame ~= nil)
+            
+            if not pagesFrame then 
+                print("DEBUG: Pages frame not found, children of contentFrame:")
+                for _, child in pairs(contentFrame:GetChildren()) do
+                    print("  - " .. child.Name)
+                end
+                return 
+            end
             
             local inventoryPage = pagesFrame:FindFirstChild("Inventory")
-            if not inventoryPage then return end
+            print("DEBUG: Inventory page found:", inventoryPage ~= nil)
+            print("DEBUG: Inventory page visible:", inventoryPage and inventoryPage.Visible or "N/A")
+            
+            if not inventoryPage then 
+                print("DEBUG: Inventory page not found, children of pagesFrame:")
+                for _, child in pairs(pagesFrame:GetChildren()) do
+                    print("  - " .. child.Name .. " (Visible: " .. tostring(child.Visible) .. ")")
+                end
+                return 
+            end
 
             -- Clear existing overlays first
+            local clearedCount = 0
             for fishTile, overlay in pairs(fishPriceOverlays) do
                 if overlay and overlay.Parent then
                     overlay:Destroy()
+                    clearedCount = clearedCount + 1
                 end
             end
+            print("DEBUG: Cleared", clearedCount, "existing overlays")
             fishPriceOverlays = {}
 
             if not showFishPrices then
+                print("DEBUG: showFishPrices is false, exiting")
                 return
             end
 
+            print("DEBUG: Starting to scan inventory tiles...")
+            local tilesFound = 0
+            local tilesProcessed = 0
+            local overlaysCreated = 0
+
             -- Add price overlays to fish tiles
             for _, tile in pairs(inventoryPage:GetChildren()) do
-                if tile:IsA("Frame") and tile.Name ~= "Tile" and tile.Visible then
-                    -- Check if this tile has fish data
-                    local itemNameLabel = tile:FindFirstChild("ItemName")
-                    local vectorImage = tile:FindFirstChild("Vector")
+                if tile:IsA("Frame") and tile.Name ~= "Tile" then
+                    tilesFound = tilesFound + 1
+                    print("DEBUG: Processing tile:", tile.Name, "Visible:", tile.Visible)
                     
-                    if itemNameLabel and vectorImage then
-                        local fishName = itemNameLabel.Text
+                    if tile.Visible then
+                        tilesProcessed = tilesProcessed + 1
                         
-                        -- Remove variant prefix if exists (like "Galaxy" from "Galaxy Bandit Angelfish")
-                        local baseFishName = fishName
-                        local variantFrame = tile:FindFirstChild("Variant")
-                        if variantFrame and variantFrame.Visible then
-                            local variantLabel = variantFrame:FindFirstChild("ItemName")
-                            if variantLabel then
-                                local variantName = variantLabel.Text
-                                -- Remove variant name from the fish name
-                                baseFishName = fishName:gsub(variantName .. " ", "")
-                            end
-                        end
+                        -- Check if this tile has fish data
+                        local itemNameLabel = tile:FindFirstChild("ItemName")
+                        local vectorImage = tile:FindFirstChild("Vector")
                         
-                        -- Try to find matching fish data by ID or name
-                        local foundPrice = nil
+                        print("DEBUG: ItemNameLabel found:", itemNameLabel ~= nil)
+                        print("DEBUG: VectorImage found:", vectorImage ~= nil)
                         
-                        -- First try exact name match
-                        for _, fish in pairs(fishList) do
-                            local itemData = getItemData(fish.id)
-                            if itemData and itemData.Type == "Fishes" then
-                                if itemData.Name == baseFishName or itemData.Name == fishName then
-                                    foundPrice = itemData.SellPrice or 0
-                                    break
+                        if itemNameLabel and vectorImage then
+                            local fishName = itemNameLabel.Text
+                            print("DEBUG: Processing fish:", fishName)
+                            
+                            -- Remove variant prefix if exists
+                            local baseFishName = fishName
+                            local variantFrame = tile:FindFirstChild("Variant")
+                            if variantFrame and variantFrame.Visible then
+                                local variantLabel = variantFrame:FindFirstChild("ItemName")
+                                if variantLabel then
+                                    local variantName = variantLabel.Text
+                                    baseFishName = fishName:gsub(variantName .. " ", "")
+                                    print("DEBUG: Variant detected, base name:", baseFishName)
                                 end
                             end
-                        end
-                        
-                        -- If not found, try partial name matching
-                        if not foundPrice then
+                            
+                            -- Try to find matching fish data by ID or name
+                            local foundPrice = nil
+                            
+                            -- First try exact name match
                             for _, fish in pairs(fishList) do
                                 local itemData = getItemData(fish.id)
                                 if itemData and itemData.Type == "Fishes" then
-                                    if baseFishName:find(itemData.Name) or itemData.Name:find(baseFishName) then
+                                    if itemData.Name == baseFishName or itemData.Name == fishName then
                                         foundPrice = itemData.SellPrice or 0
+                                        print("DEBUG: Exact match found for", fishName, "price:", foundPrice)
                                         break
                                     end
                                 end
                             end
-                        end
-                        
-                        -- Also check all available fish items from game data
-                        if not foundPrice then
-                            local success2, itemData = pcall(function()
-                                local ReplicatedStorage = game:GetService("ReplicatedStorage")
-                                local itemsFolder = ReplicatedStorage:FindFirstChild("Items")
-                                
-                                if itemsFolder then
-                                    for _, itemModule in pairs(itemsFolder:GetChildren()) do
-                                        if itemModule:IsA("ModuleScript") then
-                                            local moduleSuccess, data = pcall(function()
-                                                return require(itemModule)
-                                            end)
-                                            
-                                            if moduleSuccess and data and data.Data then
-                                                if data.Data.Type == "Fishes" and 
-                                                   (data.Data.Name == baseFishName or data.Data.Name == fishName) then
-                                                    return data.SellPrice or 0
+                            
+                            -- If not found, try partial name matching
+                            if not foundPrice then
+                                for _, fish in pairs(fishList) do
+                                    local itemData = getItemData(fish.id)
+                                    if itemData and itemData.Type == "Fishes" then
+                                        if baseFishName:find(itemData.Name) or itemData.Name:find(baseFishName) then
+                                            foundPrice = itemData.SellPrice or 0
+                                            print("DEBUG: Partial match found for", fishName, "price:", foundPrice)
+                                            break
+                                        end
+                                    end
+                                end
+                            end
+                            
+                            -- Also check all available fish items from game data
+                            if not foundPrice then
+                                local success2, itemData = pcall(function()
+                                    local ReplicatedStorage = game:GetService("ReplicatedStorage")
+                                    local itemsFolder = ReplicatedStorage:FindFirstChild("Items")
+                                    
+                                    if itemsFolder then
+                                        for _, itemModule in pairs(itemsFolder:GetChildren()) do
+                                            if itemModule:IsA("ModuleScript") then
+                                                local moduleSuccess, data = pcall(function()
+                                                    return require(itemModule)
+                                                end)
+                                                
+                                                if moduleSuccess and data and data.Data then
+                                                    if data.Data.Type == "Fishes" and 
+                                                       (data.Data.Name == baseFishName or data.Data.Name == fishName) then
+                                                        print("DEBUG: Game data match found for", fishName, "price:", data.SellPrice or 0)
+                                                        return data.SellPrice or 0
+                                                    end
                                                 end
                                             end
                                         end
                                     end
+                                    return nil
+                                end)
+                                
+                                if success2 and itemData then
+                                    foundPrice = itemData
                                 end
-                                return nil
-                            end)
-                            
-                            if success2 and itemData then
-                                foundPrice = itemData
                             end
-                        end
-                        
-                        -- Create overlay if price found
-                        if foundPrice and foundPrice > 0 then
-                            createPriceOverlay(tile, foundPrice)
+                            
+                            -- For debugging, let's try to create overlay for any fish with a default price
+                            if not foundPrice then
+                                print("DEBUG: No price found for", fishName, "using default price 1000 for testing")
+                                foundPrice = 1000 -- Debug price
+                            end
+                            
+                            -- Create overlay if price found
+                            if foundPrice and foundPrice > 0 then
+                                createPriceOverlay(tile, foundPrice)
+                                overlaysCreated = overlaysCreated + 1
+                            else
+                                print("DEBUG: No valid price for", fishName)
+                            end
+                        else
+                            print("DEBUG: Missing ItemNameLabel or Vector in tile:", tile.Name)
                         end
                     end
                 end
             end
+            
+            print("DEBUG: Summary - Tiles found:", tilesFound, "Tiles processed:", tilesProcessed, "Overlays created:", overlaysCreated)
         end)
         
         if not success then
-            warn("Error updating fish price display:", error)
+            warn("ERROR: updateFishPriceDisplay failed:", error)
         end
     end
 
@@ -3355,7 +3453,7 @@ do
                         fullItemName = variantName .. " " .. itemName
                     end
                     local fishImageURL = getFishImageURL(itemData.Id)
-local embedData = {
+                    local embedData = {
                     ["title"] = "ðŸŽ£ FISH IT - #DJSTEST!",
                     ["color"] = tierInfo.color,
                     ["fields"] = {
@@ -3551,5 +3649,4 @@ local embedData = {
 end
 Window:SelectTab(1)
 AutoConfig:Initialize(Fluent)
-end
---wda
+end --sadsa

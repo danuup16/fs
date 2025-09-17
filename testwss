@@ -2728,14 +2728,10 @@ do
         end
     end)
 end ---zr
--- Enhanced Webhook Tab with Fish Price Display Toggle
 do
     local WebhookTab = Tabs.Webhook
-
-    -- Variables for price display
-    local showFishPrices = false
-    local priceDisplayConnection = nil
-    local fishPriceOverlays = {}
+    
+    -- Variables for webhook functionality only
     local cachedInventoryData = {}
     local inventoryDataConnection = nil
 
@@ -2950,309 +2946,6 @@ do
         end
         cachedInventoryData = {}
     end
-
-    -- Create price overlay with centered positioning
-    local function createPriceOverlay(fishTile, fishData)        
-        if not fishTile or not fishData then
-            return
-        end
-        
-        if not fishPriceOverlays then
-            fishPriceOverlays = {}
-        end
-        
-        if fishPriceOverlays[fishTile] then
-            pcall(function() fishPriceOverlays[fishTile]:Destroy() end)
-            fishPriceOverlays[fishTile] = nil
-        end
-
-        local priceFrame = Instance.new("Frame")
-        priceFrame.Name = "PriceOverlay"
-        priceFrame.Size = UDim2.new(1, -10, 0.3, 0)
-        priceFrame.Position = UDim2.new(0, 5, 0.35, 0)
-        priceFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-        priceFrame.BackgroundTransparency = 0.85
-        priceFrame.BorderSizePixel = 0
-        priceFrame.ZIndex = 200
-
-        local priceLabel = Instance.new("TextLabel")
-        priceLabel.Name = "PriceLabel"
-        priceLabel.Size = UDim2.new(1, 0, 1, 0)
-        priceLabel.Position = UDim2.new(0, 0, 0, 0)
-        priceLabel.BackgroundTransparency = 1
-        
-        local price = tonumber(fishData.sellPrice) or 0
-        local formattedPrice = tostring(price):reverse():gsub("(%d%d%d)", "%1,"):reverse():gsub("^,", "")
-        priceLabel.Text = formattedPrice .. " coins"
-        priceLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-        priceLabel.TextScaled = true
-        priceLabel.Font = Enum.Font.GothamBold
-        priceLabel.TextStrokeTransparency = 0.1
-        priceLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-        priceLabel.ZIndex = 201
-        priceLabel.Parent = priceFrame
-
-        local corner = Instance.new("UICorner")
-        corner.CornerRadius = UDim.new(0, 8)
-        corner.Parent = priceFrame
-
-        local gradient = Instance.new("UIGradient")
-        gradient.Color = ColorSequence.new{
-            ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 0, 0)),
-            ColorSequenceKeypoint.new(1, Color3.fromRGB(40, 40, 40))
-        }
-        gradient.Rotation = 90
-        gradient.Parent = priceFrame
-
-        local border = Instance.new("UIStroke")
-        border.Color = Color3.fromRGB(255, 255, 0)
-        border.Transparency = 1
-        border.Thickness = 1
-        border.Parent = priceFrame
-
-        priceFrame.Parent = fishTile
-        fishPriceOverlays[fishTile] = priceFrame
-    end
-
-    -- Update fish price display
-    local function updateFishPriceDisplay()
-        local success, error = pcall(function()
-            local PlayerGui = game.Players.LocalPlayer.PlayerGui
-            local inventoryGui = PlayerGui:FindFirstChild("Inventory")
-            
-            if not inventoryGui or not inventoryGui.Enabled then
-                return
-            end
-            
-            local mainFrame = inventoryGui:FindFirstChild("Main")
-            if not mainFrame then return end
-            
-            local contentFrame = mainFrame:FindFirstChild("Content")
-            if not contentFrame then return end
-            
-            local pagesFrame = contentFrame:FindFirstChild("Pages")
-            if not pagesFrame then return end
-            
-            local inventoryPage = pagesFrame:FindFirstChild("Inventory")
-            if not inventoryPage or not inventoryPage.Visible then 
-                return 
-            end
-
-            if not fishPriceOverlays then
-                fishPriceOverlays = {}
-            end
-
-            for fishTile, overlay in pairs(fishPriceOverlays) do
-                if overlay and overlay.Parent then
-                    pcall(function() overlay:Destroy() end)
-                end
-            end
-            fishPriceOverlays = {}
-
-            if not showFishPrices then
-                return
-            end
-
-            for _, tile in pairs(inventoryPage:GetChildren()) do
-                if tile:IsA("ImageButton") and tile.Visible then
-                    local fishName = nil
-                    
-                    local itemNameLabel = tile:FindFirstChild("ItemName", true)
-                    if itemNameLabel and itemNameLabel.Text and itemNameLabel.Text ~= "" then
-                        fishName = itemNameLabel.Text
-                    end
-                    
-                    if not fishName then
-                        local success2, result = pcall(function()
-                            for _, child in pairs(tile:GetDescendants()) do
-                                if child:IsA("TextLabel") and child.Text and child.Text ~= "" then
-                                    local text = child.Text:lower()
-                                    if not string.find(text, "kg") and 
-                                       not string.find(text, "coin") and
-                                       not string.find(text, "%.") and
-                                       string.len(child.Text) > 3 then
-                                        return child.Text
-                                    end
-                                end
-                            end
-                        end)
-                        
-                        if success2 and result then
-                            fishName = result
-                        end
-                    end
-                    
-                    if not fishName and tile.Name and tile.Name ~= "ImageButton" then
-                        fishName = tile.Name
-                    end
-                    
-                    if fishName then
-                        local fishData = nil
-                        
-                        if var2_upvw and cachedInventoryData and next(cachedInventoryData) then
-                            for uuid, data in pairs(cachedInventoryData) do
-                                if data and data.name and 
-                                   (data.name == fishName or 
-                                    string.find(data.name:lower(), fishName:lower()) or 
-                                    string.find(fishName:lower(), data.name:lower())) then
-                                    fishData = data
-                                    break
-                                end
-                            end
-                        end
-                        
-                        if not fishData and fishList then
-                            for _, fish in pairs(fishList) do
-                                if fish and fish.name and fish.id and
-                                   (fish.name == fishName or
-                                    string.find(fish.name:lower(), fishName:lower()) or 
-                                    string.find(fishName:lower(), fish.name:lower())) then
-                                    local itemData = getItemData(fish.id)
-                                    if itemData and itemData.SellPrice then
-                                        fishData = {
-                                            name = fish.name,
-                                            sellPrice = itemData.SellPrice
-                                        }
-                                        break
-                                    end
-                                end
-                            end
-                        end
-                        
-                        if not fishData then
-                            local success3, result = pcall(function()
-                                local ReplicatedStorage = game:GetService("ReplicatedStorage")
-                                local itemsFolder = ReplicatedStorage:FindFirstChild("Items")
-                                
-                                if itemsFolder then
-                                    for _, itemModule in pairs(itemsFolder:GetChildren()) do
-                                        if itemModule:IsA("ModuleScript") then
-                                            local success4, data = pcall(function()
-                                                return require(itemModule)
-                                            end)
-                                            
-                                            if success4 and data and data.Data and data.Data.Name then
-                                                local itemName = data.Data.Name
-                                                if itemName == fishName or
-                                                   string.find(itemName:lower(), fishName:lower()) or
-                                                   string.find(fishName:lower(), itemName:lower()) then
-                                                    
-                                                    if data.Data.Type == "Fishes" and data.SellPrice then
-                                                        return {
-                                                            name = itemName,
-                                                            sellPrice = data.SellPrice
-                                                        }
-                                                    end
-                                                end
-                                            end
-                                        end
-                                    end
-                                end
-                            end)
-                            
-                            if success3 and result then
-                                fishData = result
-                            end
-                        end
-                        
-                        if not fishData and fishList then
-                            local cleanName = fishName:gsub("^Shiny ", ""):gsub("^Big ", ""):gsub("^Giant ", "")
-                            cleanName = cleanName:gsub("^Golden ", ""):gsub("^Chrome ", "")
-                            
-                            for _, fish in pairs(fishList) do
-                                if fish and fish.name and fish.id and
-                                   (string.find(fish.name:lower(), cleanName:lower()) or
-                                    string.find(cleanName:lower(), fish.name:lower())) then
-                                    local itemData = getItemData(fish.id)
-                                    if itemData and itemData.SellPrice then
-                                        fishData = {
-                                            name = fish.name,
-                                            sellPrice = itemData.SellPrice
-                                        }
-                                        break
-                                    end
-                                end
-                            end
-                        end
-                        
-                        if fishData then
-                            createPriceOverlay(tile, fishData)
-                        end
-                    end
-                end
-            end
-        end)
-        
-        if not success then
-            warn("ERROR: updateFishPriceDisplay failed:", error)
-        end
-    end
-
-    -- Start price display monitoring
-    local function startPriceDisplayMonitoring()
-        startInventoryDataMonitoring()
-        
-        if priceDisplayConnection then
-            priceDisplayConnection:Disconnect()
-        end
-
-        priceDisplayConnection = spawn(function()
-            while showFishPrices do
-                local PlayerGui = game.Players.LocalPlayer.PlayerGui
-                local inventoryGui = PlayerGui:FindFirstChild("Inventory")
-                
-                if inventoryGui and inventoryGui.Enabled then
-                    updateFishPriceDisplay()
-                end
-                
-                wait(2)
-            end
-        end)
-        
-        local PlayerGui = game.Players.LocalPlayer.PlayerGui
-        local inventoryGui = PlayerGui:FindFirstChild("Inventory")
-        
-        if inventoryGui then
-            local inventoryEnabledConnection
-            inventoryEnabledConnection = inventoryGui:GetPropertyChangedSignal("Enabled"):Connect(function()
-                if inventoryGui.Enabled and showFishPrices then
-                    spawn(function()
-                        wait(1)
-                        updateFishPriceDisplay()
-                    end)
-                end
-            end)
-            
-            spawn(function()
-                while showFishPrices and priceDisplayConnection do
-                    wait(1)
-                end
-                if inventoryEnabledConnection then
-                    inventoryEnabledConnection:Disconnect()
-                end
-            end)
-        end
-    end
-
-    -- Stop price display monitoring and clean up
-    local function stopPriceDisplayMonitoring()
-        stopInventoryDataMonitoring()
-        
-        if priceDisplayConnection then
-            pcall(function() priceDisplayConnection:Disconnect() end)
-            priceDisplayConnection = nil
-        end
-        
-        if fishPriceOverlays then
-            for fishTile, overlay in pairs(fishPriceOverlays) do
-                if overlay and overlay.Parent then
-                    pcall(function() overlay:Destroy() end)
-                end
-            end
-            fishPriceOverlays = {}
-        end
-    end
-
     -- Webhook helper functions
     local function formatWeight(weight, actualWeight)
         if not actualWeight then
@@ -3626,7 +3319,6 @@ do
             return {}
         end
     end
-
     local function startReplionMonitoring()
         local success, error = pcall(function()
             local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -3857,21 +3549,6 @@ do
         end 
     })
 
-    local FishPriceToggle = WebhookTab:AddToggle("showfishprices", {
-        Title = "Show Fish Prices in Inventory", 
-        Description = "Display fish sell prices on inventory tiles",
-        Default = false,
-        Callback = function(Value)
-            showFishPrices = Value
-            
-            if Value then
-                startPriceDisplayMonitoring()
-            else
-                stopPriceDisplayMonitoring()
-            end
-        end 
-    })
-
     WebhookTab:AddButton({
         Title = "Clear Select",
         Description = "",
@@ -3899,13 +3576,488 @@ do
             sendWebhook("TEST Robot Kraken", testData, 419600, false, nil)
         end
     })
+end
+do
+    local InventoryTab = Tabs.Inventory
+    
+    -- Variables for price display
+    local showFishPrices = false
+    local priceDisplayConnection = nil
+    local fishPriceOverlays = {}
+    local cachedInventoryData = {}
+    local inventoryDataConnection = nil
 
-    -- Initialize the system when var2_upvw becomes available
+    -- Fish list for price display (reuse from webhook)
+    local fishList = {
+        -- Secret Fish
+        {name = "Giant Squid", id = 156, tier = "Secret"},
+        {name = "Frostborn Shark", id = 136, tier = "Secret"},
+        {name = "Great Christmas Whale", id = 99, tier = "Secret"},
+        {name = "Great Whale", id = 141, tier = "Secret"},
+        {name = "Robot Kraken", id = 159, tier = "Secret"},
+        {name = "Worm Fish", id = 145, tier = "Secret"},
+        {name = "Ghost Worm Fish", id = 176, tier = "Secret"},
+        {name = "Ghost Shark", id = 83, tier = "Secret"},
+        {name = "Megalodon", id = 223, tier = "Secret"},
+        {name = "Lochaness Monster", id = 228, tier = "Secret"},
+        {name = "Scare", id = 225, tier = "Secret"},
+        {name = "Thin Armor Shark", id = 218, tier = "Secret"},
+        {name = "Monster Shark", id = 206, tier = "Secret"},
+        {name = "Crystal Crab", id = 195, tier = "Secret"},
+        {name = "Eerie Shark", id = 201, tier = "Secret"},
+        {name = "Orca", id = 200, tier = "Secret"},
+        {name = "Queen Carb", id = 187, tier = "Secret"},
+        
+        -- Mythic Fish
+        {name = "Lined Cardinal Fish", id = 110, tier = "Mythic"},
+        {name = "Gingerbread Turtle", id = 97, tier = "Mythic"},
+        {name = "Loggerhead Turtle", id = 34, tier = "Mythic"},
+        {name = "Hawks Turtle", id = 21, tier = "Mythic"},
+        {name = "Blob Fish", id = 150, tier = "Mythic"},
+        {name = "Abyss Seahorse", id = 15, tier = "Mythic"},
+        {name = "Prismy Seahorse", id = 35, tier = "Mythic"},
+        {name = "Strippled Seahorse", id = 146, tier = "Mythic"},
+        {name = "Blueflame Ray", id = 47, tier = "Mythic"},
+        {name = "Dotted Stingray", id = 75, tier = "Mythic"},
+        {name = "Manta Ray", id = 54, tier = "Mythic"},
+        {name = "Hammerhead Shark", id = 52, tier = "Mythic"},
+        {name = "Gingerbread Shark", id = 98, tier = "Mythic"},
+        {name = "Loving Shark", id = 122, tier = "Mythic"},
+        {name = "Plasma Shark", id = 137, tier = "Mythic"},
+        {name = "Thresher Shark", id = 147, tier = "Mythic"},
+        
+        -- Uncommon Fish
+        {name = "Silver Tuna", id = 139, tier = "Uncommon"},
+        {name = "Parrot Fish", id = 186, tier = "Uncommon"},
+        {name = "Blackcap Basslet", id = 182, tier = "Uncommon"},
+        {name = "Pilot Fish", id = 140, tier = "Uncommon"}
+    }
+
+    -- Function to get item data from ReplicatedStorage
+    local function getItemData(itemId)
+        local success, itemData = pcall(function()
+            local ReplicatedStorage = game:GetService("ReplicatedStorage")
+            local itemsFolder = ReplicatedStorage:FindFirstChild("Items")
+            
+            if not itemsFolder then
+                return nil
+            end
+            
+            for _, itemModule in pairs(itemsFolder:GetChildren()) do
+                if itemModule:IsA("ModuleScript") then
+                    local success2, data = pcall(function()
+                        return require(itemModule)
+                    end)
+                    
+                    if success2 and data and data.Data and data.Data.Id == itemId then
+                        return {
+                            Id = data.Data.Id,
+                            Name = data.Data.Name,
+                            Type = data.Data.Type,
+                            Tier = data.Data.Tier,
+                            SellPrice = data.SellPrice,
+                            Weight = data.Weight,
+                            Icon = data.Data.Icon,
+                            Probability = data.Probability
+                        }
+                    end
+                end
+            end
+            
+            return nil
+        end)
+        
+        if success then
+            return itemData
+        else
+            warn("Error getting item data:", itemData)
+            return nil
+        end
+    end
+
+    -- Cache inventory data from the game's data system
+    local function cacheInventoryData()
+        local success, error = pcall(function()
+            if not var2_upvw then return end
+            
+            local inventoryData = var2_upvw:Get("Inventory")
+            if not inventoryData then return end
+            
+            cachedInventoryData = {}
+            
+            for category, items in pairs(inventoryData) do
+                if category == "Fishes" then
+                    for uuid, itemInfo in pairs(items) do
+                        if itemInfo and itemInfo.Id then
+                            local itemData = getItemData(itemInfo.Id)
+                            if itemData then
+                                cachedInventoryData[uuid] = {
+                                    id = itemInfo.Id,
+                                    name = itemData.Name,
+                                    sellPrice = itemData.SellPrice or 0,
+                                    weight = itemInfo.Metadata and itemInfo.Metadata.Weight or 0,
+                                    quantity = itemInfo.Quantity or 1,
+                                    tier = itemData.Tier,
+                                    uuid = uuid
+                                }
+                            end
+                        end
+                    end
+                end
+            end
+        end)
+        
+        if not success then
+            warn("ERROR: cacheInventoryData failed:", error)
+        end
+    end
+
+    -- Start monitoring inventory data changes
+    local function startInventoryDataMonitoring()
+        if inventoryDataConnection then
+            inventoryDataConnection:Disconnect()
+        end
+        
+        if var2_upvw then
+            inventoryDataConnection = var2_upvw:OnChange("Inventory", function()
+                cacheInventoryData()
+            end)
+            
+            cacheInventoryData()
+        end
+    end
+
+    -- Stop monitoring inventory data
+    local function stopInventoryDataMonitoring()
+        if inventoryDataConnection then
+            inventoryDataConnection:Disconnect()
+            inventoryDataConnection = nil
+        end
+        cachedInventoryData = {}
+    end
+
+    -- Create price overlay with centered positioning
+    local function createPriceOverlay(fishTile, fishData)        
+        if not fishTile or not fishData then
+            return
+        end
+        
+        if not fishPriceOverlays then
+            fishPriceOverlays = {}
+        end
+        
+        if fishPriceOverlays[fishTile] then
+            pcall(function() fishPriceOverlays[fishTile]:Destroy() end)
+            fishPriceOverlays[fishTile] = nil
+        end
+
+        local priceFrame = Instance.new("Frame")
+        priceFrame.Name = "PriceOverlay"
+        priceFrame.Size = UDim2.new(1, -10, 0.3, 0)
+        priceFrame.Position = UDim2.new(0, 5, 0.35, 0)
+        priceFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+        priceFrame.BackgroundTransparency = 0.85
+        priceFrame.BorderSizePixel = 0
+        priceFrame.ZIndex = 200
+
+        local priceLabel = Instance.new("TextLabel")
+        priceLabel.Name = "PriceLabel"
+        priceLabel.Size = UDim2.new(1, 0, 1, 0)
+        priceLabel.Position = UDim2.new(0, 0, 0, 0)
+        priceLabel.BackgroundTransparency = 1
+        
+        local price = tonumber(fishData.sellPrice) or 0
+        local formattedPrice = tostring(price):reverse():gsub("(%d%d%d)", "%1,"):reverse():gsub("^,", "")
+        priceLabel.Text = formattedPrice .. " coins"
+        priceLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+        priceLabel.TextScaled = true
+        priceLabel.Font = Enum.Font.GothamBold
+        priceLabel.TextStrokeTransparency = 0.1
+        priceLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+        priceLabel.ZIndex = 201
+        priceLabel.Parent = priceFrame
+
+        local corner = Instance.new("UICorner")
+        corner.CornerRadius = UDim.new(0, 8)
+        corner.Parent = priceFrame
+
+        local gradient = Instance.new("UIGradient")
+        gradient.Color = ColorSequence.new{
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 0, 0)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(40, 40, 40))
+        }
+        gradient.Rotation = 90
+        gradient.Parent = priceFrame
+
+        local border = Instance.new("UIStroke")
+        border.Color = Color3.fromRGB(255, 255, 0)
+        border.Transparency = 1
+        border.Thickness = 1
+        border.Parent = priceFrame
+
+        priceFrame.Parent = fishTile
+        fishPriceOverlays[fishTile] = priceFrame
+    end
+    -- Update fish price display
+    local function updateFishPriceDisplay()
+        local success, error = pcall(function()
+            local PlayerGui = game.Players.LocalPlayer.PlayerGui
+            local inventoryGui = PlayerGui:FindFirstChild("Inventory")
+            
+            if not inventoryGui or not inventoryGui.Enabled then
+                return
+            end
+            
+            local mainFrame = inventoryGui:FindFirstChild("Main")
+            if not mainFrame then return end
+            
+            local contentFrame = mainFrame:FindFirstChild("Content")
+            if not contentFrame then return end
+            
+            local pagesFrame = contentFrame:FindFirstChild("Pages")
+            if not pagesFrame then return end
+            
+            local inventoryPage = pagesFrame:FindFirstChild("Inventory")
+            if not inventoryPage or not inventoryPage.Visible then 
+                return 
+            end
+
+            if not fishPriceOverlays then
+                fishPriceOverlays = {}
+            end
+
+            for fishTile, overlay in pairs(fishPriceOverlays) do
+                if overlay and overlay.Parent then
+                    pcall(function() overlay:Destroy() end)
+                end
+            end
+            fishPriceOverlays = {}
+
+            if not showFishPrices then
+                return
+            end
+
+            for _, tile in pairs(inventoryPage:GetChildren()) do
+                if tile:IsA("ImageButton") and tile.Visible then
+                    local fishName = nil
+                    
+                    local itemNameLabel = tile:FindFirstChild("ItemName", true)
+                    if itemNameLabel and itemNameLabel.Text and itemNameLabel.Text ~= "" then
+                        fishName = itemNameLabel.Text
+                    end
+                    
+                    if not fishName then
+                        local success2, result = pcall(function()
+                            for _, child in pairs(tile:GetDescendants()) do
+                                if child:IsA("TextLabel") and child.Text and child.Text ~= "" then
+                                    local text = child.Text:lower()
+                                    if not string.find(text, "kg") and 
+                                       not string.find(text, "coin") and
+                                       not string.find(text, "%.") and
+                                       string.len(child.Text) > 3 then
+                                        return child.Text
+                                    end
+                                end
+                            end
+                        end)
+                        
+                        if success2 and result then
+                            fishName = result
+                        end
+                    end
+                    
+                    if not fishName and tile.Name and tile.Name ~= "ImageButton" then
+                        fishName = tile.Name
+                    end
+                    
+                    if fishName then
+                        local fishData = nil
+                        
+                        if var2_upvw and cachedInventoryData and next(cachedInventoryData) then
+                            for uuid, data in pairs(cachedInventoryData) do
+                                if data and data.name and 
+                                   (data.name == fishName or 
+                                    string.find(data.name:lower(), fishName:lower()) or 
+                                    string.find(fishName:lower(), data.name:lower())) then
+                                    fishData = data
+                                    break
+                                end
+                            end
+                        end
+                        
+                        if not fishData and fishList then
+                            for _, fish in pairs(fishList) do
+                                if fish and fish.name and fish.id and
+                                   (fish.name == fishName or
+                                    string.find(fish.name:lower(), fishName:lower()) or 
+                                    string.find(fishName:lower(), fish.name:lower())) then
+                                    local itemData = getItemData(fish.id)
+                                    if itemData and itemData.SellPrice then
+                                        fishData = {
+                                            name = fish.name,
+                                            sellPrice = itemData.SellPrice
+                                        }
+                                        break
+                                    end
+                                end
+                            end
+                        end
+                        
+                        if not fishData then
+                            local success3, result = pcall(function()
+                                local ReplicatedStorage = game:GetService("ReplicatedStorage")
+                                local itemsFolder = ReplicatedStorage:FindFirstChild("Items")
+                                
+                                if itemsFolder then
+                                    for _, itemModule in pairs(itemsFolder:GetChildren()) do
+                                        if itemModule:IsA("ModuleScript") then
+                                            local success4, data = pcall(function()
+                                                return require(itemModule)
+                                            end)
+                                            
+                                            if success4 and data and data.Data and data.Data.Name then
+                                                local itemName = data.Data.Name
+                                                if itemName == fishName or
+                                                   string.find(itemName:lower(), fishName:lower()) or
+                                                   string.find(fishName:lower(), itemName:lower()) then
+                                                    
+                                                    if data.Data.Type == "Fishes" and data.SellPrice then
+                                                        return {
+                                                            name = itemName,
+                                                            sellPrice = data.SellPrice
+                                                        }
+                                                    end
+                                                end
+                                            end
+                                        end
+                                    end
+                                end
+                            end)
+                            
+                            if success3 and result then
+                                fishData = result
+                            end
+                        end
+                        
+                        if not fishData and fishList then
+                            local cleanName = fishName:gsub("^Shiny ", ""):gsub("^Big ", ""):gsub("^Giant ", "")
+                            cleanName = cleanName:gsub("^Golden ", ""):gsub("^Chrome ", "")
+                            
+                            for _, fish in pairs(fishList) do
+                                if fish and fish.name and fish.id and
+                                   (string.find(fish.name:lower(), cleanName:lower()) or
+                                    string.find(cleanName:lower(), fish.name:lower())) then
+                                    local itemData = getItemData(fish.id)
+                                    if itemData and itemData.SellPrice then
+                                        fishData = {
+                                            name = fish.name,
+                                            sellPrice = itemData.SellPrice
+                                        }
+                                        break
+                                    end
+                                end
+                            end
+                        end
+                        
+                        if fishData then
+                            createPriceOverlay(tile, fishData)
+                        end
+                    end
+                end
+            end
+        end)
+        
+        if not success then
+            warn("ERROR: updateFishPriceDisplay failed:", error)
+        end
+    end
+
+    -- Start price display monitoring
+    local function startPriceDisplayMonitoring()
+        startInventoryDataMonitoring()
+        
+        if priceDisplayConnection then
+            priceDisplayConnection:Disconnect()
+        end
+
+        priceDisplayConnection = spawn(function()
+            while showFishPrices do
+                local PlayerGui = game.Players.LocalPlayer.PlayerGui
+                local inventoryGui = PlayerGui:FindFirstChild("Inventory")
+                
+                if inventoryGui and inventoryGui.Enabled then
+                    updateFishPriceDisplay()
+                end
+                
+                wait(2)
+            end
+        end)
+        
+        local PlayerGui = game.Players.LocalPlayer.PlayerGui
+        local inventoryGui = PlayerGui:FindFirstChild("Inventory")
+        
+        if inventoryGui then
+            local inventoryEnabledConnection
+            inventoryEnabledConnection = inventoryGui:GetPropertyChangedSignal("Enabled"):Connect(function()
+                if inventoryGui.Enabled and showFishPrices then
+                    spawn(function()
+                        wait(1)
+                        updateFishPriceDisplay()
+                    end)
+                end
+            end)
+            
+            spawn(function()
+                while showFishPrices and priceDisplayConnection do
+                    wait(1)
+                end
+                if inventoryEnabledConnection then
+                    inventoryEnabledConnection:Disconnect()
+                end
+            end)
+        end
+    end
+
+    -- Stop price display monitoring and clean up
+    local function stopPriceDisplayMonitoring()
+        stopInventoryDataMonitoring()
+        
+        if priceDisplayConnection then
+            pcall(function() priceDisplayConnection:Disconnect() end)
+            priceDisplayConnection = nil
+        end
+        
+        if fishPriceOverlays then
+            for fishTile, overlay in pairs(fishPriceOverlays) do
+                if overlay and overlay.Parent then
+                    pcall(function() overlay:Destroy() end)
+                end
+            end
+            fishPriceOverlays = {}
+        end
+    end
+
+    -- Fish Price Toggle for Inventory Tab
+    local FishPriceToggle = InventoryTab:AddToggle("showfishprices", {
+        Title = "Show Fish Prices in Inventory", 
+        Description = "Display fish sell prices on inventory tiles",
+        Default = false,
+        Callback = function(Value)
+            showFishPrices = Value
+            
+            if Value then
+                startPriceDisplayMonitoring()
+            else
+                stopPriceDisplayMonitoring()
+            end
+        end 
+    })
+
+    -- Initialize when var2_upvw is available
     spawn(function()
         while not var2_upvw do
             wait(1)
         end
-        
         if showFishPrices then
             stopPriceDisplayMonitoring()
             startPriceDisplayMonitoring()
@@ -3913,151 +4065,152 @@ do
     end)
 end
 do
- -- Auto Give Only Section
-local isAutoGiveActive = false
-local autoTradeConnection = nil
-local hookApplied = false
-local originalCreateTradePrompt = nil
-
-local function setupAutoGive()
-    local success, error = pcall(function()
-        local ReplicatedStorage = game:GetService("ReplicatedStorage")
-        local Controllers = ReplicatedStorage:FindFirstChild("Controllers")
-        if Controllers then
-            local ItemTradingController = Controllers:FindFirstChild("ItemTradingController")
-            if ItemTradingController then
-                local controller = require(ItemTradingController)
-                
-                -- Store original function if not already stored
-                if not originalCreateTradePrompt and controller.CreateTradePrompt then
-                    originalCreateTradePrompt = controller.CreateTradePrompt
-                    print("[AUTO GIVE] Original CreateTradePrompt function stored")
-                end
-                
-                -- Hook the CreateTradePrompt function for outgoing trades only
-                controller.CreateTradePrompt = function(self, itemData, itemInfo, tradeInfo)
-                    print("[AUTO GIVE] CreateTradePrompt called:")
-                    print("  itemData:", itemData)
-                    print("  itemInfo:", itemInfo) 
-                    print("  tradeInfo:", tradeInfo)
+    -- Auto Give functionality for Inventory Tab
+    local isAutoGiveActive = false
+    local autoTradeConnection = nil
+    local hookApplied = false
+    local originalCreateTradePrompt = nil
+    
+    local function setupAutoGive()
+        local success, error = pcall(function()
+            local ReplicatedStorage = game:GetService("ReplicatedStorage")
+            local Controllers = ReplicatedStorage:FindFirstChild("Controllers")
+            if Controllers then
+                local ItemTradingController = Controllers:FindFirstChild("ItemTradingController")
+                if ItemTradingController then
+                    local controller = require(ItemTradingController)
                     
-                    -- Auto accept outgoing trades (giving items) only
-                    if isAutoGiveActive and tradeInfo and tradeInfo.target then
-                        local Promise = require(ReplicatedStorage.Packages.Promise)
-                        print("[AUTO GIVE] Auto giving item to:", tradeInfo.target.DisplayName)
-                        
-                        task.spawn(function()
-                            task.wait(0.2)
-                            print("[AUTO GIVE] Returning true for outgoing trade")
-                        end)
-                        
-                        return Promise.resolve(true)
+                    -- Store original function if not already stored
+                    if not originalCreateTradePrompt and controller.CreateTradePrompt then
+                        originalCreateTradePrompt = controller.CreateTradePrompt
+                        print("[AUTO GIVE] Original CreateTradePrompt function stored")
                     end
                     
-                    -- For all other cases (including incoming trades), use original function
-                    if originalCreateTradePrompt then
-                        print("[AUTO GIVE] Calling original CreateTradePrompt (not auto-giving)")
-                        return originalCreateTradePrompt(self, itemData, itemInfo, tradeInfo)
-                    else
-                        local Promise = require(ReplicatedStorage.Packages.Promise)
-                        warn("[AUTO GIVE] Original function not found")
-                        return Promise.reject("Original function not found")
-                    end
-                end
-                
-                hookApplied = true
-                
-                -- Maintain the hook with RunService connection
-                if autoTradeConnection then
-                    autoTradeConnection:Disconnect()
-                end
-                
-                autoTradeConnection = game:GetService("RunService").Heartbeat:Connect(function()
-                    -- Check every 3 seconds to maintain hook
-                    if math.floor(tick()) % 3 == 0 and tick() % 1 < 0.1 then
-                        local currentController = require(ItemTradingController)
-                        if currentController.CreateTradePrompt ~= controller.CreateTradePrompt then
-                            print("[AUTO GIVE] Re-applying CreateTradePrompt hook")
-                            currentController.CreateTradePrompt = controller.CreateTradePrompt
+                    -- Hook the CreateTradePrompt function for outgoing trades only
+                    controller.CreateTradePrompt = function(self, itemData, itemInfo, tradeInfo)
+                        print("[AUTO GIVE] CreateTradePrompt called:")
+                        print("  itemData:", itemData)
+                        print("  itemInfo:", itemInfo) 
+                        print("  tradeInfo:", tradeInfo)
+                        
+                        -- Auto accept outgoing trades (giving items) only
+                        if isAutoGiveActive and tradeInfo and tradeInfo.target then
+                            local Promise = require(ReplicatedStorage.Packages.Promise)
+                            print("[AUTO GIVE] Auto giving item to:", tradeInfo.target.DisplayName)
+                            
+                            task.spawn(function()
+                                task.wait(0.2)
+                                print("[AUTO GIVE] Returning true for outgoing trade")
+                            end)
+                            
+                            return Promise.resolve(true)
+                        end
+                        
+                        -- For all other cases (including incoming trades), use original function
+                        if originalCreateTradePrompt then
+                            print("[AUTO GIVE] Calling original CreateTradePrompt (not auto-giving)")
+                            return originalCreateTradePrompt(self, itemData, itemInfo, tradeInfo)
+                        else
+                            local Promise = require(ReplicatedStorage.Packages.Promise)
+                            warn("[AUTO GIVE] Original function not found")
+                            return Promise.reject("Original function not found")
                         end
                     end
-                end)
-                
-                print("[AUTO GIVE] Hook successfully applied!")
-                return true
-            else
-                warn("[AUTO GIVE] ItemTradingController not found!")
-            end
-        else
-            warn("[AUTO GIVE] Controllers folder not found!")
-        end
-        
-        return false
-    end)
-    
-    if not success then
-        warn("[AUTO GIVE] Setup error:", tostring(error))
-        return false
-    end
-    return success
-end
-
-local function disableAutoGive()
-    local success, error = pcall(function()
-        local ReplicatedStorage = game:GetService("ReplicatedStorage")
-        local Controllers = ReplicatedStorage:FindFirstChild("Controllers")
-        
-        if Controllers then
-            local ItemTradingController = Controllers:FindFirstChild("ItemTradingController")
-            if ItemTradingController then
-                local controller = require(ItemTradingController)
-                if originalCreateTradePrompt then
-                    print("[AUTO GIVE] Restoring original CreateTradePrompt function")
-                    controller.CreateTradePrompt = originalCreateTradePrompt
-                end
-            end
-        end
-        
-        if autoTradeConnection then
-            autoTradeConnection:Disconnect()
-            autoTradeConnection = nil
-        end
-        
-        hookApplied = false
-        print("[AUTO GIVE] Hook disabled!")
-        return true
-    end)
-    
-    if not success then
-        warn("[AUTO GIVE] Disable error:", tostring(error))
-        return false
-    end
-    return success
-end
-local autoGiveToggle = Tabs.Inventory:AddToggle("AutoGive", {
-    Title = "Skip Prompt Give",
-    Description = "Automatically give items when trading",
-    Default = false,
-    Callback = function(Value)
-        if Value then
-            if not isAutoGiveActive then
-                local success = setupAutoGive()
-                if success then
-                    isAutoGiveActive = true
+                    
+                    hookApplied = true
+                    
+                    -- Maintain the hook with RunService connection
+                    if autoTradeConnection then
+                        autoTradeConnection:Disconnect()
+                    end
+                    
+                    autoTradeConnection = game:GetService("RunService").Heartbeat:Connect(function()
+                        -- Check every 3 seconds to maintain hook
+                        if math.floor(tick()) % 3 == 0 and tick() % 1 < 0.1 then
+                            local currentController = require(ItemTradingController)
+                            if currentController.CreateTradePrompt ~= controller.CreateTradePrompt then
+                                print("[AUTO GIVE] Re-applying CreateTradePrompt hook")
+                                currentController.CreateTradePrompt = controller.CreateTradePrompt
+                            end
+                        end
+                    end)
+                    
+                    print("[AUTO GIVE] Hook successfully applied!")
+                    return true
                 else
-                    Options.AutoGive:SetValue(false)
+                    warn("[AUTO GIVE] ItemTradingController not found!")
+                end
+            else
+                warn("[AUTO GIVE] Controllers folder not found!")
+            end
+            
+            return false
+        end)
+        
+        if not success then
+            warn("[AUTO GIVE] Setup error:", tostring(error))
+            return false
+        end
+        return success
+    end
+
+    local function disableAutoGive()
+        local success, error = pcall(function()
+            local ReplicatedStorage = game:GetService("ReplicatedStorage")
+            local Controllers = ReplicatedStorage:FindFirstChild("Controllers")
+            
+            if Controllers then
+                local ItemTradingController = Controllers:FindFirstChild("ItemTradingController")
+                if ItemTradingController then
+                    local controller = require(ItemTradingController)
+                    if originalCreateTradePrompt then
+                        print("[AUTO GIVE] Restoring original CreateTradePrompt function")
+                        controller.CreateTradePrompt = originalCreateTradePrompt
+                    end
                 end
             end
-        else
-            if isAutoGiveActive then
-                isAutoGiveActive = false
-                disableAutoGive()
+            
+            if autoTradeConnection then
+                autoTradeConnection:Disconnect()
+                autoTradeConnection = nil
+            end
+            
+            hookApplied = false
+            print("[AUTO GIVE] Hook disabled!")
+            return true
+        end)
+        
+        if not success then
+            warn("[AUTO GIVE] Disable error:", tostring(error))
+            return false
+        end
+        return success
+    end
+
+    -- Auto Give Toggle for Inventory Tab
+    local autoGiveToggle = Tabs.Inventory:AddToggle("AutoGive", {
+        Title = "Skip Prompt Give",
+        Description = "Automatically give items when trading",
+        Default = false,
+        Callback = function(Value)
+            if Value then
+                if not isAutoGiveActive then
+                    local success = setupAutoGive()
+                    if success then
+                        isAutoGiveActive = true
+                    else
+                        Options.AutoGive:SetValue(false)
+                    end
+                end
+            else
+                if isAutoGiveActive then
+                    isAutoGiveActive = false
+                    disableAutoGive()
+                end
             end
         end
-    end
-})
+    })
 end
 Window:SelectTab(1)
 AutoConfig:Initialize(Fluent)
 end
----xxx

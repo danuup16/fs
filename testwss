@@ -3031,47 +3031,53 @@ do
 
     -- NEW FUNCTION: Cache inventory data from the game's data system
     local function cacheInventoryData()
-        local success, error = pcall(function()
-            if not var2_upvw then return end
-            
-            local inventoryData = var2_upvw:Get("Inventory")
-            if not inventoryData then return end
-            
-            -- Clear old cache
-            cachedInventoryData = {}
-            
-            -- Cache all fish with their data
-            for category, items in pairs(inventoryData) do
-                if category == "Fishes" then
-                    for uuid, itemInfo in pairs(items) do
-                        if itemInfo and itemInfo.Id then
-                            -- Get item data for price information
-                            local itemData = getItemData(itemInfo.Id)
-                            if itemData then
-                                cachedInventoryData[uuid] = {
-                                    id = itemInfo.Id,
-                                    name = itemData.Name,
-                                    sellPrice = itemData.SellPrice or 0,
-                                    weight = itemInfo.Metadata and itemInfo.Metadata.Weight or 0,
-                                    quantity = itemInfo.Quantity or 1,
-                                    tier = itemData.Tier,
-                                    uuid = uuid
-                                }
-                                
-                                print("DEBUG: Cached fish:", itemData.Name, "Price:", itemData.SellPrice, "UUID:", uuid)
-                            end
+    local success, error = pcall(function()
+        if not var2_upvw then return end
+        
+        local inventoryData = var2_upvw:Get("Inventory")
+        if not inventoryData then return end
+        
+        -- Clear old cache
+        cachedInventoryData = {}
+        
+        -- Cache all fish with their data
+        for category, items in pairs(inventoryData) do
+            if category == "Fishes" then
+                for uuid, itemInfo in pairs(items) do
+                    if itemInfo and itemInfo.Id then
+                        -- Get item data for price information
+                        local itemData = getItemData(itemInfo.Id)
+                        if itemData then
+                            cachedInventoryData[uuid] = {
+                                id = itemInfo.Id,
+                                name = itemData.Name,
+                                sellPrice = itemData.SellPrice or 0,
+                                weight = itemInfo.Metadata and itemInfo.Metadata.Weight or 0,
+                                quantity = itemInfo.Quantity or 1,
+                                tier = itemData.Tier,
+                                uuid = uuid
+                            }
+                            
+                            print("DEBUG: Cached fish:", itemData.Name, "Price:", itemData.SellPrice, "UUID:", uuid)
                         end
                     end
                 end
             end
-            
-            print("DEBUG: Cached", table.getn(cachedInventoryData) or 0, "fish items")
-        end)
-        
-        if not success then
-            warn("ERROR: cacheInventoryData failed:", error)
         end
+        
+        -- Count cached items using pairs instead of table.getn
+        local count = 0
+        for _ in pairs(cachedInventoryData) do
+            count = count + 1
+        end
+        print("DEBUG: Cached", count, "fish items")
+    end)
+    
+    if not success then
+        warn("ERROR: cacheInventoryData failed:", error)
     end
+end
+
 
     -- NEW FUNCTION: Start monitoring inventory data changes
     local function startInventoryDataMonitoring()
@@ -3102,11 +3108,16 @@ do
 
     -- IMPROVED: Create price overlay with better positioning and styling
     local function createPriceOverlay(fishTile, fishData)
-    print("DEBUG: createPriceOverlay called with tile:", fishTile.Name, "fishData:", fishData and fishData.name or "nil")
+    print("DEBUG: createPriceOverlay called with tile:", fishTile and fishTile.Name or "nil", "fishData:", fishData and fishData.name or "nil")
     
     if not fishTile or not fishData then
         print("DEBUG: fishTile or fishData is nil")
         return
+    end
+    
+    -- Check if fishPriceOverlays table exists
+    if not fishPriceOverlays then
+        fishPriceOverlays = {}
     end
     
     if fishPriceOverlays[fishTile] then
@@ -3132,8 +3143,9 @@ do
     priceLabel.Position = UDim2.new(0, 0, 0, 0)
     priceLabel.BackgroundTransparency = 1
     
-    -- Format price with commas
-    local formattedPrice = tostring(fishData.sellPrice):reverse():gsub("(%d%d%d)", "%1,"):reverse():gsub("^,", "")
+    -- Format price with commas (SAFE VERSION)
+    local price = tonumber(fishData.sellPrice) or 0
+    local formattedPrice = tostring(price):reverse():gsub("(%d%d%d)", "%1,"):reverse():gsub("^,", "")
     priceLabel.Text = formattedPrice .. " coins"
     priceLabel.TextColor3 = Color3.fromRGB(255, 255, 0) -- Yellow text for better visibility
     priceLabel.TextScaled = true
@@ -3207,11 +3219,16 @@ end
             return 
         end
 
+        -- Initialize fishPriceOverlays if it doesn't exist
+        if not fishPriceOverlays then
+            fishPriceOverlays = {}
+        end
+
         -- Clear existing overlays first
         local clearedCount = 0
         for fishTile, overlay in pairs(fishPriceOverlays) do
             if overlay and overlay.Parent then
-                overlay:Destroy()
+                pcall(function() overlay:Destroy() end)
                 clearedCount = clearedCount + 1
             end
         end
@@ -3237,23 +3254,29 @@ end
                 
                 -- Method 1: Look for ItemName label (most common)
                 local itemNameLabel = tile:FindFirstChild("ItemName", true)
-                if itemNameLabel and itemNameLabel.Text ~= "" then
+                if itemNameLabel and itemNameLabel.Text and itemNameLabel.Text ~= "" then
                     fishName = itemNameLabel.Text
                 end
                 
                 -- Method 2: Look for any TextLabel that might contain the fish name
                 if not fishName then
-                    for _, child in pairs(tile:GetDescendants()) do
-                        if child:IsA("TextLabel") and child.Text and child.Text ~= "" then
-                            -- Skip weight and price labels
-                            if not string.find(child.Text:lower(), "kg") and 
-                               not string.find(child.Text:lower(), "coin") and
-                               not string.find(child.Text:lower(), "%.") and
-                               string.len(child.Text) > 3 then -- Fish names are usually longer than 3 characters
-                                fishName = child.Text
-                                break
+                    local success2, result = pcall(function()
+                        for _, child in pairs(tile:GetDescendants()) do
+                            if child:IsA("TextLabel") and child.Text and child.Text ~= "" then
+                                -- Skip weight and price labels
+                                local text = child.Text:lower()
+                                if not string.find(text, "kg") and 
+                                   not string.find(text, "coin") and
+                                   not string.find(text, "%.") and
+                                   string.len(child.Text) > 3 then -- Fish names are usually longer than 3 characters
+                                    return child.Text
+                                end
                             end
                         end
+                    end)
+                    
+                    if success2 and result then
+                        fishName = result
                     end
                 end
                 
@@ -3269,11 +3292,12 @@ end
                     local fishData = nil
                     
                     -- Method 1: Try to match with cached data (if var2_upvw is available)
-                    if var2_upvw and table.getn(cachedInventoryData) > 0 then
+                    if var2_upvw and cachedInventoryData and next(cachedInventoryData) then
                         for uuid, data in pairs(cachedInventoryData) do
-                            if data.name == fishName or 
-                               string.find(data.name:lower(), fishName:lower()) or 
-                               string.find(fishName:lower(), data.name:lower()) then
+                            if data and data.name and 
+                               (data.name == fishName or 
+                                string.find(data.name:lower(), fishName:lower()) or 
+                                string.find(fishName:lower(), data.name:lower())) then
                                 fishData = data
                                 print("DEBUG: Matched with cached data:", data.name, "Price:", data.sellPrice)
                                 break
@@ -3282,11 +3306,12 @@ end
                     end
                     
                     -- Method 2: Try fishList matching (improved)
-                    if not fishData then
+                    if not fishData and fishList then
                         for _, fish in pairs(fishList) do
-                            if fish.name == fishName or
-                               string.find(fish.name:lower(), fishName:lower()) or 
-                               string.find(fishName:lower(), fish.name:lower()) then
+                            if fish and fish.name and fish.id and
+                               (fish.name == fishName or
+                                string.find(fish.name:lower(), fishName:lower()) or 
+                                string.find(fishName:lower(), fish.name:lower())) then
                                 local itemData = getItemData(fish.id)
                                 if itemData and itemData.SellPrice then
                                     fishData = {
@@ -3306,18 +3331,18 @@ end
                         local foundItemData = nil
                         
                         -- Scan through all item modules to find matching fish
-                        local success2, result = pcall(function()
+                        local success3, result = pcall(function()
                             local ReplicatedStorage = game:GetService("ReplicatedStorage")
                             local itemsFolder = ReplicatedStorage:FindFirstChild("Items")
                             
                             if itemsFolder then
                                 for _, itemModule in pairs(itemsFolder:GetChildren()) do
                                     if itemModule:IsA("ModuleScript") then
-                                        local success3, data = pcall(function()
+                                        local success4, data = pcall(function()
                                             return require(itemModule)
                                         end)
                                         
-                                        if success3 and data and data.Data and data.Data.Name then
+                                        if success4 and data and data.Data and data.Data.Name then
                                             local itemName = data.Data.Name
                                             -- Try exact and partial matching
                                             if itemName == fishName or
@@ -3326,12 +3351,10 @@ end
                                                 
                                                 -- Make sure it's a fish
                                                 if data.Data.Type == "Fishes" and data.SellPrice then
-                                                    foundItemData = {
+                                                    return {
                                                         name = itemName,
                                                         sellPrice = data.SellPrice
                                                     }
-                                                    print("DEBUG: Found via direct lookup:", itemName, "Price:", data.SellPrice)
-                                                    return foundItemData
                                                 end
                                             end
                                         end
@@ -3340,40 +3363,34 @@ end
                             end
                         end)
                         
-                        if foundItemData then
-                            fishData = foundItemData
+                        if success3 and result then
+                            fishData = result
+                            print("DEBUG: Found via direct lookup:", result.name, "Price:", result.sellPrice)
                         end
                     end
                     
                     -- Method 4: Try alternative name patterns (for variants and special names)
-                    if not fishData then
+                    if not fishData and fishList then
                         print("DEBUG: Trying alternative name patterns for:", fishName)
-                        
-                        -- Common name variations to try
-                        local nameVariations = {}
                         
                         -- Remove common prefixes/suffixes
                         local cleanName = fishName:gsub("^Shiny ", ""):gsub("^Big ", ""):gsub("^Giant ", "")
                         cleanName = cleanName:gsub("^Golden ", ""):gsub("^Chrome ", "")
-                        table.insert(nameVariations, cleanName)
                         
-                        -- Try each variation
-                        for _, variation in pairs(nameVariations) do
-                            for _, fish in pairs(fishList) do
-                                if string.find(fish.name:lower(), variation:lower()) or
-                                   string.find(variation:lower(), fish.name:lower()) then
-                                    local itemData = getItemData(fish.id)
-                                    if itemData and itemData.SellPrice then
-                                        fishData = {
-                                            name = fish.name,
-                                            sellPrice = itemData.SellPrice
-                                        }
-                                        print("DEBUG: Matched with variation:", variation, "->", fish.name, "Price:", itemData.SellPrice)
-                                        break
-                                    end
+                        for _, fish in pairs(fishList) do
+                            if fish and fish.name and fish.id and
+                               (string.find(fish.name:lower(), cleanName:lower()) or
+                                string.find(cleanName:lower(), fish.name:lower())) then
+                                local itemData = getItemData(fish.id)
+                                if itemData and itemData.SellPrice then
+                                    fishData = {
+                                        name = fish.name,
+                                        sellPrice = itemData.SellPrice
+                                    }
+                                    print("DEBUG: Matched with variation:", cleanName, "->", fish.name, "Price:", itemData.SellPrice)
+                                    break
                                 end
                             end
-                            if fishData then break end
                         end
                     end
                     
@@ -3385,7 +3402,7 @@ end
                         print("DEBUG: No price data found for fish:", fishName)
                     end
                 else
-                    print("DEBUG: No fish name found in tile:", tile.Name)
+                    print("DEBUG: No fish name found in tile:", tile.Name or "unnamed")
                 end
             end
         end
@@ -3398,6 +3415,7 @@ end
         warn("ERROR: updateFishPriceDisplay failed:", error)
     end
 end
+
 
 
     -- IMPROVED: Start price display monitoring with inventory caching
@@ -3454,20 +3472,28 @@ end
 
     -- IMPROVED: Stop price display monitoring and clean up
     local function stopPriceDisplayMonitoring()
-        stopInventoryDataMonitoring()
-        
-        if priceDisplayConnection then
-            priceDisplayConnection:Disconnect()
-            priceDisplayConnection = nil
-        end
-        
-        -- Clear all price overlays
+        if inventoryDataConnection then
+        pcall(function() inventoryDataConnection:Disconnect() end)
+        inventoryDataConnection = nil
+    end
+    
+    if priceDisplayConnection then
+        pcall(function() priceDisplayConnection:Disconnect() end)
+        priceDisplayConnection = nil
+    end
+    
+    -- Clear all price overlays safely
+    if fishPriceOverlays then
         for fishTile, overlay in pairs(fishPriceOverlays) do
             if overlay and overlay.Parent then
-                overlay:Destroy()
+                pcall(function() overlay:Destroy() end)
             end
         end
         fishPriceOverlays = {}
+    end
+    
+    -- Clear cached data
+    cachedInventoryData = {}
     end
 
     -- Existing helper functions (unchanged)
@@ -3798,6 +3824,4 @@ end
 end
 Window:SelectTab(1)
 AutoConfig:Initialize(Fluent)
-end
-
--xsax
+end ---xxx

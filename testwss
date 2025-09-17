@@ -3895,8 +3895,6 @@ do
             startPriceDisplayMonitoring()
         end
     end)
-end
-do
 local isAutoGiveActive = false
 local autoTradeConnection = nil
 local hookApplied = false

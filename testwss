@@ -199,7 +199,8 @@ local Window = Fluent:CreateWindow({
 local Tabs = {
     Info = Window:AddTab({ Title = "Info Script", Icon = "info" }),
     Player = Window:AddTab({ Title = "Player", Icon = "user-cog" }),
-    Fishing = Window:AddTab({ Title = "Fishing", Icon = "fish" }),
+    Fishing = Window:AddTab({ Title = "Fishing", Icon = "anchor" }),
+    Inventory = Window:AddTab({ Title = "Inventory", Icon = "backpack" }),
     Teleport = Window:AddTab({ Title = "Teleport", Icon = "map-pin" }),
     Buy = Window:AddTab({ Title = "Buy", Icon = "shopping-cart" }),
     Webhook = Window:AddTab({ Title = "Webhook", Icon = "bell-ring" }),
@@ -558,149 +559,6 @@ do
             end
         end
     })
-    -- Auto Give Only Section
-local isAutoGiveActive = false
-local autoTradeConnection = nil
-local hookApplied = false
-local originalCreateTradePrompt = nil
-
-local function setupAutoGive()
-    local success, error = pcall(function()
-        local ReplicatedStorage = game:GetService("ReplicatedStorage")
-        local Controllers = ReplicatedStorage:FindFirstChild("Controllers")
-        if Controllers then
-            local ItemTradingController = Controllers:FindFirstChild("ItemTradingController")
-            if ItemTradingController then
-                local controller = require(ItemTradingController)
-                
-                -- Store original function if not already stored
-                if not originalCreateTradePrompt and controller.CreateTradePrompt then
-                    originalCreateTradePrompt = controller.CreateTradePrompt
-                    print("[AUTO GIVE] Original CreateTradePrompt function stored")
-                end
-                
-                -- Hook the CreateTradePrompt function for outgoing trades only
-                controller.CreateTradePrompt = function(self, itemData, itemInfo, tradeInfo)
-                    print("[AUTO GIVE] CreateTradePrompt called:")
-                    print("  itemData:", itemData)
-                    print("  itemInfo:", itemInfo) 
-                    print("  tradeInfo:", tradeInfo)
-                    
-                    -- Auto accept outgoing trades (giving items) only
-                    if isAutoGiveActive and tradeInfo and tradeInfo.target then
-                        local Promise = require(ReplicatedStorage.Packages.Promise)
-                        print("[AUTO GIVE] Auto giving item to:", tradeInfo.target.DisplayName)
-                        
-                        task.spawn(function()
-                            task.wait(0.2)
-                            print("[AUTO GIVE] Returning true for outgoing trade")
-                        end)
-                        
-                        return Promise.resolve(true)
-                    end
-                    
-                    -- For all other cases (including incoming trades), use original function
-                    if originalCreateTradePrompt then
-                        print("[AUTO GIVE] Calling original CreateTradePrompt (not auto-giving)")
-                        return originalCreateTradePrompt(self, itemData, itemInfo, tradeInfo)
-                    else
-                        local Promise = require(ReplicatedStorage.Packages.Promise)
-                        warn("[AUTO GIVE] Original function not found")
-                        return Promise.reject("Original function not found")
-                    end
-                end
-                
-                hookApplied = true
-                
-                -- Maintain the hook with RunService connection
-                if autoTradeConnection then
-                    autoTradeConnection:Disconnect()
-                end
-                
-                autoTradeConnection = game:GetService("RunService").Heartbeat:Connect(function()
-                    -- Check every 3 seconds to maintain hook
-                    if math.floor(tick()) % 3 == 0 and tick() % 1 < 0.1 then
-                        local currentController = require(ItemTradingController)
-                        if currentController.CreateTradePrompt ~= controller.CreateTradePrompt then
-                            print("[AUTO GIVE] Re-applying CreateTradePrompt hook")
-                            currentController.CreateTradePrompt = controller.CreateTradePrompt
-                        end
-                    end
-                end)
-                
-                print("[AUTO GIVE] Hook successfully applied!")
-                return true
-            else
-                warn("[AUTO GIVE] ItemTradingController not found!")
-            end
-        else
-            warn("[AUTO GIVE] Controllers folder not found!")
-        end
-        
-        return false
-    end)
-    
-    if not success then
-        warn("[AUTO GIVE] Setup error:", tostring(error))
-        return false
-    end
-    return success
-end
-
-local function disableAutoGive()
-    local success, error = pcall(function()
-        local ReplicatedStorage = game:GetService("ReplicatedStorage")
-        local Controllers = ReplicatedStorage:FindFirstChild("Controllers")
-        
-        if Controllers then
-            local ItemTradingController = Controllers:FindFirstChild("ItemTradingController")
-            if ItemTradingController then
-                local controller = require(ItemTradingController)
-                if originalCreateTradePrompt then
-                    print("[AUTO GIVE] Restoring original CreateTradePrompt function")
-                    controller.CreateTradePrompt = originalCreateTradePrompt
-                end
-            end
-        end
-        
-        if autoTradeConnection then
-            autoTradeConnection:Disconnect()
-            autoTradeConnection = nil
-        end
-        
-        hookApplied = false
-        print("[AUTO GIVE] Hook disabled!")
-        return true
-    end)
-    
-    if not success then
-        warn("[AUTO GIVE] Disable error:", tostring(error))
-        return false
-    end
-    return success
-end
-local autoGiveToggle = Tabs.Player:AddToggle("AutoGive", {
-    Title = "Skip Prompt Give",
-    Description = "Automatically give items when trading",
-    Default = false,
-    Callback = function(Value)
-        if Value then
-            if not isAutoGiveActive then
-                local success = setupAutoGive()
-                if success then
-                    isAutoGiveActive = true
-                else
-                    Options.AutoGive:SetValue(false)
-                end
-            end
-        else
-            if isAutoGiveActive then
-                isAutoGiveActive = false
-                disableAutoGive()
-            end
-        end
-    end
-})
 end
 do
 local isAutoFishActive = false
@@ -3998,21 +3856,6 @@ do
         end 
     })
 
-    local FishPriceToggle = WebhookTab:AddToggle("showfishprices", {
-        Title = "Show Fish Prices in Inventory", 
-        Description = "Display fish sell prices on inventory tiles",
-        Default = false,
-        Callback = function(Value)
-            showFishPrices = Value
-            
-            if Value then
-                startPriceDisplayMonitoring()
-            else
-                stopPriceDisplayMonitoring()
-            end
-        end 
-    })
-
     WebhookTab:AddButton({
         Title = "Clear Select",
         Description = "",
@@ -4053,6 +3896,164 @@ do
         end
     end)
 end
+do
+local isAutoGiveActive = false
+local autoTradeConnection = nil
+local hookApplied = false
+local originalCreateTradePrompt = nil
+
+local function setupAutoGive()
+    local success, error = pcall(function()
+        local ReplicatedStorage = game:GetService("ReplicatedStorage")
+        local Controllers = ReplicatedStorage:FindFirstChild("Controllers")
+        if Controllers then
+            local ItemTradingController = Controllers:FindFirstChild("ItemTradingController")
+            if ItemTradingController then
+                local controller = require(ItemTradingController)
+                
+                -- Store original function if not already stored
+                if not originalCreateTradePrompt and controller.CreateTradePrompt then
+                    originalCreateTradePrompt = controller.CreateTradePrompt
+                    print("[AUTO GIVE] Original CreateTradePrompt function stored")
+                end
+                
+                -- Hook the CreateTradePrompt function for outgoing trades only
+                controller.CreateTradePrompt = function(self, itemData, itemInfo, tradeInfo)
+                    print("[AUTO GIVE] CreateTradePrompt called:")
+                    print("  itemData:", itemData)
+                    print("  itemInfo:", itemInfo) 
+                    print("  tradeInfo:", tradeInfo)
+                    
+                    -- Auto accept outgoing trades (giving items) only
+                    if isAutoGiveActive and tradeInfo and tradeInfo.target then
+                        local Promise = require(ReplicatedStorage.Packages.Promise)
+                        print("[AUTO GIVE] Auto giving item to:", tradeInfo.target.DisplayName)
+                        
+                        task.spawn(function()
+                            task.wait(0.2)
+                            print("[AUTO GIVE] Returning true for outgoing trade")
+                        end)
+                        
+                        return Promise.resolve(true)
+                    end
+                    
+                    -- For all other cases (including incoming trades), use original function
+                    if originalCreateTradePrompt then
+                        print("[AUTO GIVE] Calling original CreateTradePrompt (not auto-giving)")
+                        return originalCreateTradePrompt(self, itemData, itemInfo, tradeInfo)
+                    else
+                        local Promise = require(ReplicatedStorage.Packages.Promise)
+                        warn("[AUTO GIVE] Original function not found")
+                        return Promise.reject("Original function not found")
+                    end
+                end
+                
+                hookApplied = true
+                
+                -- Maintain the hook with RunService connection
+                if autoTradeConnection then
+                    autoTradeConnection:Disconnect()
+                end
+                
+                autoTradeConnection = game:GetService("RunService").Heartbeat:Connect(function()
+                    -- Check every 3 seconds to maintain hook
+                    if math.floor(tick()) % 3 == 0 and tick() % 1 < 0.1 then
+                        local currentController = require(ItemTradingController)
+                        if currentController.CreateTradePrompt ~= controller.CreateTradePrompt then
+                            print("[AUTO GIVE] Re-applying CreateTradePrompt hook")
+                            currentController.CreateTradePrompt = controller.CreateTradePrompt
+                        end
+                    end
+                end)
+                
+                print("[AUTO GIVE] Hook successfully applied!")
+                return true
+            else
+                warn("[AUTO GIVE] ItemTradingController not found!")
+            end
+        else
+            warn("[AUTO GIVE] Controllers folder not found!")
+        end
+        
+        return false
+    end)
+    
+    if not success then
+        warn("[AUTO GIVE] Setup error:", tostring(error))
+        return false
+    end
+    return success
+end
+
+local function disableAutoGive()
+    local success, error = pcall(function()
+        local ReplicatedStorage = game:GetService("ReplicatedStorage")
+        local Controllers = ReplicatedStorage:FindFirstChild("Controllers")
+        
+        if Controllers then
+            local ItemTradingController = Controllers:FindFirstChild("ItemTradingController")
+            if ItemTradingController then
+                local controller = require(ItemTradingController)
+                if originalCreateTradePrompt then
+                    print("[AUTO GIVE] Restoring original CreateTradePrompt function")
+                    controller.CreateTradePrompt = originalCreateTradePrompt
+                end
+            end
+        end
+        
+        if autoTradeConnection then
+            autoTradeConnection:Disconnect()
+            autoTradeConnection = nil
+        end
+        
+        hookApplied = false
+        print("[AUTO GIVE] Hook disabled!")
+        return true
+    end)
+    
+    if not success then
+        warn("[AUTO GIVE] Disable error:", tostring(error))
+        return false
+    end
+    return success
+end
+local autoGiveToggle = Tabs.Inventory:AddToggle("AutoGive", {
+    Title = "Skip Prompt Give",
+    Description = "Automatically give items when trading",
+    Default = false,
+    Callback = function(Value)
+        if Value then
+            if not isAutoGiveActive then
+                local success = setupAutoGive()
+                if success then
+                    isAutoGiveActive = true
+                else
+                    Options.AutoGive:SetValue(false)
+                end
+            end
+        else
+            if isAutoGiveActive then
+                isAutoGiveActive = false
+                disableAutoGive()
+            end
+        end
+    end
+})
+local FishPriceToggle = Tabs.Inventory:AddToggle("showfishprices", {
+    Title = "Show Fish Prices",
+    Description = "Display fish sell prices on inventory tiles",
+    Default = false,
+    Callback = function(Value)
+        showFishPrices = Value
+        
+        if Value then
+            startPriceDisplayMonitoring()
+        else
+            stopPriceDisplayMonitoring()
+        end
+    end 
+})
+end
 Window:SelectTab(1)
 AutoConfig:Initialize(Fluent)
-end ---xxxx
+end

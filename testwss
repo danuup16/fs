@@ -3120,7 +3120,7 @@ do
     local priceFrame = Instance.new("Frame")
     priceFrame.Name = "PriceOverlay"
     priceFrame.Size = UDim2.new(1, -6, 0.25, 0) -- Full width minus padding, 25% height
-    priceFrame.Position = UDim2.new(0, 3, 0.07, 0) -- Top center position moved down 2% more
+    priceFrame.Position = UDim2.new(0, 3, 0.15, 0) -- Top center position moved down 2% more
     priceFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0) -- Black background
     priceFrame.BackgroundTransparency = 0.3 -- Semi-transparent
     priceFrame.BorderSizePixel = 0
@@ -3779,5 +3779,4 @@ end
 end
 Window:SelectTab(1)
 AutoConfig:Initialize(Fluent)
-end
---sad
+end ---rrrr

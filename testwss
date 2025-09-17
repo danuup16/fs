@@ -2872,73 +2872,17 @@ end ---zr
 -- Enhanced Webhook Tab with Fish Price Display Toggle
 do
     local WebhookTab = Tabs.Webhook
-    local fishImages = {
-        -- Secret Fish
-        [156] = "https://i.imgur.com/VAUGUBf.png", -- Giant Squid
-        [136] = "https://i.imgur.com/taZohVB.png", -- Frostborn Shark
-        [99] = "https://i.imgur.com/0mURszZ.png",  -- Great Christmas Whale
-        [141] = "https://i.imgur.com/DGwZd1N.png", -- Great Whale
-        [159] = "https://i.imgur.com/3qDECjI.png", -- Robot Kraken
-        [145] = "https://i.imgur.com/nWiP04p.png", -- Worm Fish
-        [176] = "https://i.imgur.com/0mURszZ.png", -- Ghost Worm Fish
-        [83] = "https://i.imgur.com/b9lVzg6.png",  -- Ghost Shark
-        [226] = "https://i.imgur.com/0mURszZ.png", -- Megalodon
-        [228] = "https://i.imgur.com/0mURszZ.png", -- Lochaness Monster
-        [225] = "https://i.imgur.com/0mURszZ.png", -- Scare
-        [218] = "https://i.imgur.com/0mURszZ.png", -- Thin Armor Shark
-        [206] = "https://i.imgur.com/0mURszZ.png", -- Monster Shark
-        [195] = "https://i.imgur.com/0mURszZ.png", -- Crystal Crab
-        [201] = "https://i.imgur.com/0mURszZ.png", -- Eerie Shark 
-        [200] = "https://i.imgur.com/0mURszZ.png", -- Orca 
-        [187] = "https://i.imgur.com/0mURszZ.png", -- Queen Carb 
 
-        -- Mythic Fish
-        [110] = "https://i.imgur.com/0mURszZ.png", -- Lined Cardinal Fish
-        [97] = "https://i.imgur.com/0mURszZ.png",  -- Gingerbread Turtle
-        [34] = "https://i.imgur.com/EPA4CXL.png",  -- Loggerhead Turtle
-        [21] = "https://i.imgur.com/0mURszZ.png",  -- Hawks Turtle
-        [150] = "https://i.imgur.com/dmN5qFd.png", -- Blob Fish
-        [15] = "https://i.imgur.com/i5HPY7d.png",  -- Abyss Seahorse
-        [35] = "https://i.imgur.com/oX0y9mk.png",  -- Prismy Seahorse
-        [146] = "https://i.imgur.com/lyRcwy2.png", -- Strippled Seahorse
-        [47] = "https://i.imgur.com/yDo7zfz.png",  -- Blueflame Ray
-        [75] = "https://i.imgur.com/wUQ3ngv.png",  -- Dotted Stingray
-        [54] = "https://i.imgur.com/QynhFHm.png",  -- Manta Ray
-        [52] = "https://i.imgur.com/Oio2qpc.png",  -- Hammerhead Shark
-        [98] = "https://i.imgur.com/0mURszZ.png",  -- Gingerbread Shark
-        [122] = "https://i.imgur.com/0mURszZ.png", -- Loving Shark
-        [137] = "https://i.imgur.com/umiwlEx.png", -- Plasma Shark
-        [147] = "https://i.imgur.com/EWr1i53.png", -- Thresher Shark
-        
-        -- Uncommon Fish
-        [139] = "https://i.imgur.com/0mURszZ.png", -- Silver Tuna
-        [186] = "https://i.imgur.com/0mURszZ.png", -- Parrot Fish
-        [182] = "https://i.imgur.com/0mURszZ.png", -- Blackcap Basslet
-        [140] = "https://i.imgur.com/0mURszZ.png", -- Pilot Fish
-    }
-
-    -- Variables
-    local webhookURL = ""
-    local inventoryWebhookURL = ""
-    local isWebhookActive = false
-    local isInventoryCheckActive = false
+    -- Variables for price display only
     local showFishPrices = false
-    local lastInventoryState = {}
-    local inventoryConnection = nil
-    local inventoryCheckConnection = nil
     local priceDisplayConnection = nil
-    local httpRetryCount = 0
-    local maxHttpRetries = 3
-    local inventoryCheckInterval = 180
     local fishPriceOverlays = {}
-
-    -- NEW: Inventory caching variables
     local cachedInventoryData = {}
     local inventoryDataConnection = nil
 
-    -- Fish list
+    -- Fish list for price reference
     local fishList = {
-        -- Secret Fish (Tier 5 & 6)
+        -- Secret Fish
         {name = "Giant Squid", id = 156, tier = "Secret"},
         {name = "Frostborn Shark", id = 136, tier = "Secret"},
         {name = "Great Christmas Whale", id = 99, tier = "Secret"},
@@ -2957,7 +2901,7 @@ do
         {name = "Orca", id = 200, tier = "Secret"},
         {name = "Queen Carb", id = 187, tier = "Secret"},
         
-        -- Mythic Fish (Tier 5 & 6)
+        -- Mythic Fish
         {name = "Lined Cardinal Fish", id = 110, tier = "Mythic"},
         {name = "Gingerbread Turtle", id = 97, tier = "Mythic"},
         {name = "Loggerhead Turtle", id = 34, tier = "Mythic"},
@@ -2981,11 +2925,6 @@ do
         {name = "Blackcap Basslet", id = 182, tier = "Uncommon"},
         {name = "Pilot Fish", id = 140, tier = "Uncommon"}
     }
-
-    local specificFishEnabled = {}
-    for _, fish in pairs(fishList) do
-        specificFishEnabled[fish.id] = false
-    end
 
     -- Function to get item data
     local function getItemData(itemId)
@@ -3029,57 +2968,55 @@ do
         end
     end
 
-    -- NEW FUNCTION: Cache inventory data from the game's data system
+    -- Cache inventory data from the game's data system
     local function cacheInventoryData()
-    local success, error = pcall(function()
-        if not var2_upvw then return end
-        
-        local inventoryData = var2_upvw:Get("Inventory")
-        if not inventoryData then return end
-        
-        -- Clear old cache
-        cachedInventoryData = {}
-        
-        -- Cache all fish with their data
-        for category, items in pairs(inventoryData) do
-            if category == "Fishes" then
-                for uuid, itemInfo in pairs(items) do
-                    if itemInfo and itemInfo.Id then
-                        -- Get item data for price information
-                        local itemData = getItemData(itemInfo.Id)
-                        if itemData then
-                            cachedInventoryData[uuid] = {
-                                id = itemInfo.Id,
-                                name = itemData.Name,
-                                sellPrice = itemData.SellPrice or 0,
-                                weight = itemInfo.Metadata and itemInfo.Metadata.Weight or 0,
-                                quantity = itemInfo.Quantity or 1,
-                                tier = itemData.Tier,
-                                uuid = uuid
-                            }
-                            
-                            print("DEBUG: Cached fish:", itemData.Name, "Price:", itemData.SellPrice, "UUID:", uuid)
+        local success, error = pcall(function()
+            if not var2_upvw then return end
+            
+            local inventoryData = var2_upvw:Get("Inventory")
+            if not inventoryData then return end
+            
+            -- Clear old cache
+            cachedInventoryData = {}
+            
+            -- Cache all fish with their data
+            for category, items in pairs(inventoryData) do
+                if category == "Fishes" then
+                    for uuid, itemInfo in pairs(items) do
+                        if itemInfo and itemInfo.Id then
+                            local itemData = getItemData(itemInfo.Id)
+                            if itemData then
+                                cachedInventoryData[uuid] = {
+                                    id = itemInfo.Id,
+                                    name = itemData.Name,
+                                    sellPrice = itemData.SellPrice or 0,
+                                    weight = itemInfo.Metadata and itemInfo.Metadata.Weight or 0,
+                                    quantity = itemInfo.Quantity or 1,
+                                    tier = itemData.Tier,
+                                    uuid = uuid
+                                }
+                                
+                                print("DEBUG: Cached fish:", itemData.Name, "Price:", itemData.SellPrice, "UUID:", uuid)
+                            end
                         end
                     end
                 end
             end
-        end
+            
+            -- Count cached items
+            local count = 0
+            for _ in pairs(cachedInventoryData) do
+                count = count + 1
+            end
+            print("DEBUG: Cached", count, "fish items")
+        end)
         
-        -- Count cached items using pairs instead of table.getn
-        local count = 0
-        for _ in pairs(cachedInventoryData) do
-            count = count + 1
+        if not success then
+            warn("ERROR: cacheInventoryData failed:", error)
         end
-        print("DEBUG: Cached", count, "fish items")
-    end)
-    
-    if not success then
-        warn("ERROR: cacheInventoryData failed:", error)
     end
-end
 
-
-    -- NEW FUNCTION: Start monitoring inventory data changes
+    -- Start monitoring inventory data changes
     local function startInventoryDataMonitoring()
         if inventoryDataConnection then
             inventoryDataConnection:Disconnect()
@@ -3097,7 +3034,7 @@ end
         end
     end
 
-    -- NEW FUNCTION: Stop monitoring inventory data
+    -- Stop monitoring inventory data
     local function stopInventoryDataMonitoring()
         if inventoryDataConnection then
             inventoryDataConnection:Disconnect()
@@ -3106,319 +3043,314 @@ end
         cachedInventoryData = {}
     end
 
-    -- IMPROVED: Create price overlay with better positioning and styling
+    -- Create price overlay with centered positioning
     local function createPriceOverlay(fishTile, fishData)
-    print("DEBUG: createPriceOverlay called with tile:", fishTile and fishTile.Name or "nil", "fishData:", fishData and fishData.name or "nil")
-    
-    if not fishTile or not fishData then
-        print("DEBUG: fishTile or fishData is nil")
-        return
-    end
-    
-    -- Check if fishPriceOverlays table exists
-    if not fishPriceOverlays then
-        fishPriceOverlays = {}
-    end
-    
-    if fishPriceOverlays[fishTile] then
-        print("DEBUG: Overlay already exists for tile:", fishTile.Name)
-        fishPriceOverlays[fishTile]:Destroy()
-        fishPriceOverlays[fishTile] = nil
-    end
-
-    print("DEBUG: Creating price overlay for:", fishData.name, "with price:", fishData.sellPrice)
-
-    local priceFrame = Instance.new("Frame")
-    priceFrame.Name = "PriceOverlay"
-    priceFrame.Size = UDim2.new(1, -10, 0.3, 0) -- Slightly smaller width, 30% height
-    priceFrame.Position = UDim2.new(0, 5, 0.35, 0) -- Centered vertically on the fish icon
-    priceFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0) -- Black background
-    priceFrame.BackgroundTransparency = 0.85 -- Less transparent for better visibility
-    priceFrame.BorderSizePixel = 0
-    priceFrame.ZIndex = 200 -- Very high Z-Index
-
-    local priceLabel = Instance.new("TextLabel")
-    priceLabel.Name = "PriceLabel"
-    priceLabel.Size = UDim2.new(1, 0, 1, 0)
-    priceLabel.Position = UDim2.new(0, 0, 0, 0)
-    priceLabel.BackgroundTransparency = 1
-    
-    -- Format price with commas (SAFE VERSION)
-    local price = tonumber(fishData.sellPrice) or 0
-    local formattedPrice = tostring(price):reverse():gsub("(%d%d%d)", "%1,"):reverse():gsub("^,", "")
-    priceLabel.Text = formattedPrice .. " coins"
-    priceLabel.TextColor3 = Color3.fromRGB(255, 255, 0) -- Yellow text for better visibility
-    priceLabel.TextScaled = true
-    priceLabel.Font = Enum.Font.GothamBold
-    priceLabel.TextStrokeTransparency = 0.1 -- Stronger text stroke for better visibility
-    priceLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0) -- Black text stroke
-    priceLabel.ZIndex = 201
-    priceLabel.Parent = priceFrame
-
-    -- Add rounded corners
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 8)
-    corner.Parent = priceFrame
-
-    -- Add subtle gradient background for better visibility
-    local gradient = Instance.new("UIGradient")
-    gradient.Color = ColorSequence.new{
-        ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 0, 0)),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(40, 40, 40))
-    }
-    gradient.Rotation = 90
-    gradient.Parent = priceFrame
-
-    -- Add subtle border for better definition
-    local border = Instance.new("UIStroke")
-    border.Color = Color3.fromRGB(255, 255, 0) -- Yellow border to match text
-    border.Transparency = 0.3
-    border.Thickness = 1
-    border.Parent = priceFrame
-
-    priceFrame.Parent = fishTile
-    fishPriceOverlays[fishTile] = priceFrame
-    
-    print("DEBUG: Price overlay created successfully for:", fishData.name)
-end
-
-
-    -- Remove price overlay
-    local function removePriceOverlay(fishTile)
-        if fishPriceOverlays[fishTile] then
-            fishPriceOverlays[fishTile]:Destroy()
-            fishPriceOverlays[fishTile] = nil
-        end
-    end
-
-    -- IMPROVED: Update fish price display using cached data
-    local function updateFishPriceDisplay()
-    print("DEBUG: updateFishPriceDisplay called, showFishPrices:", showFishPrices)
-    
-    local success, error = pcall(function()
-        local PlayerGui = game.Players.LocalPlayer.PlayerGui
-        local inventoryGui = PlayerGui:FindFirstChild("Inventory")
+        print("DEBUG: createPriceOverlay called with tile:", fishTile and fishTile.Name or "nil", "fishData:", fishData and fishData.name or "nil")
         
-        if not inventoryGui or not inventoryGui.Enabled then
-            print("DEBUG: Inventory GUI not found or not enabled")
+        if not fishTile or not fishData then
+            print("DEBUG: fishTile or fishData is nil")
             return
         end
         
-        local mainFrame = inventoryGui:FindFirstChild("Main")
-        if not mainFrame then return end
-        
-        local contentFrame = mainFrame:FindFirstChild("Content")
-        if not contentFrame then return end
-        
-        local pagesFrame = contentFrame:FindFirstChild("Pages")
-        if not pagesFrame then return end
-        
-        local inventoryPage = pagesFrame:FindFirstChild("Inventory")
-        if not inventoryPage or not inventoryPage.Visible then 
-            print("DEBUG: Inventory page not found or not visible")
-            return 
-        end
-
         -- Initialize fishPriceOverlays if it doesn't exist
         if not fishPriceOverlays then
             fishPriceOverlays = {}
         end
+        
+        if fishPriceOverlays[fishTile] then
+            print("DEBUG: Overlay already exists for tile:", fishTile.Name)
+            pcall(function() fishPriceOverlays[fishTile]:Destroy() end)
+            fishPriceOverlays[fishTile] = nil
+        end
 
-        -- Clear existing overlays first
-        local clearedCount = 0
-        for fishTile, overlay in pairs(fishPriceOverlays) do
-            if overlay and overlay.Parent then
-                pcall(function() overlay:Destroy() end)
-                clearedCount = clearedCount + 1
+        print("DEBUG: Creating price overlay for:", fishData.name, "with price:", fishData.sellPrice)
+
+        local priceFrame = Instance.new("Frame")
+        priceFrame.Name = "PriceOverlay"
+        priceFrame.Size = UDim2.new(1, -10, 0.3, 0) -- Slightly smaller width, 30% height
+        priceFrame.Position = UDim2.new(0, 5, 0.35, 0) -- Centered vertically on the fish icon
+        priceFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0) -- Black background
+        priceFrame.BackgroundTransparency = 0.85 -- Less transparent for better visibility
+        priceFrame.BorderSizePixel = 0
+        priceFrame.ZIndex = 200 -- Very high Z-Index
+
+        local priceLabel = Instance.new("TextLabel")
+        priceLabel.Name = "PriceLabel"
+        priceLabel.Size = UDim2.new(1, 0, 1, 0)
+        priceLabel.Position = UDim2.new(0, 0, 0, 0)
+        priceLabel.BackgroundTransparency = 1
+        
+        -- Format price with commas
+        local price = tonumber(fishData.sellPrice) or 0
+        local formattedPrice = tostring(price):reverse():gsub("(%d%d%d)", "%1,"):reverse():gsub("^,", "")
+        priceLabel.Text = formattedPrice .. " coins"
+        priceLabel.TextColor3 = Color3.fromRGB(255, 255, 0) -- Yellow text for better visibility
+        priceLabel.TextScaled = true
+        priceLabel.Font = Enum.Font.GothamBold
+        priceLabel.TextStrokeTransparency = 0.1 -- Stronger text stroke for better visibility
+        priceLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0) -- Black text stroke
+        priceLabel.ZIndex = 201
+        priceLabel.Parent = priceFrame
+
+        -- Add rounded corners
+        local corner = Instance.new("UICorner")
+        corner.CornerRadius = UDim.new(0, 8)
+        corner.Parent = priceFrame
+
+        -- Add subtle gradient background for better visibility
+        local gradient = Instance.new("UIGradient")
+        gradient.Color = ColorSequence.new{
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 0, 0)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(40, 40, 40))
+        }
+        gradient.Rotation = 90
+        gradient.Parent = priceFrame
+
+        -- Add subtle border for better definition
+        local border = Instance.new("UIStroke")
+        border.Color = Color3.fromRGB(255, 255, 0) -- Yellow border to match text
+        border.Transparency = 0.3
+        border.Thickness = 1
+        border.Parent = priceFrame
+
+        priceFrame.Parent = fishTile
+        fishPriceOverlays[fishTile] = priceFrame
+        
+        print("DEBUG: Price overlay created successfully for:", fishData.name)
+    end
+
+    -- Remove price overlay safely
+    local function removePriceOverlay(fishTile)
+        if fishPriceOverlays and fishPriceOverlays[fishTile] then
+            pcall(function() fishPriceOverlays[fishTile]:Destroy() end)
+            fishPriceOverlays[fishTile] = nil
+        end
+    end
+
+    -- Update fish price display with improved fish name detection
+    local function updateFishPriceDisplay()
+        print("DEBUG: updateFishPriceDisplay called, showFishPrices:", showFishPrices)
+        
+        local success, error = pcall(function()
+            local PlayerGui = game.Players.LocalPlayer.PlayerGui
+            local inventoryGui = PlayerGui:FindFirstChild("Inventory")
+            
+            if not inventoryGui or not inventoryGui.Enabled then
+                print("DEBUG: Inventory GUI not found or not enabled")
+                return
             end
-        end
-        print("DEBUG: Cleared", clearedCount, "existing overlays")
-        fishPriceOverlays = {}
+            
+            local mainFrame = inventoryGui:FindFirstChild("Main")
+            if not mainFrame then return end
+            
+            local contentFrame = mainFrame:FindFirstChild("Content")
+            if not contentFrame then return end
+            
+            local pagesFrame = contentFrame:FindFirstChild("Pages")
+            if not pagesFrame then return end
+            
+            local inventoryPage = pagesFrame:FindFirstChild("Inventory")
+            if not inventoryPage or not inventoryPage.Visible then 
+                print("DEBUG: Inventory page not found or not visible")
+                return 
+            end
 
-        if not showFishPrices then
-            print("DEBUG: showFishPrices is false, exiting")
-            return
-        end
+            -- Initialize fishPriceOverlays if it doesn't exist
+            if not fishPriceOverlays then
+                fishPriceOverlays = {}
+            end
 
-        print("DEBUG: Starting to scan inventory tiles...")
-        local tilesFound = 0
-        local overlaysCreated = 0
+            -- Clear existing overlays first
+            local clearedCount = 0
+            for fishTile, overlay in pairs(fishPriceOverlays) do
+                if overlay and overlay.Parent then
+                    pcall(function() overlay:Destroy() end)
+                    clearedCount = clearedCount + 1
+                end
+            end
+            print("DEBUG: Cleared", clearedCount, "existing overlays")
+            fishPriceOverlays = {}
 
-        -- Scan through all inventory tiles
-        for _, tile in pairs(inventoryPage:GetChildren()) do
-            if tile:IsA("ImageButton") and tile.Visible then
-                tilesFound = tilesFound + 1
-                
-                -- IMPROVED: Look for fish name in multiple possible locations within the tile
-                local fishName = nil
-                
-                -- Method 1: Look for ItemName label (most common)
-                local itemNameLabel = tile:FindFirstChild("ItemName", true)
-                if itemNameLabel and itemNameLabel.Text and itemNameLabel.Text ~= "" then
-                    fishName = itemNameLabel.Text
-                end
-                
-                -- Method 2: Look for any TextLabel that might contain the fish name
-                if not fishName then
-                    local success2, result = pcall(function()
-                        for _, child in pairs(tile:GetDescendants()) do
-                            if child:IsA("TextLabel") and child.Text and child.Text ~= "" then
-                                -- Skip weight and price labels
-                                local text = child.Text:lower()
-                                if not string.find(text, "kg") and 
-                                   not string.find(text, "coin") and
-                                   not string.find(text, "%.") and
-                                   string.len(child.Text) > 3 then -- Fish names are usually longer than 3 characters
-                                    return child.Text
-                                end
-                            end
-                        end
-                    end)
+            if not showFishPrices then
+                print("DEBUG: showFishPrices is false, exiting")
+                return
+            end
+
+            print("DEBUG: Starting to scan inventory tiles...")
+            local tilesFound = 0
+            local overlaysCreated = 0
+
+            -- Scan through all inventory tiles
+            for _, tile in pairs(inventoryPage:GetChildren()) do
+                if tile:IsA("ImageButton") and tile.Visible then
+                    tilesFound = tilesFound + 1
                     
-                    if success2 and result then
-                        fishName = result
-                    end
-                end
-                
-                -- Method 3: Check tile name itself
-                if not fishName and tile.Name and tile.Name ~= "ImageButton" then
-                    fishName = tile.Name
-                end
-                
-                if fishName then
-                    print("DEBUG: Found tile with fish name:", fishName)
+                    -- Look for fish name in multiple possible locations within the tile
+                    local fishName = nil
                     
-                    -- IMPROVED: Try multiple methods to find fish price
-                    local fishData = nil
-                    
-                    -- Method 1: Try to match with cached data (if var2_upvw is available)
-                    if var2_upvw and cachedInventoryData and next(cachedInventoryData) then
-                        for uuid, data in pairs(cachedInventoryData) do
-                            if data and data.name and 
-                               (data.name == fishName or 
-                                string.find(data.name:lower(), fishName:lower()) or 
-                                string.find(fishName:lower(), data.name:lower())) then
-                                fishData = data
-                                print("DEBUG: Matched with cached data:", data.name, "Price:", data.sellPrice)
-                                break
-                            end
-                        end
+                    -- Method 1: Look for ItemName label (most common)
+                    local itemNameLabel = tile:FindFirstChild("ItemName", true)
+                    if itemNameLabel and itemNameLabel.Text and itemNameLabel.Text ~= "" then
+                        fishName = itemNameLabel.Text
                     end
                     
-                    -- Method 2: Try fishList matching (improved)
-                    if not fishData and fishList then
-                        for _, fish in pairs(fishList) do
-                            if fish and fish.name and fish.id and
-                               (fish.name == fishName or
-                                string.find(fish.name:lower(), fishName:lower()) or 
-                                string.find(fishName:lower(), fish.name:lower())) then
-                                local itemData = getItemData(fish.id)
-                                if itemData and itemData.SellPrice then
-                                    fishData = {
-                                        name = fish.name,
-                                        sellPrice = itemData.SellPrice
-                                    }
-                                    print("DEBUG: Matched with fishList:", fish.name, "Price:", itemData.SellPrice)
-                                    break
-                                end
-                            end
-                        end
-                    end
-                    
-                    -- Method 3: Try direct item data lookup by scanning all items
-                    if not fishData then
-                        print("DEBUG: Trying direct item lookup for:", fishName)
-                        local foundItemData = nil
-                        
-                        -- Scan through all item modules to find matching fish
-                        local success3, result = pcall(function()
-                            local ReplicatedStorage = game:GetService("ReplicatedStorage")
-                            local itemsFolder = ReplicatedStorage:FindFirstChild("Items")
-                            
-                            if itemsFolder then
-                                for _, itemModule in pairs(itemsFolder:GetChildren()) do
-                                    if itemModule:IsA("ModuleScript") then
-                                        local success4, data = pcall(function()
-                                            return require(itemModule)
-                                        end)
-                                        
-                                        if success4 and data and data.Data and data.Data.Name then
-                                            local itemName = data.Data.Name
-                                            -- Try exact and partial matching
-                                            if itemName == fishName or
-                                               string.find(itemName:lower(), fishName:lower()) or
-                                               string.find(fishName:lower(), itemName:lower()) then
-                                                
-                                                -- Make sure it's a fish
-                                                if data.Data.Type == "Fishes" and data.SellPrice then
-                                                    return {
-                                                        name = itemName,
-                                                        sellPrice = data.SellPrice
-                                                    }
-                                                end
-                                            end
-                                        end
+                    -- Method 2: Look for any TextLabel that might contain the fish name
+                    if not fishName then
+                        local success2, result = pcall(function()
+                            for _, child in pairs(tile:GetDescendants()) do
+                                if child:IsA("TextLabel") and child.Text and child.Text ~= "" then
+                                    -- Skip weight and price labels
+                                    local text = child.Text:lower()
+                                    if not string.find(text, "kg") and 
+                                       not string.find(text, "coin") and
+                                       not string.find(text, "%.") and
+                                       string.len(child.Text) > 3 then -- Fish names are usually longer than 3 characters
+                                        return child.Text
                                     end
                                 end
                             end
                         end)
                         
-                        if success3 and result then
-                            fishData = result
-                            print("DEBUG: Found via direct lookup:", result.name, "Price:", result.sellPrice)
+                        if success2 and result then
+                            fishName = result
                         end
                     end
                     
-                    -- Method 4: Try alternative name patterns (for variants and special names)
-                    if not fishData and fishList then
-                        print("DEBUG: Trying alternative name patterns for:", fishName)
+                    -- Method 3: Check tile name itself
+                    if not fishName and tile.Name and tile.Name ~= "ImageButton" then
+                        fishName = tile.Name
+                    end
+                    
+                    if fishName then
+                        print("DEBUG: Found tile with fish name:", fishName)
                         
-                        -- Remove common prefixes/suffixes
-                        local cleanName = fishName:gsub("^Shiny ", ""):gsub("^Big ", ""):gsub("^Giant ", "")
-                        cleanName = cleanName:gsub("^Golden ", ""):gsub("^Chrome ", "")
+                        -- Try multiple methods to find fish price
+                        local fishData = nil
                         
-                        for _, fish in pairs(fishList) do
-                            if fish and fish.name and fish.id and
-                               (string.find(fish.name:lower(), cleanName:lower()) or
-                                string.find(cleanName:lower(), fish.name:lower())) then
-                                local itemData = getItemData(fish.id)
-                                if itemData and itemData.SellPrice then
-                                    fishData = {
-                                        name = fish.name,
-                                        sellPrice = itemData.SellPrice
-                                    }
-                                    print("DEBUG: Matched with variation:", cleanName, "->", fish.name, "Price:", itemData.SellPrice)
+                        -- Method 1: Try to match with cached data (if var2_upvw is available)
+                        if var2_upvw and cachedInventoryData and next(cachedInventoryData) then
+                            for uuid, data in pairs(cachedInventoryData) do
+                                if data and data.name and 
+                                   (data.name == fishName or 
+                                    string.find(data.name:lower(), fishName:lower()) or 
+                                    string.find(fishName:lower(), data.name:lower())) then
+                                    fishData = data
+                                    print("DEBUG: Matched with cached data:", data.name, "Price:", data.sellPrice)
                                     break
                                 end
                             end
                         end
-                    end
-                    
-                    -- Create overlay if we found fish data
-                    if fishData then
-                        createPriceOverlay(tile, fishData)
-                        overlaysCreated = overlaysCreated + 1
+                        
+                        -- Method 2: Try fishList matching
+                        if not fishData and fishList then
+                            for _, fish in pairs(fishList) do
+                                if fish and fish.name and fish.id and
+                                   (fish.name == fishName or
+                                    string.find(fish.name:lower(), fishName:lower()) or 
+                                    string.find(fishName:lower(), fish.name:lower())) then
+                                    local itemData = getItemData(fish.id)
+                                    if itemData and itemData.SellPrice then
+                                        fishData = {
+                                            name = fish.name,
+                                            sellPrice = itemData.SellPrice
+                                        }
+                                        print("DEBUG: Matched with fishList:", fish.name, "Price:", itemData.SellPrice)
+                                        break
+                                    end
+                                end
+                            end
+                        end
+                        
+                        -- Method 3: Try direct item data lookup by scanning all items
+                        if not fishData then
+                            print("DEBUG: Trying direct item lookup for:", fishName)
+                            
+                            local success3, result = pcall(function()
+                                local ReplicatedStorage = game:GetService("ReplicatedStorage")
+                                local itemsFolder = ReplicatedStorage:FindFirstChild("Items")
+                                
+                                if itemsFolder then
+                                    for _, itemModule in pairs(itemsFolder:GetChildren()) do
+                                        if itemModule:IsA("ModuleScript") then
+                                            local success4, data = pcall(function()
+                                                return require(itemModule)
+                                            end)
+                                            
+                                            if success4 and data and data.Data and data.Data.Name then
+                                                local itemName = data.Data.Name
+                                                -- Try exact and partial matching
+                                                if itemName == fishName or
+                                                   string.find(itemName:lower(), fishName:lower()) or
+                                                   string.find(fishName:lower(), itemName:lower()) then
+                                                    
+                                                    -- Make sure it's a fish
+                                                    if data.Data.Type == "Fishes" and data.SellPrice then
+                                                        return {
+                                                            name = itemName,
+                                                            sellPrice = data.SellPrice
+                                                        }
+                                                    end
+                                                end
+                                            end
+                                        end
+                                    end
+                                end
+                            end)
+                            
+                            if success3 and result then
+                                fishData = result
+                                print("DEBUG: Found via direct lookup:", result.name, "Price:", result.sellPrice)
+                            end
+                        end
+                        
+                        -- Method 4: Try alternative name patterns (for variants and special names)
+                        if not fishData and fishList then
+                            print("DEBUG: Trying alternative name patterns for:", fishName)
+                            
+                            -- Remove common prefixes/suffixes
+                            local cleanName = fishName:gsub("^Shiny ", ""):gsub("^Big ", ""):gsub("^Giant ", "")
+                            cleanName = cleanName:gsub("^Golden ", ""):gsub("^Chrome ", "")
+                            
+                            for _, fish in pairs(fishList) do
+                                if fish and fish.name and fish.id and
+                                   (string.find(fish.name:lower(), cleanName:lower()) or
+                                    string.find(cleanName:lower(), fish.name:lower())) then
+                                    local itemData = getItemData(fish.id)
+                                    if itemData and itemData.SellPrice then
+                                        fishData = {
+                                            name = fish.name,
+                                            sellPrice = itemData.SellPrice
+                                        }
+                                        print("DEBUG: Matched with variation:", cleanName, "->", fish.name, "Price:", itemData.SellPrice)
+                                        break
+                                    end
+                                end
+                            end
+                        end
+                        
+                        -- Create overlay if we found fish data
+                        if fishData then
+                            createPriceOverlay(tile, fishData)
+                            overlaysCreated = overlaysCreated + 1
+                        else
+                            print("DEBUG: No price data found for fish:", fishName)
+                        end
                     else
-                        print("DEBUG: No price data found for fish:", fishName)
+                        print("DEBUG: No fish name found in tile:", tile.Name or "unnamed")
                     end
-                else
-                    print("DEBUG: No fish name found in tile:", tile.Name or "unnamed")
                 end
             end
+            
+            print("DEBUG: Summary - Tiles found:", tilesFound, "Overlays created:", overlaysCreated)
+            
+        end)
+        
+        if not success then
+            warn("ERROR: updateFishPriceDisplay failed:", error)
         end
-        
-        print("DEBUG: Summary - Tiles found:", tilesFound, "Overlays created:", overlaysCreated)
-        
-    end)
-    
-    if not success then
-        warn("ERROR: updateFishPriceDisplay failed:", error)
     end
-end
 
-
-
-    -- IMPROVED: Start price display monitoring with inventory caching
+    -- Start price display monitoring with inventory caching
     local function startPriceDisplayMonitoring()
         -- Start inventory data monitoring first
         startInventoryDataMonitoring()
@@ -3452,7 +3384,7 @@ end
                     print("DEBUG: Inventory just opened, waiting for GUI to load...")
                     -- Wait for GUI to fully load, then update
                     spawn(function()
-                        wait(1) -- Give more time for inventory to fully load
+                        wait(1) -- Give time for inventory to fully load
                         updateFishPriceDisplay()
                     end)
                 end
@@ -3470,296 +3402,27 @@ end
         end
     end
 
-    -- IMPROVED: Stop price display monitoring and clean up
+    -- Stop price display monitoring and clean up
     local function stopPriceDisplayMonitoring()
-        if inventoryDataConnection then
-        pcall(function() inventoryDataConnection:Disconnect() end)
-        inventoryDataConnection = nil
-    end
-    
-    if priceDisplayConnection then
-        pcall(function() priceDisplayConnection:Disconnect() end)
-        priceDisplayConnection = nil
-    end
-    
-    -- Clear all price overlays safely
-    if fishPriceOverlays then
-        for fishTile, overlay in pairs(fishPriceOverlays) do
-            if overlay and overlay.Parent then
-                pcall(function() overlay:Destroy() end)
-            end
-        end
-        fishPriceOverlays = {}
-    end
-    
-    -- Clear cached data
-    cachedInventoryData = {}
-    end
-
-    -- Existing helper functions (unchanged)
-    local function formatWeight(weight, actualWeight)
-        if not actualWeight then
-            return "Tidak Diketahui"
+        stopInventoryDataMonitoring()
+        
+        if priceDisplayConnection then
+            pcall(function() priceDisplayConnection:Disconnect() end)
+            priceDisplayConnection = nil
         end
         
-        local weightText = string.format("%.1f kg", actualWeight)
-        
-        if weight and weight.Big and actualWeight >= weight.Big.Min then
-            weightText = weightText .. " (BESAR)"
-        end
-        
-        return weightText
-    end
-
-    local function getFishImageURL(fishId)
-        local imageUrl = fishImages[fishId]
-        if imageUrl and imageUrl ~= "" then
-            return imageUrl 
-        end
-        return nil
-    end
-
-    local function getTierInfo(tier)
-        local tierColors = {
-            [1] = {name = "Common", color = 0x808080},
-            [2] = {name = "Uncommon", color = 0x00FF00},
-            [3] = {name = "Rare", color = 0x0080FF},
-            [4] = {name = "Epic", color = 0x8000FF},
-            [5] = {name = "Legendary", color = 0xFF8000},
-            [6] = {name = "Mythic", color = 0xFF0080},
-            [7] = {name = "Secret", color = 0xFFD700},
-            [8] = {name = "Exotic", color = 0xFF69B4}
-        }
-        return tierColors[tier] or {name = "Unknown", color = 0x808080}
-    end
-
-    -- Webhook function (unchanged)
-    local function sendWebhook(itemName, itemData, weight, isVariant, variantName)
-        if webhookURL == "" then
-            return
-        end
-        local RunService = game:GetService("RunService")
-        RunService.Heartbeat:Wait()
-        spawn(function()
-            local retryAttempt = 0
-            local maxRetries = 3
-            local success = false
-            while retryAttempt < maxRetries and not success do
-                retryAttempt = retryAttempt + 1
-                local sendSuccess, sendError = pcall(function()
-                    local player = game.Players.LocalPlayer
-                    local tierInfo = getTierInfo(itemData.Tier or 1)
-                    local rarityText = "Tidak Diketahui"
-                    if itemData.Probability and itemData.Probability.Chance then
-                        local chance = itemData.Probability.Chance
-                        rarityText = string.format("1 dari %.0f", 1/chance)
-                    end
-                    local fullItemName = itemName
-                    if isVariant and variantName then
-                        fullItemName = variantName .. " " .. itemName
-                    end
-                    local fishImageURL = getFishImageURL(itemData.Id)
-                    local embedData = {
-                        ["title"] = "🎣 FISH IT - #DJSTEST!",
-                        ["color"] = tierInfo.color,
-                    ["fields"] = {
-                       {
-                            ["name"] = "**Profile : **",
-                            ["value"] = "> Username :||`"..player.Name.."`||",
-                            ["inline"] = true
-                        },
-                        {
-                            ["name"] = "**Fishing : **",
-                            ["value"] = "> Fish: `" .. fullItemName.."`\n > Weight: `"..formatWeight(itemData.Weight, weight).."`\n > Price: `".. (itemData.SellPrice or 0) .." Coin`\n > Tier: `"..tierInfo.name .. "`",
-                            ["inline"] = false
-                        }
-                    },
-                    ["footer"] = {
-                        ["text"] = os.date("%Y-%m-%d %H:%M:%S")
-                    }
-                }
-                    if fishImageURL then
-                        embedData["thumbnail"] = {
-                            ["url"] = fishImageURL
-                        }
-                    end
-                    local data = {
-                        ["username"] = "#DJSTEST",
-                        ["embeds"] = {embedData}
-                    }
-                    local headers = {["Content-Type"] = "application/json"}
-                    local body = game:GetService("HttpService"):JSONEncode(data)
-                    
-                    local req = http_request or request or syn.request
-                    if fluxus and fluxus.request then
-                        req = fluxus.request
-                    end
-                    if req then
-                        local response = req({
-                            Url = webhookURL,
-                            Method = "POST",
-                            Headers = headers,
-                            Body = body
-                        })
-                        if response and (response.StatusCode == 200 or response.StatusCode == 204) then
-                            success = true
-                        else
-                            error("HTTP Error: " .. (response and response.StatusCode or "Unknown"))
-                        end
-                    else
-                        error("Tidak ada fungsi HTTP request yang tersedia")
-                    end
-                end)
-                if sendSuccess then
-                    success = true
-                    httpRetryCount = 0
-                else
-                    warn("Percobaan webhook " .. retryAttempt .. " gagal:", sendError)
-                    if retryAttempt < maxRetries then
-                        wait(retryAttempt * 2)
-                    else
-                        httpRetryCount = httpRetryCount + 1
-                        
-                        if httpRetryCount >= maxHttpRetries then
-                            warn("Terlalu banyak kegagalan webhook, menonaktifkan sementara...")
-                            isWebhookActive = false
-                            spawn(function()
-                                wait(30)
-                                httpRetryCount = 0
-                            end)
-                        end
-                    end
+        -- Clear all price overlays safely
+        if fishPriceOverlays then
+            for fishTile, overlay in pairs(fishPriceOverlays) do
+                if overlay and overlay.Parent then
+                    pcall(function() overlay:Destroy() end)
                 end
             end
-        end)
-    end
-
-    -- Existing monitoring functions (keeping existing implementations)
-    local function sendInventoryWebhook(inventoryData)
-        -- Keep existing implementation
-    end
-
-    local function checkInventoryFish()
-        -- Keep existing implementation
-    end
-
-    local function startReplionMonitoring()
-        -- Keep existing implementation
-    end
-
-    local function startInventoryCheckTimer()
-        -- Keep existing implementation
-    end
-
-    local function stopInventoryCheckTimer()
-        -- Keep existing implementation
-    end
-
-    local function startInventoryMonitoring()
-        -- Keep existing implementation
-    end
-
-    local function stopInventoryMonitoring()
-        -- Keep existing implementation
-    end
-
-    -- UI Input Elements
-    local WebhookInput = WebhookTab:AddInput("Input", {
-        Title = "Fishing Webhook URL",
-        Description = "",
-        Default = "",
-        Placeholder = "nothing...",
-        Numeric = false,
-        Finished = false,
-        Callback = function(Text)
-            webhookURL = Text
-            httpRetryCount = 0
+            fishPriceOverlays = {}
         end
-    })
+    end
 
-    local InventoryWebhookInput = WebhookTab:AddInput("InventoryInput", {
-        Title = "Inventory Webhook URL",
-        Description = "",
-        Default = "",
-        Placeholder = "nothing...",
-        Numeric = false,
-        Finished = false,
-        Callback = function(Text)
-            inventoryWebhookURL = Text
-            httpRetryCount = 0
-        end
-    })
-
-    -- Fish Selection Dropdown
-    local FishDropdown = WebhookTab:AddDropdown("FishSelection", {
-        Title = "Select Fish",
-        Description = "",
-        Values = {"Secret", "Mythic", "Uncommon"},
-        Multi = true,
-        Default = {},
-    })
-
-    FishDropdown:OnChanged(function(selectedTiers)
-        for fishId, _ in pairs(specificFishEnabled) do
-            specificFishEnabled[fishId] = false
-        end
-        for tierName, isSelected in pairs(selectedTiers) do
-            if isSelected then
-                for _, fish in pairs(fishList) do
-                    if fish.tier == tierName then
-                        specificFishEnabled[fish.id] = true
-                    end
-                end
-            end
-        end
-    end)
-
-    -- Toggle Elements
-    local WebhookToggle = WebhookTab:AddToggle("webhooktracking", {
-        Title = "Enable Fishing Webhook", 
-        Description = "Toggle for fishing webhook notifications",
-        Default = false,
-        Callback = function(Value)
-            isWebhookActive = Value
-            
-            if Value then
-                if webhookURL == "" then
-                    Options.webhooktracking:SetValue(false)
-                    warn("Please set Fishing Webhook URL first!")
-                    wait(5)
-                    Options.webhooktracking:SetValue(true)
-                    return
-                end
-                startInventoryMonitoring()
-            else
-                stopInventoryMonitoring()
-            end
-        end 
-    })
-
-    local InventoryCheckToggle = WebhookTab:AddToggle("inventorycheck", {
-        Title = "Enable Inventory Webhook", 
-        Description = "Automatically send inventory check every 3 minutes",
-        Default = false,
-        Callback = function(Value)
-            isInventoryCheckActive = Value
-            
-            if Value then
-                if inventoryWebhookURL == "" then
-                    Options.inventorycheck:SetValue(false)
-                    warn("Please set Inventory Webhook URL first!")
-                    wait(5)
-                    Options.inventorycheck:SetValue(true)
-                    return
-                end
-                startInventoryCheckTimer()
-            else
-                stopInventoryCheckTimer()
-            end
-        end 
-    })
-
-    -- NEW TOGGLE: Show Fish Prices in Inventory
+    -- Show Fish Prices Toggle
     local FishPriceToggle = WebhookTab:AddToggle("showfishprices", {
         Title = "Show Fish Prices in Inventory", 
         Description = "Display fish sell prices on inventory tiles",
@@ -3775,36 +3438,7 @@ end
         end 
     })
 
-    -- Button Elements
-    WebhookTab:AddButton({
-        Title = "Clear Select",
-        Description = "",
-        Callback = function()
-            FishDropdown:SetValue({})
-        end
-    })
-
-    WebhookTab:AddButton({
-        Title = "Test Webhook",
-        Description = "",
-        Callback = function()
-            if webhookURL == "" then
-                return
-            end
-            local testData = {
-                Id = 159, -- Robot Kraken ID untuk testing
-                Name = "Robot Kraken",
-                Type = "Fishes",
-                Tier = 7,
-                SellPrice = 387500,
-                Weight = {Default = {Min = 419600, Max = 486470}},
-                Probability = {Chance = 0.05}
-            }
-            sendWebhook("TEST Robot Kraken", testData, 419600, false, nil)
-        end
-    })
-
-    -- IMPROVED: Initialize the system when var2_upvw becomes available
+    -- Initialize the system when var2_upvw becomes available
     spawn(function()
         -- Wait for var2_upvw to be available
         while not var2_upvw do
@@ -3824,4 +3458,4 @@ end
 end
 Window:SelectTab(1)
 AutoConfig:Initialize(Fluent)
-end ---xxx
+end

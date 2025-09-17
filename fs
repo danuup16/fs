@@ -188,7 +188,7 @@ local AutoConfig = {} do
     end
 end
 local Window = Fluent:CreateWindow({
-    Title = "#DJSTEST - FISH IT V.10",
+    Title = "#DJSTEST - FISH IT V.11",
     SubTitle = "  https://discord.gg/uwXYuxj6cF",
     TabWidth = 160,
     Size = UDim2.fromOffset(650, 400),
@@ -4192,4 +4192,5 @@ end
 Window:SelectTab(1)
 AutoConfig:Initialize(Fluent)
 end
----ywa
+
+--rwa

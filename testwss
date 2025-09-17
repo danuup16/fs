@@ -3243,12 +3243,20 @@ do
 
             -- Look for the actual fish tiles - they might be clones of the template "Tile"
             for _, tile in pairs(inventoryPage:GetChildren()) do
-                print("DEBUG: Found child:", tile.Name, "Type:", tile.ClassName, "Visible:", tile.Visible)
-                
-                -- Check if it's a frame and not the template tile
-                if tile:IsA("Frame") then
+                -- Skip UI elements like UIGridLayout, UICorner, etc.
+                if tile:IsA("Frame") and not tile:IsA("UIGridLayout") and not tile:IsA("UIListLayout") then
+                    print("DEBUG: Found frame child:", tile.Name, "Type:", tile.ClassName)
+                    
+                    -- Check if tile has Visible property (Frames do, UI elements don't)
+                    local isVisible = true
+                    local hasVisibleProperty = pcall(function() return tile.Visible end)
+                    if hasVisibleProperty then
+                        isVisible = tile.Visible
+                    end
+                    
+                    print("DEBUG: Processing tile:", tile.Name, "Visible:", isVisible)
+                    
                     tilesFound = tilesFound + 1
-                    print("DEBUG: Processing tile:", tile.Name, "Visible:", tile.Visible)
                     
                     -- List all children of this tile to understand structure
                     print("DEBUG: Tile children:")
@@ -3256,7 +3264,7 @@ do
                         print("  - " .. child.Name .. " (" .. child.ClassName .. ")")
                     end
                     
-                    if tile.Visible then
+                    if isVisible then
                         tilesProcessed = tilesProcessed + 1
                         
                         -- Look for fish data based on actual structure
@@ -3294,6 +3302,9 @@ do
                             end
                         end
                     end
+                else
+                    -- Log non-frame children for debugging
+                    print("DEBUG: Skipping non-frame child:", tile.Name, "Type:", tile.ClassName)
                 end
             end
             
@@ -3622,4 +3633,4 @@ do
 end
 Window:SelectTab(1)
 AutoConfig:Initialize(Fluent)
-end --dwq
+end --sada

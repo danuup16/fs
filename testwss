@@ -3163,14 +3163,15 @@ do
             local PlayerGui = game.Players.LocalPlayer.PlayerGui
             print("DEBUG: PlayerGui found:", PlayerGui ~= nil)
             
-            local inventoryGui = PlayerGui:FindFirstChild("Inventory")
-            print("DEBUG: Inventory GUI found:", inventoryGui ~= nil)
+            -- Try StarterGui first (as shown in workspace explorer)
+            local inventoryGui = game:GetService("StarterGui"):FindFirstChild("Inventory")
+            if not inventoryGui then
+                inventoryGui = PlayerGui:FindFirstChild("Inventory")
+            end
+            print("DEBUG: Inventory GUI found:", inventoryGui ~= nil, inventoryGui and inventoryGui.Parent.Name or "N/A")
             
             if not inventoryGui then 
-                print("DEBUG: Inventory GUI not found, children of PlayerGui:")
-                for _, child in pairs(PlayerGui:GetChildren()) do
-                    print("  - " .. child.Name)
-                end
+                print("DEBUG: Inventory GUI not found in both StarterGui and PlayerGui")
                 return 
             end
             
@@ -3240,16 +3241,25 @@ do
             local tilesProcessed = 0
             local overlaysCreated = 0
 
-            -- Add price overlays to fish tiles
+            -- Look for the actual fish tiles - they might be clones of the template "Tile"
             for _, tile in pairs(inventoryPage:GetChildren()) do
-                if tile:IsA("Frame") and tile.Name ~= "Tile" then
+                print("DEBUG: Found child:", tile.Name, "Type:", tile.ClassName, "Visible:", tile.Visible)
+                
+                -- Check if it's a frame and not the template tile
+                if tile:IsA("Frame") then
                     tilesFound = tilesFound + 1
                     print("DEBUG: Processing tile:", tile.Name, "Visible:", tile.Visible)
+                    
+                    -- List all children of this tile to understand structure
+                    print("DEBUG: Tile children:")
+                    for _, child in pairs(tile:GetChildren()) do
+                        print("  - " .. child.Name .. " (" .. child.ClassName .. ")")
+                    end
                     
                     if tile.Visible then
                         tilesProcessed = tilesProcessed + 1
                         
-                        -- Check if this tile has fish data
+                        -- Look for fish data based on actual structure
                         local itemNameLabel = tile:FindFirstChild("ItemName")
                         local vectorImage = tile:FindFirstChild("Vector")
                         
@@ -3260,85 +3270,11 @@ do
                             local fishName = itemNameLabel.Text
                             print("DEBUG: Processing fish:", fishName)
                             
-                            -- Remove variant prefix if exists
-                            local baseFishName = fishName
-                            local variantFrame = tile:FindFirstChild("Variant")
-                            if variantFrame and variantFrame.Visible then
-                                local variantLabel = variantFrame:FindFirstChild("ItemName")
-                                if variantLabel then
-                                    local variantName = variantLabel.Text
-                                    baseFishName = fishName:gsub(variantName .. " ", "")
-                                    print("DEBUG: Variant detected, base name:", baseFishName)
-                                end
-                            end
+                            -- For debugging, let's create overlay for ANY fish with default price
+                            local foundPrice = 1000 -- Debug price for all fish
+                            print("DEBUG: Using debug price:", foundPrice, "for fish:", fishName)
                             
-                            -- Try to find matching fish data by ID or name
-                            local foundPrice = nil
-                            
-                            -- First try exact name match
-                            for _, fish in pairs(fishList) do
-                                local itemData = getItemData(fish.id)
-                                if itemData and itemData.Type == "Fishes" then
-                                    if itemData.Name == baseFishName or itemData.Name == fishName then
-                                        foundPrice = itemData.SellPrice or 0
-                                        print("DEBUG: Exact match found for", fishName, "price:", foundPrice)
-                                        break
-                                    end
-                                end
-                            end
-                            
-                            -- If not found, try partial name matching
-                            if not foundPrice then
-                                for _, fish in pairs(fishList) do
-                                    local itemData = getItemData(fish.id)
-                                    if itemData and itemData.Type == "Fishes" then
-                                        if baseFishName:find(itemData.Name) or itemData.Name:find(baseFishName) then
-                                            foundPrice = itemData.SellPrice or 0
-                                            print("DEBUG: Partial match found for", fishName, "price:", foundPrice)
-                                            break
-                                        end
-                                    end
-                                end
-                            end
-                            
-                            -- Also check all available fish items from game data
-                            if not foundPrice then
-                                local success2, itemData = pcall(function()
-                                    local ReplicatedStorage = game:GetService("ReplicatedStorage")
-                                    local itemsFolder = ReplicatedStorage:FindFirstChild("Items")
-                                    
-                                    if itemsFolder then
-                                        for _, itemModule in pairs(itemsFolder:GetChildren()) do
-                                            if itemModule:IsA("ModuleScript") then
-                                                local moduleSuccess, data = pcall(function()
-                                                    return require(itemModule)
-                                                end)
-                                                
-                                                if moduleSuccess and data and data.Data then
-                                                    if data.Data.Type == "Fishes" and 
-                                                       (data.Data.Name == baseFishName or data.Data.Name == fishName) then
-                                                        print("DEBUG: Game data match found for", fishName, "price:", data.SellPrice or 0)
-                                                        return data.SellPrice or 0
-                                                    end
-                                                end
-                                            end
-                                        end
-                                    end
-                                    return nil
-                                end)
-                                
-                                if success2 and itemData then
-                                    foundPrice = itemData
-                                end
-                            end
-                            
-                            -- For debugging, let's try to create overlay for any fish with a default price
-                            if not foundPrice then
-                                print("DEBUG: No price found for", fishName, "using default price 1000 for testing")
-                                foundPrice = 1000 -- Debug price
-                            end
-                            
-                            -- Create overlay if price found
+                            -- Create overlay
                             if foundPrice and foundPrice > 0 then
                                 createPriceOverlay(tile, foundPrice)
                                 overlaysCreated = overlaysCreated + 1
@@ -3347,12 +3283,49 @@ do
                             end
                         else
                             print("DEBUG: Missing ItemNameLabel or Vector in tile:", tile.Name)
+                            
+                            -- Alternative search - maybe structure is different
+                            for _, child in pairs(tile:GetChildren()) do
+                                if child:IsA("TextLabel") then
+                                    print("DEBUG: Found TextLabel:", child.Name, "Text:", child.Text)
+                                elseif child:IsA("ImageLabel") then
+                                    print("DEBUG: Found ImageLabel:", child.Name, "Image:", child.Image ~= "" and "Has Image" or "No Image")
+                                end
+                            end
                         end
                     end
                 end
             end
             
             print("DEBUG: Summary - Tiles found:", tilesFound, "Tiles processed:", tilesProcessed, "Overlays created:", overlaysCreated)
+            
+            -- If no tiles found, let's also check if we're looking at the right inventory
+            -- Maybe we need to look at the actual PlayerGui instance that's active
+            if tilesFound == 0 then
+                print("DEBUG: No tiles found, checking active PlayerGui inventory...")
+                local activeInventoryGui = PlayerGui:FindFirstChild("Inventory")
+                if activeInventoryGui and activeInventoryGui.Enabled then
+                    print("DEBUG: Found active inventory in PlayerGui, rescanning...")
+                    local activePath = activeInventoryGui:FindFirstChild("Main")
+                    if activePath then
+                        activePath = activePath:FindFirstChild("Content")
+                        if activePath then
+                            activePath = activePath:FindFirstChild("Pages")
+                            if activePath then
+                                activePath = activePath:FindFirstChild("Inventory")
+                                if activePath then
+                                    print("DEBUG: Active inventory path found, children count:", #activePath:GetChildren())
+                                    for i, child in pairs(activePath:GetChildren()) do
+                                        if child:IsA("Frame") and i <= 5 then -- Only log first 5 for brevity
+                                            print("DEBUG: Active tile", i, ":", child.Name, child.Visible)
+                                        end
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
+            end
         end)
         
         if not success then
@@ -3649,4 +3622,4 @@ do
 end
 Window:SelectTab(1)
 AutoConfig:Initialize(Fluent)
-end --sadsa
+end --dwq

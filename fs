@@ -204,14 +204,15 @@ local Window = Fluent:CreateWindow({
     UserInfoSubtitleColor = Color3.fromRGB(71, 123, 255)
 })
 local Minimizer = Fluent:CreateMinimizer({
-  Icon = "djs", -- you can put AssetId
+  Icon = "djs",
   Size = UDim2.fromOffset(70, 70),
-  Position = UDim2.new(0, 1200, 0, 20),
+  PositionDesktop = UDim2.new(0, 1200, 0, 20), -- Kanan atas untuk desktop
+  PositionMobile = UDim2.new(0.5, -35, 0.08, 0), -- Tengah atas untuk mobile (centered)
   Acrylic = true,
   Corner = 10,
   Transparency = 1,
   Draggable = true,
-  Visible = true -- make minimizer visible on pc (DEFAULT TRUE), you can edit any setting in Minimizer variable. example: Minimizer.Visible = false
+  Visible = true
 })
 
 local Tabs = {
@@ -4154,4 +4155,4 @@ Window:SelectTab(1)
 AutoConfig:Initialize(Fluent)
 end
 
---qwkwq
+--rwa

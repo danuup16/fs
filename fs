@@ -205,9 +205,6 @@ local Window = Fluent:CreateWindow({
 })
 local Minimizer = Fluent:CreateMinimizer({
   Icon = "djs",
-  Size = UDim2.fromOffset(70, 70),
-  PositionDesktop = UDim2.new(0, 1200, 0, 20), -- Kanan atas untuk desktop
-  PositionMobile = UDim2.new(0.5, -35, 0.08, 0), -- Tengah atas untuk mobile (centered)
   Acrylic = true,
   Corner = 10,
   Transparency = 1,
@@ -4155,4 +4152,4 @@ Window:SelectTab(1)
 AutoConfig:Initialize(Fluent)
 end
 
---rwa
+--xsaxas

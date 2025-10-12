@@ -1150,7 +1150,8 @@ local farmLocations = {
    ["Coral Reefs"] = CFrame.new(-3212.688477, 10.198070, 2004.139648, 0.778372, -0.000000, -0.627804, 0.000000, 1.000000, -0.000000, 0.627804, -0.000000, 0.778372),
    ["Stingray Shores"] = CFrame.new(-182.069839, 3.134159, 2789.177246, 0.013366, -0.000000, 0.999911, -0.000000, 1.000000, 0.000000, -0.999911, -0.000000, 0.013366),
    ["Ocean"] = CFrame.new(1756.653687, 2.299988, 3358.764893, 0.200904, -0.000000, -0.979611, 0.000000, 1.000000, -0.000000, 0.979611, -0.000000, 0.200904),
-   ["Esoteric Depths"] = CFrame.new(3231.490234, -1302.105103, 1453.461060, 0.988762, 0.000000, -0.149498, -0.000000, 1.000000, -0.000000, 0.149498, 0.000000, 0.988762)
+   ["Esoteric Depths"] = CFrame.new(3231.490234, -1302.105103, 1453.461060, 0.988762, 0.000000, -0.149498, -0.000000, 1.000000, -0.000000, 0.149498, 0.000000, 0.988762),
+   ["Ancient Jungle"] = CFrame.new(1529.181763, 4.890006, -597.969238, 0.471341, -0.000000, 0.881951, -0.000000, 1.000000, 0.000000, -0.881951, -0.000000, 0.471341)
 }
 local FarmLocationDropdown = Tabs.Fishing:AddDropdown("FarmLocation", {
    Title = "Auto Farm V1 - Select Map",
@@ -1158,7 +1159,7 @@ local FarmLocationDropdown = Tabs.Fishing:AddDropdown("FarmLocation", {
    Values = {
       "Kohana", "Kohana Volcano", "Tropical Grove", "Tropical Grove 2",
       "Sisyphus Statue", "Weather Machine", "Treasure Room", "Esoteric Island",
-      "Crater Island", "Coral Reefs", "Stingray Shores", "Ocean", "Esoteric Depths"
+      "Crater Island", "Coral Reefs", "Stingray Shores", "Ocean", "Esoteric Depths", "Ancient Jungle"
    },
    Multi = false,
    Default = 1,
@@ -1583,7 +1584,8 @@ do
             "Coral Reefs",
             "Stingray Shores",
             "Ocean",
-            "Esoteric Depths"
+            "Esoteric Depths",
+            "Ancient Jungle"
         },
         Multi = false,
         Default = 1,
@@ -1609,7 +1611,8 @@ do
                 ["Coral Reefs"] = CFrame.new(-3120.34644, 16.9453125, 2181.97144, 0.707134247, -0, -0.707079291, 0, 1, -0, 0.707079291, 0, 0.707134247),
                 ["Stingray Shores"] = CFrame.new(32.029018, 9.784778, 2813.289551, 0.980407, -0.000000, 0.196984, 0.000000, 1.000000, -0.000000, -0.196984, 0.000000, 0.980407),
                 ["Ocean"] = CFrame.new(1609.45593, 7.993308318, 3279.21533, 0.499959469, 0, 0.866048813, 0, 1, 0, -0.866048813, 0, 0.499959469),
-                ["Esoteric Depths"] = CFrame.new(3054.9707, -1288.35474, 1483.97412, 0.90629667, 0, 0.422642082, 0, 1, 0, -0.422642082, 0, 0.90629667)
+                ["Esoteric Depths"] = CFrame.new(3054.9707, -1288.35474, 1483.97412, 0.90629667, 0, 0.422642082, 0, 1, 0, -0.422642082, 0, 0.90629667),
+                ["Ancient Jungle"] = CFrame.new(1485.853271, 7.875000, -540.280884, 0.993386, -0.000000, 0.114822, 0.000000, 1.000000, -0.000000, -0.114822, 0.000000, 0.993386)
             }
             if locations[Value] then
                 player.Character.HumanoidRootPart.CFrame = locations[Value]
@@ -4151,3 +4154,4 @@ Window:SelectTab(1)
 AutoConfig:Initialize(Fluent)
 end
 
+--kwkw

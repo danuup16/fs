@@ -722,7 +722,7 @@ end
 Tabs.Fishing:AddSection("Auto Fishing V1")
 local FishingDelaySlider = Tabs.Fishing:AddSlider("FishingDelay", {
     Title = "Fishing Delay V1",
-    Description = "Adjust delay between fishing cycles, Default 2.3",
+    Description = "Default 2.3",
     Default = 2.3,
     Min = 2.3,
     Max = 10,
@@ -4152,4 +4152,4 @@ Window:SelectTab(1)
 AutoConfig:Initialize(Fluent)
 end
 
---xsaxas
+--fsfs

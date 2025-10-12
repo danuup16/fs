@@ -188,19 +188,37 @@ local AutoConfig = {} do
     end
 end
 local Window = Fluent:CreateWindow({
-    Title = "#DJSTEST - FISH IT V.11",
-    SubTitle = "  https://discord.gg/uwXYuxj6cF",
+    Title = "#DJSTEST - FISH IT V.11 ",
+    SubTitle = "",
+    Search = false, -- optional and default true
+    Icon = "", -- optional
     TabWidth = 160,
-    Size = UDim2.fromOffset(650, 400),
-    Transparency = true,
+    Size = UDim2.fromOffset(580, 360),
+    Acrylic = false, -- The blur may be detectable, setting this to false disables blur entirely
     Theme = "Dark",
-    MinimizeKey = Enum.KeyCode.F
+    MinimizeKey = nil, -- Used when theres no MinimizeKeybind
+    UserInfo = false,
+    UserInfoTop = false, -- display user info at the top of the window
+    UserInfoTitle = game:GetService("Players").LocalPlayer.DisplayName,
+    UserInfoSubtitle = "User",
+    UserInfoSubtitleColor = Color3.fromRGB(71, 123, 255)
 })
+local Minimizer = Fluent:CreateMinimizer({
+  Icon = "djs", -- you can put AssetId
+  Size = UDim2.fromOffset(70, 70),
+  Position = UDim2.new(0, 1200, 0, 20),
+  Acrylic = true,
+  Corner = 10,
+  Transparency = 1,
+  Draggable = true,
+  Visible = true -- make minimizer visible on pc (DEFAULT TRUE), you can edit any setting in Minimizer variable. example: Minimizer.Visible = false
+})
+
 local Tabs = {
     Info = Window:AddTab({ Title = "Info Script", Icon = "info" }),
     Player = Window:AddTab({ Title = "Player", Icon = "user-cog" }),
-    Fishing = Window:AddTab({ Title = "Fishing", Icon = "fish" }),
-    Inventory = Window:AddTab({ Title = "Inventory", Icon = "shopping-cart" }),
+    Fishing = Window:AddTab({ Title = "Fishing", Icon = "ikan" }),
+    Inventory = Window:AddTab({ Title = "Inventory", Icon = "backpack" }),
     Teleport = Window:AddTab({ Title = "Teleport", Icon = "map-pin" }),
     Buy = Window:AddTab({ Title = "Buy", Icon = "shopping-cart" }),
     Webhook = Window:AddTab({ Title = "Webhook", Icon = "bell-ring" }),
@@ -1114,68 +1132,6 @@ local autoClickV2Toggle = Tabs.Fishing:AddToggle("AutoClickV2", {
         end
     end
 })
-
-local isInstantReelActive = false
-local instantReelConnection = nil
-
-local function startInstantReel()
-    if instantReelConnection then
-        instantReelConnection:Disconnect()
-    end
-    
-    local RunService = game:GetService("RunService")
-    instantReelConnection = RunService.Heartbeat:Connect(function()
-        if not isInstantReelActive then
-            instantReelConnection:Disconnect()
-            return
-        end
-        
-        if not isPlayerValid() then
-            if Options and Options.instrail then
-                Options.instrail:SetValue(false)
-            end
-            return
-        end
-        
-        local success, error = pcall(function()
-            local ReplicatedStorage = game:GetService("ReplicatedStorage")
-            local netFolder = ReplicatedStorage.Packages._Index:FindFirstChild("sleitnick_net@0.2.0")
-            if netFolder and netFolder:FindFirstChild("net") then
-                local net = netFolder.net
-                local fishingCompleted = net:FindFirstChild("RE/FishingCompleted")
-                if fishingCompleted then
-                    fishingCompleted:FireServer()
-                end
-            end
-        end)
-        
-        if not success then
-            warn("Instant reel error: " .. tostring(error))
-        end
-    end)
-end
-
-local function stopInstantReel()
-    if instantReelConnection then
-        instantReelConnection:Disconnect()
-        instantReelConnection = nil
-    end
-end
-
-local instantReelToggle = Tabs.Fishing:AddToggle("instrail", {
-    Title = "Instant Reel",
-    Description = "For auto fishing v2",
-    Default = false,
-    Callback = function(Value)
-        isInstantReelActive = Value
-        if Value then
-            startInstantReel()
-        else
-            stopInstantReel()
-        end
-    end
-})
-
 -- Auto Farm V1
 Tabs.Fishing:AddSection("Auto Farm V1")
 local selectedFarmLocation = nil
@@ -1206,6 +1162,7 @@ local FarmLocationDropdown = Tabs.Fishing:AddDropdown("FarmLocation", {
    },
    Multi = false,
    Default = 1,
+   Search = true,
 })
 FarmLocationDropdown:OnChanged(function(Value)
    selectedFarmLocation = Value
@@ -1266,6 +1223,7 @@ local FarmMethodV1Dropdown = Tabs.Fishing:AddDropdown("FarmMethodV1", {
     Description = "for Auto Farm V1",
     Values = {"V1", "V2"},
     Multi = false,
+    Search = false,  
     Default = 1,
 })
 FarmMethodV1Dropdown:OnChanged(function(Value)
@@ -1403,12 +1361,12 @@ local FarmMethodV2Dropdown = Tabs.Fishing:AddDropdown("FarmMethodV2", {
     Description = "Choose fishing method for Auto Farm V2",
     Values = {"V1", "V2"},
     Multi = false,
+    Search = false,  -- ✅ Tambahkan ini
     Default = 1,
 })
 FarmMethodV2Dropdown:OnChanged(function(Value)
     selectedFarmMethodV2 = Value
 end)
-
 local function stopAutoFarmV2()
     isAutoFarmV2Active = false
     Options.AutoFishing:SetValue(false)
@@ -1576,7 +1534,7 @@ do
         end)() or {"Select a player...", "No players available"},
         Multi = false,
         Default = 1,
-        Searchable = true,
+        Search = true,
         Callback = function(Value)
             if Value == "Select a player..." or Value == "No players available" then
                 return
@@ -1629,7 +1587,7 @@ do
         },
         Multi = false,
         Default = 1,
-        Searchable = true,
+        Search = true,
         Callback = function(Value)
             if Value == "Select Island..." then
                 return
@@ -1682,7 +1640,7 @@ do
         },
         Multi = false,
         Default = 1,
-        Searchable = true,
+        Search = true,
         Callback = function(Value)
             if Value == "Select NPC..." then
                 return
@@ -2179,22 +2137,22 @@ spawn(function()
         end
     end
 end)
-    -- local copycords = teleportTab:AddButton({
-    --     Title = "Copy Coords",
-    --     Description = "copy coords",
-    --     Callback = function()
-    --                 local player = game.Players.LocalPlayer
-    --     if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-    --         local pos = player.Character.HumanoidRootPart.CFrame
-    --         -- Format ke string
-    --         local coordsString = string.format(
-    --             "CFrame.new(%.6f, %.6f, %.6f, %.6f, %.6f, %.6f, %.6f, %.6f, %.6f, %.6f, %.6f, %.6f)",
-    --             pos:GetComponents()
-    --         )
-    --         setclipboard(coordsString)
-    --     end
-    --     end
-    -- })
+    local copycords = teleportTab:AddButton({
+        Title = "Copy Coords",
+        Description = "copy coords",
+        Callback = function()
+                    local player = game.Players.LocalPlayer
+        if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            local pos = player.Character.HumanoidRootPart.CFrame
+            -- Format ke string
+            local coordsString = string.format(
+                "CFrame.new(%.6f, %.6f, %.6f, %.6f, %.6f, %.6f, %.6f, %.6f, %.6f, %.6f, %.6f, %.6f)",
+                pos:GetComponents()
+            )
+            setclipboard(coordsString)
+        end
+        end
+    })
 end
 
 do
@@ -2214,7 +2172,7 @@ do
         },
         Multi = false,
         Default = 1,
-        Searchable = true,
+        Search = true,
         Callback = function(Value)
             if Value == "Select Weather..." then
                 return
@@ -2282,7 +2240,7 @@ do
         },
         Multi = false,
         Default = 1,
-        Searchable = true,
+        Search = true,
         Callback = function(Value)
             if Value == "Select Rod..." then
                 return
@@ -2356,7 +2314,7 @@ do
         },
         Multi = false,
         Default = 1,
-        Searchable = true,
+        Search = true,
         Callback = function(Value)
             if Value == "Select Bait..." then
                 return
@@ -4193,4 +4151,3 @@ Window:SelectTab(1)
 AutoConfig:Initialize(Fluent)
 end
 
---rwa

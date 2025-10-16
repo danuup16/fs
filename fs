@@ -8,16 +8,17 @@ local AutoConfig = {} do
     AutoConfig.LastSaveTime = 0
     AutoConfig.IsMonitoring = false
     AutoConfig.Parsers = {
-        Toggle = {
-            Save = function(idx, option) 
-                return { type = "Toggle", idx = idx, value = option.Value } 
+        Input = {
+            Save = function(idx, option)
+                return { type = "Input", idx = idx, text = option.Value }
             end,
             Load = function(idx, data, options)
-                if options[idx] then 
-                    options[idx]:SetValue(data.value)
+                if options[idx] and type(data.text) == "string" then
+                    options[idx]:SetValue(data.text)
                 end
             end,
         },
+        
         Slider = {
             Save = function(idx, option)
                 return { type = "Slider", idx = idx, value = tonumber(option.Value) }
@@ -48,13 +49,13 @@ local AutoConfig = {} do
                 end
             end,
         },
-        Input = {
-            Save = function(idx, option)
-                return { type = "Input", idx = idx, text = option.Value }
+        Toggle = {
+            Save = function(idx, option) 
+                return { type = "Toggle", idx = idx, value = option.Value } 
             end,
             Load = function(idx, data, options)
-                if options[idx] and type(data.text) == "string" then
-                    options[idx]:SetValue(data.text)
+                if options[idx] then 
+                    options[idx]:SetValue(data.value)
                 end
             end,
         },
@@ -188,7 +189,7 @@ local AutoConfig = {} do
     end
 end
 local Window = Fluent:CreateWindow({
-    Title = "#DJSTEST - FISH IT V.12 ",
+    Title = "#DJSTEST - FISH IT V.13 ",
     SubTitle = "",
     Search = false, -- optional and default true
     Icon = "", -- optional
@@ -579,7 +580,7 @@ do
 end
 do
 local isAutoFishActive = false
-local fishingDelay = 2.3 
+local fishingDelay = 0
 local isAutoPerfectActive = false
 local isAutoAmazingActive = false
 local toolRefreshInterval = 300
@@ -658,8 +659,6 @@ local function isPlayerValid()
     
     local rootPart = character:FindFirstChild("HumanoidRootPart")
     if not rootPart then return false end
-    
-    -- Check if humanoid is alive
     if humanoid.Health <= 0 then return false end
     
     return true
@@ -687,7 +686,6 @@ local function performFishingCycle()
              local value = math.random(8000, 10000)
              chargeFishingRod:InvokeServer(value)
          end
-         task.wait(0.3)
      end
      local requestFishing = net:FindFirstChild("RF/RequestFishingMinigameStarted")
      if requestFishing then
@@ -705,12 +703,10 @@ local function performFishingCycle()
      local fishingCompleted = net:FindFirstChild("RE/FishingCompleted")
      if fishingCompleted then
          fishingCompleted:FireServer()
-         task.wait(0.5)
          
          local currentTime = tick()
          if currentTime - lastToolRefreshTime >= toolRefreshInterval then
              lastToolRefreshTime = currentTime
-             task.wait(0.5)
          end
      end
  end)
@@ -720,11 +716,58 @@ local function performFishingCycle()
 end
 
 Tabs.Fishing:AddSection("Auto Fishing V1")
-local FishingDelaySlider = Tabs.Fishing:AddSlider("FishingDelay", {
+
+local isInstantReelActive = false
+local instantReelConnection = nil
+
+local function startInstantReel()
+    if instantReelConnection then
+        instantReelConnection:Disconnect()
+    end
+    
+    local RunService = game:GetService("RunService")
+    instantReelConnection = RunService.Heartbeat:Connect(function()
+        if not isInstantReelActive then
+            instantReelConnection:Disconnect()
+            return
+        end
+        
+        if not isPlayerValid() then
+            if Options and Options.instrail then
+                Options.instrail:SetValue(false)
+            end
+            return
+        end
+        
+        local success, error = pcall(function()
+            local ReplicatedStorage = game:GetService("ReplicatedStorage")
+            local netFolder = ReplicatedStorage.Packages._Index:FindFirstChild("sleitnick_net@0.2.0")
+            if netFolder and netFolder:FindFirstChild("net") then
+                local net = netFolder.net
+                local fishingCompleted = net:FindFirstChild("RE/FishingCompleted")
+                if fishingCompleted then
+                    fishingCompleted:FireServer()
+                end
+            end
+        end)
+        
+        if not success then
+            warn("Instant reel error: " .. tostring(error))
+        end
+    end)
+end
+
+local function stopInstantReel()
+    if instantReelConnection then
+        instantReelConnection:Disconnect()
+        instantReelConnection = nil
+    end
+end
+local FishingDelaySlider = Tabs.Fishing:AddSlider("FishingDelayv1", {
     Title = "Fishing Delay V1",
-    Description = "Default 2.3",
-    Default = 2.3,
-    Min = 2.3,
+    Description = "Default 0",
+    Default = 0,
+    Min = 0,
     Max = 10,
     Rounding = 0.1,
     Callback = function(Value)
@@ -737,16 +780,18 @@ local AutoFishingToggle = Tabs.Fishing:AddToggle("AutoFishing", {
    Description = "Automatically fish",
    Default = false,
    Callback = function(Value)
+    isInstantReelActive = Value
       if Value then
          if not isAutoFishActive then
             if equipFishingTool() then
                isAutoFishActive = true
                lastToolRefreshTime = tick()
-               wait(1) 
+               wait(0.5) 
                spawn(function()
                   while isAutoFishActive do
                      if not isAutoFishActive then break end 
                      performFishingCycle()
+                     startInstantReel()
                      for i = 1, 10 do
                         if not isAutoFishActive then break end
                         wait(0.1)
@@ -760,6 +805,7 @@ local AutoFishingToggle = Tabs.Fishing:AddToggle("AutoFishing", {
             isAutoFishActive = false 
             spawn(function()
                unequipFishingTool()
+               stopInstantReel()
             end)
          end
       end
@@ -791,7 +837,18 @@ local AutoAmazingToggle = Tabs.Fishing:AddToggle("AutoAmazing", {
      end
  end,
 })
-
+local fixstuck = Tabs.Fishing:AddButton({
+    Title = "Fix Stuck",
+    Description = "Stuck Animation",
+    Callback = function()
+        isInstantReelActive = true
+        startInstantReel()
+        wait(5)
+        stopInstantReel()
+        isInstantReelActive = false
+        
+    end,
+})
 local SellFishButton = Tabs.Fishing:AddButton({
    Title = "Sell All Fish",
    Description = "Sell all fish in inventory",
@@ -1264,7 +1321,6 @@ local CheckpointInput = Tabs.Fishing:AddInput("CheckpointInput", {
     Numeric = false,
     Finished = false,
     Callback = function(Value)
-        -- Parse coordinate string back to CFrame if valid
         if Value and Value ~= "" then
             local coords = {}
             for num in Value:gmatch("([%-%d%.]+)") do
@@ -1320,8 +1376,6 @@ local function startAutoFarmV2()
 
     player.Character.HumanoidRootPart.CFrame = checkpointPosition
     wait(2)
-
-    -- aktifkan method sesuai dropdown
     if selectedFarmMethodV2 == "V1" then
         Options.AutoFishing:SetValue(true)
     else
@@ -1354,7 +1408,6 @@ local function startAutoFarmV2()
     end)
     return true
 end
-
 local FarmMethodV2Dropdown = Tabs.Fishing:AddDropdown("FarmMethodV2", {
     Title = "Select Auto Fishing",
     Description = "Choose fishing method for Auto Farm V2",
@@ -4152,5 +4205,4 @@ Window:SelectTab(1)
 AutoConfig:Initialize(Fluent)
 end
 
---rwa
-----xasxsaxxasxsaxasx
+--sdsf

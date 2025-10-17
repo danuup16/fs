@@ -173,23 +173,20 @@ local AutoConfig = {} do
             end
             return false
         end
-        
         return oldValue ~= newValue
     end
     function AutoConfig:StopMonitoring()
         self.IsMonitoring = false
     end
-    
     function AutoConfig:ManualSave()
         return self:SaveConfig()
     end
-    
     function AutoConfig:GetLastSaveTime()
         return self.LastSaveTime
     end
 end
 local Window = Fluent:CreateWindow({
-    Title = "#DJSTEST - FISH IT V.13 ",
+    Title = "#DJSTEST - FISH IT V.14",
     SubTitle = "",
     Search = false, -- optional and default true
     Icon = "", -- optional
@@ -866,7 +863,75 @@ local SellFishButton = Tabs.Fishing:AddButton({
       end)
    end,
 })
-
+local isSellAllFishV2Active = false
+local sellAllFishV2Thread = nil
+local function performSellAllFish()
+    local success, error = pcall(function()
+        local ReplicatedStorage = game:GetService("ReplicatedStorage")
+        local netFolder = ReplicatedStorage.Packages._Index:FindFirstChild("sleitnick_net@0.2.0")
+        if netFolder and netFolder:FindFirstChild("net") then
+            local net = netFolder.net
+            local sellAllItems = net:FindFirstChild("RF/SellAllItems")
+            if sellAllItems then
+                sellAllItems:InvokeServer()
+            end
+        end
+    end)
+    if not success then
+        warn("[SELL ALL FISH V2] Error: " .. tostring(error))
+    end
+end
+local SellAllFishV2Toggle = Tabs.Fishing:AddToggle("SellAllFishV2", {
+    Title = "Auto Sell All Fish V2",
+    Description = "Auto sell all fish every 15 minutes",
+    Default = false,
+    Callback = function(Value)
+        isSellAllFishV2Active = Value
+        if Value then
+            if not sellAllFishV2Thread then
+                sellAllFishV2Thread = spawn(function()
+                    while isSellAllFishV2Active do
+                        -- Tunggu 15 menit (900 detik)
+                        local remainingTime = 900
+                        while remainingTime > 0 and isSellAllFishV2Active do
+                            task.wait(1)
+                            remainingTime = remainingTime - 1
+                        end
+                        if isSellAllFishV2Active then
+                            performSellAllFish()
+                        end
+                    end
+                end)
+            end
+        else
+            if sellAllFishV2Thread then
+                sellAllFishV2Thread = nil
+            end
+            isSellAllFishV2Active = false
+        end
+    end,
+})
+local Players = game:GetService("Players")
+local playerInstance = Players.LocalPlayer
+if playerInstance then
+    playerInstance.CharacterRemoving:Connect(function()
+        isSellAllFishV2Active = false
+        if sellAllFishV2Thread then
+            sellAllFishV2Thread = nil
+        end
+        if Options then
+            pcall(function() if Options.SellAllFishV2 then Options.SellAllFishV2:SetValue(false) end end)
+        end
+    end)
+    playerInstance.CharacterAdded:Connect(function()
+        wait(3) 
+        if Options and Options.SellAllFishV2 and Options.SellAllFishV2.Value == true then
+            Options.SellAllFishV2:SetValue(false)
+            wait(1)
+            Options.SellAllFishV2:SetValue(true)
+        end
+    end)
+end
 Tabs.Fishing:AddSection("Auto Fishing V2")
 local function resetFishingController()
     fishingControllerModule = nil
@@ -2211,67 +2276,158 @@ end
 
 do
     local buyTab = Tabs.Buy
-    
-    -- Buy Weather Section
-    local weatherDropdown = buyTab:AddDropdown("BuyWeather", {
-        Title = "Buy Weather",
-        Description = "Purchase weather events with coins",
-        Values = {
-            "Select Weather...",
-            "Cloudy (20,000)",
-            "Wind (10,000)",
-            "Snow (15,000)",
-            "Storm (35,000)",
-            "Shark Hunt (300,000)"
-        },
-        Multi = false,
-        Default = 1,
-        Search = true,
-        Callback = function(Value)
-            if Value == "Select Weather..." then
-                return
+    -- Variables untuk Auto Buy Weather
+local isAutoBuyWeatherActive = false
+local autoBuyWeatherThread = nil
+local selectedWeatherForAuto = "Select Weather..."
+
+-- Mapping weather name ke display text
+local weatherDisplayMap = {
+    ["Cloudy"] = "Cloudy (20,000)",
+    ["Wind"] = "Wind (10,000)",
+    ["Snow"] = "Snow (15,000)",
+    ["Storm"] = "Storm (35,000)",
+    ["Shark Hunt"] = "Shark Hunt (300,000)"
+}
+
+-- Dropdown hanya untuk pilihan, tanpa callback beli
+local weatherDropdown = buyTab:AddDropdown("BuyWeather", {
+    Title = "Buy Weather",
+    Description = "Select weather to purchase",
+    Values = {
+        "Select Weather...",
+        "Cloudy (20,000)",
+        "Wind (10,000)",
+        "Snow (15,000)",
+        "Storm (35,000)",
+        "Shark Hunt (300,000)"
+    },
+    Multi = false,
+    Default = 1,
+    Search = true,
+    Callback = function(Value)
+        selectedWeatherForAuto = Value
+    end
+})
+local function buyWeatherNow(weatherDisplayValue)
+    if weatherDisplayValue == "Select Weather..." then
+        warn("[BUY WEATHER] No weather selected!")
+        return false
+    end
+    local weatherName
+    if weatherDisplayValue:find("Cloudy") then
+        weatherName = "Cloudy"
+    elseif weatherDisplayValue:find("Wind") then
+        weatherName = "Wind"
+    elseif weatherDisplayValue:find("Snow") then
+        weatherName = "Snow"
+    elseif weatherDisplayValue:find("Storm") then
+        weatherName = "Storm"
+    elseif weatherDisplayValue:find("Shark Hunt") then
+        weatherName = "Shark Hunt"
+    end
+    if not weatherName then
+        warn("[BUY WEATHER] Invalid weather selected!")
+        return false
+    end
+    local success, error = pcall(function()
+        local ReplicatedStorage = game:GetService("ReplicatedStorage")
+        local netFolder = ReplicatedStorage.Packages._Index:FindFirstChild("sleitnick_net@0.2.0")
+        if netFolder and netFolder:FindFirstChild("net") then
+            local net = netFolder.net
+            local buyWeather = net:FindFirstChild("RF/PurchaseWeatherEvent")
+            if buyWeather then
+                buyWeather:InvokeServer(weatherName)
+                return true
+            else
+                warn("[BUY WEATHER] PurchaseWeatherEvent not found!")
+                return false
             end
-            
-            local weatherName
-            if Value:find("Cloudy") then
-                weatherName = "Cloudy"
-            elseif Value:find("Wind") then
-                weatherName = "Wind"
-            elseif Value:find("Snow") then
-                weatherName = "Snow"
-            elseif Value:find("Storm") then
-                weatherName = "Storm"
-            elseif Value:find("Shark Hunt") then
-                weatherName = "Shark Hunt"
-            end
-            
-            if weatherName then
-                local success, error = pcall(function()
-                    local ReplicatedStorage = game:GetService("ReplicatedStorage")
-                    local netFolder = ReplicatedStorage.Packages._Index:FindFirstChild("sleitnick_net@0.2.0")
-                    if netFolder and netFolder:FindFirstChild("net") then
-                        local net = netFolder.net
-                        local buyWeather = net:FindFirstChild("RF/PurchaseWeatherEvent")
-                        if buyWeather then
-                            buyWeather:InvokeServer(weatherName)
-                        else
-                            warn("PurchaseWeatherEvent not found!")
+        else
+            warn("[BUY WEATHER] Network folder not found!")
+            return false
+        end
+    end)
+    if not success then
+        warn("[BUY WEATHER] Error: " .. tostring(error))
+        return false
+    end
+    return true
+end
+
+-- Button untuk manual buy
+local BuyWeatherButton = buyTab:AddButton({
+    Title = "Buy Weather",
+    Description = "Purchase selected weather",
+    Callback = function()
+        if selectedWeatherForAuto ~= "Select Weather..." then
+            buyWeatherNow(selectedWeatherForAuto)
+        else
+            warn("[BUY WEATHER] Please select a weather first!")
+        end
+    end
+})
+
+-- Toggle untuk Auto Buy Weather (5 menit sekali)
+local AutoBuyWeatherToggle = buyTab:AddToggle("AutoBuyWeather", {
+    Title = "Auto Buy Weather",
+    Description = "Auto purchase selected weather every 5 minutes",
+    Default = false,
+    Callback = function(Value)
+        isAutoBuyWeatherActive = Value
+        
+        if Value then
+            if not autoBuyWeatherThread then
+                autoBuyWeatherThread = spawn(function()
+                    while isAutoBuyWeatherActive do
+                        -- Tunggu 5 menit (300 detik)
+                        local remainingTime = 300
+                        while remainingTime > 0 and isAutoBuyWeatherActive do
+                            task.wait(1)
+                            remainingTime = remainingTime - 1
+                        end
+                        
+                        -- Jika masih active, lakukan buy
+                        if isAutoBuyWeatherActive and selectedWeatherForAuto ~= "Select Weather..." then
+                            buyWeatherNow(selectedWeatherForAuto)
                         end
                     end
                 end)
-                
-                if not success then
-                    warn("Weather purchase error: " .. tostring(error))
-                end
-                
-                -- Reset to default after purchase
-                spawn(function()
-                    wait(0.1)
-                    Options.BuyWeather:SetValue("Select Weather...")
-                end)
             end
+        else
+            if autoBuyWeatherThread then
+                autoBuyWeatherThread = nil
+            end
+            isAutoBuyWeatherActive = false
         end
-    })
+    end
+})
+
+-- Cleanup saat player respawn
+local Players = game:GetService("Players")
+local playerInstance = Players.LocalPlayer
+
+if playerInstance then
+    playerInstance.CharacterRemoving:Connect(function()
+        isAutoBuyWeatherActive = false
+        if autoBuyWeatherThread then
+            autoBuyWeatherThread = nil
+        end
+        if Options then
+            pcall(function() if Options.AutoBuyWeather then Options.AutoBuyWeather:SetValue(false) end end)
+        end
+    end)
+    
+    playerInstance.CharacterAdded:Connect(function()
+        wait(3)
+        -- Auto restart jika sebelumnya aktif
+        if Options and Options.AutoBuyWeather and Options.AutoBuyWeather.Value == true then
+            Options.AutoBuyWeather:SetValue(false)
+            wait(1)
+            Options.AutoBuyWeather:SetValue(true)
+        end
+    end)
+end
     
     -- Buy Rod Section
     buyTab:AddSection("Fishing Equipment")
@@ -4205,4 +4361,4 @@ Window:SelectTab(1)
 AutoConfig:Initialize(Fluent)
 end
 
---sdsf
+--rwa

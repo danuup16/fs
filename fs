@@ -713,29 +713,24 @@ local function performFishingCycle()
 end
 
 Tabs.Fishing:AddSection("Auto Fishing V1")
-
 local isInstantReelActive = false
 local instantReelConnection = nil
-
 local function startInstantReel()
     if instantReelConnection then
         instantReelConnection:Disconnect()
     end
-    
     local RunService = game:GetService("RunService")
     instantReelConnection = RunService.Heartbeat:Connect(function()
         if not isInstantReelActive then
             instantReelConnection:Disconnect()
             return
         end
-        
         if not isPlayerValid() then
             if Options and Options.instrail then
                 Options.instrail:SetValue(false)
             end
             return
         end
-        
         local success, error = pcall(function()
             local ReplicatedStorage = game:GetService("ReplicatedStorage")
             local netFolder = ReplicatedStorage.Packages._Index:FindFirstChild("sleitnick_net@0.2.0")
@@ -747,13 +742,11 @@ local function startInstantReel()
                 end
             end
         end)
-        
         if not success then
             warn("Instant reel error: " .. tostring(error))
         end
     end)
 end
-
 local function stopInstantReel()
     if instantReelConnection then
         instantReelConnection:Disconnect()
@@ -771,7 +764,6 @@ local FishingDelaySlider = Tabs.Fishing:AddSlider("FishingDelayv1", {
         fishingDelay = Value
     end
 })
-
 local AutoFishingToggle = Tabs.Fishing:AddToggle("AutoFishing", {
    Title = "Auto Fishing V1",
    Description = "Automatically fish",
@@ -808,7 +800,6 @@ local AutoFishingToggle = Tabs.Fishing:AddToggle("AutoFishing", {
       end
    end,
 })
-
 local AutoPerfectToggle = Tabs.Fishing:AddToggle("AutoPerfect", {
  Title = "Auto Perfect",
  Description = "Perfect catch every time",
@@ -891,14 +882,11 @@ local SellAllFishV2Toggle = Tabs.Fishing:AddToggle("SellAllFishV2", {
             if not sellAllFishV2Thread then
                 sellAllFishV2Thread = spawn(function()
                     while isSellAllFishV2Active do
-                        -- Tunggu 15 menit (900 detik)
+                        performSellAllFish()
                         local remainingTime = 900
                         while remainingTime > 0 and isSellAllFishV2Active do
                             task.wait(1)
                             remainingTime = remainingTime - 1
-                        end
-                        if isSellAllFishV2Active then
-                            performSellAllFish()
                         end
                     end
                 end)
@@ -1177,7 +1165,7 @@ end
 
 local autoFishV2Toggle = Tabs.Fishing:AddToggle("AutoFishingV2", {
     Title = "Auto Fishing V2",
-    Description = "Instant restart after completion",
+    Description = "automatically Fishing",
     Default = false,
     Callback = function(Value)
         if Value then
@@ -1271,7 +1259,9 @@ local farmLocations = {
    ["Stingray Shores"] = CFrame.new(-182.069839, 3.134159, 2789.177246, 0.013366, -0.000000, 0.999911, -0.000000, 1.000000, 0.000000, -0.999911, -0.000000, 0.013366),
    ["Ocean"] = CFrame.new(1756.653687, 2.299988, 3358.764893, 0.200904, -0.000000, -0.979611, 0.000000, 1.000000, -0.000000, 0.979611, -0.000000, 0.200904),
    ["Esoteric Depths"] = CFrame.new(3231.490234, -1302.105103, 1453.461060, 0.988762, 0.000000, -0.149498, -0.000000, 1.000000, -0.000000, 0.149498, 0.000000, 0.988762),
-   ["Ancient Jungle"] = CFrame.new(1529.181763, 4.890006, -597.969238, 0.471341, -0.000000, 0.881951, -0.000000, 1.000000, 0.000000, -0.881951, -0.000000, 0.471341)
+   ["Ancient Jungle V1"] = CFrame.new(1529.181763, 4.890006, -597.969238, 0.471341, -0.000000, 0.881951, -0.000000, 1.000000, 0.000000, -0.881951, -0.000000, 0.471341),
+   ["Ancient Jungle V2"] = CFrame.new(2111.60, -91.41, -699.93, 0.945, -0.000, -0.326, 0.000, 1.000, -0.000, 0.326, 0.000, 0.945)
+   
 }
 local FarmLocationDropdown = Tabs.Fishing:AddDropdown("FarmLocation", {
    Title = "Auto Farm V1 - Select Map",
@@ -1279,7 +1269,7 @@ local FarmLocationDropdown = Tabs.Fishing:AddDropdown("FarmLocation", {
    Values = {
       "Kohana", "Kohana Volcano", "Tropical Grove", "Tropical Grove 2",
       "Sisyphus Statue", "Weather Machine", "Treasure Room", "Esoteric Island",
-      "Crater Island", "Coral Reefs", "Stingray Shores", "Ocean", "Esoteric Depths", "Ancient Jungle"
+      "Crater Island", "Coral Reefs", "Stingray Shores", "Ocean", "Esoteric Depths", "Ancient Jungle V1","Ancient Jungle V2"
    },
    Multi = false,
    Default = 1,
@@ -1478,7 +1468,7 @@ local FarmMethodV2Dropdown = Tabs.Fishing:AddDropdown("FarmMethodV2", {
     Description = "Choose fishing method for Auto Farm V2",
     Values = {"V1", "V2"},
     Multi = false,
-    Search = false,  -- ✅ Tambahkan ini
+    Search = false,
     Default = 1,
 })
 FarmMethodV2Dropdown:OnChanged(function(Value)
@@ -1514,7 +1504,7 @@ local AutoFarmV2Toggle = Tabs.Fishing:AddToggle("AutoFarmV2", {
 
 -- Enhanced respawn protection for Auto Farm V2
 spawn(function()
-    wait(5) -- tunggu config dan checkpoint input benar2 loaded
+    wait(5)
     if Options.AutoFarmV2 and Options.AutoFarmV2.Value == true then
         if hasCheckpoint and checkpointPosition then
             Options.AutoFarmV2:SetValue(false)
@@ -1527,7 +1517,7 @@ spawn(function()
 end)
 
 spawn(function()
-    wait(3) -- Wait untuk config loading selesai
+    wait(3)
     local inputValue = Options.CheckpointInput and Options.CheckpointInput.Value or ""
     if inputValue ~= "" then
         local coords = {}
@@ -1583,7 +1573,6 @@ end
 end
 do
     local teleportTab = Tabs.Teleport
-    
     -- Player Teleport Section
     local currentPlayerList = {}
     local isDropdownInitialized = false
@@ -2256,178 +2245,202 @@ spawn(function()
         end
     end
 end)
-    local copycords = teleportTab:AddButton({
-        Title = "Copy Coords",
-        Description = "copy coords",
-        Callback = function()
-                    local player = game.Players.LocalPlayer
-        if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-            local pos = player.Character.HumanoidRootPart.CFrame
-            -- Format ke string
-            local coordsString = string.format(
-                "CFrame.new(%.6f, %.6f, %.6f, %.6f, %.6f, %.6f, %.6f, %.6f, %.6f, %.6f, %.6f, %.6f)",
-                pos:GetComponents()
-            )
-            setclipboard(coordsString)
-        end
-        end
-    })
+    -- local copycords = teleportTab:AddButton({
+    --     Title = "Copy Coords",
+    --     Description = "copy coords",
+    --     Callback = function()
+    --                 local player = game.Players.LocalPlayer
+    --     if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+    --         local pos = player.Character.HumanoidRootPart.CFrame
+    --         -- Format ke string
+    --         local coordsString = string.format(
+    --             "CFrame.new(%.6f, %.6f, %.6f, %.6f, %.6f, %.6f, %.6f, %.6f, %.6f, %.6f, %.6f, %.6f)",
+    --             pos:GetComponents()
+    --         )
+    --         setclipboard(coordsString)
+    --     end
+    --     end
+    -- })
 end
 
 do
     local buyTab = Tabs.Buy
     -- Variables untuk Auto Buy Weather
-local isAutoBuyWeatherActive = false
-local autoBuyWeatherThread = nil
-local selectedWeatherForAuto = "Select Weather..."
+    local isAutoBuyWeatherActive = false
+    local autoBuyWeatherThread = nil
+    local selectedWeathersForAuto = {} -- Changed to table for multi-select
 
--- Mapping weather name ke display text
-local weatherDisplayMap = {
-    ["Cloudy"] = "Cloudy (20,000)",
-    ["Wind"] = "Wind (10,000)",
-    ["Snow"] = "Snow (15,000)",
-    ["Storm"] = "Storm (35,000)",
-    ["Shark Hunt"] = "Shark Hunt (300,000)"
-}
+    -- Mapping weather name ke display text
+    local weatherDisplayMap = {
+        ["Cloudy"] = "Cloudy (20,000)",
+        ["Wind"] = "Wind (10,000)",
+        ["Snow"] = "Snow (15,000)",
+        ["Storm"] = "Storm (35,000)",
+        ["Shark Hunt"] = "Shark Hunt (300,000)"
+    }
 
--- Dropdown hanya untuk pilihan, tanpa callback beli
-local weatherDropdown = buyTab:AddDropdown("BuyWeather", {
-    Title = "Buy Weather",
-    Description = "Select weather to purchase",
-    Values = {
-        "Select Weather...",
-        "Cloudy (20,000)",
-        "Wind (10,000)",
-        "Snow (15,000)",
-        "Storm (35,000)",
-        "Shark Hunt (300,000)"
-    },
-    Multi = false,
-    Default = 1,
-    Search = true,
-    Callback = function(Value)
-        selectedWeatherForAuto = Value
-    end
-})
-local function buyWeatherNow(weatherDisplayValue)
-    if weatherDisplayValue == "Select Weather..." then
-        warn("[BUY WEATHER] No weather selected!")
-        return false
-    end
-    local weatherName
-    if weatherDisplayValue:find("Cloudy") then
-        weatherName = "Cloudy"
-    elseif weatherDisplayValue:find("Wind") then
-        weatherName = "Wind"
-    elseif weatherDisplayValue:find("Snow") then
-        weatherName = "Snow"
-    elseif weatherDisplayValue:find("Storm") then
-        weatherName = "Storm"
-    elseif weatherDisplayValue:find("Shark Hunt") then
-        weatherName = "Shark Hunt"
-    end
-    if not weatherName then
-        warn("[BUY WEATHER] Invalid weather selected!")
-        return false
-    end
-    local success, error = pcall(function()
-        local ReplicatedStorage = game:GetService("ReplicatedStorage")
-        local netFolder = ReplicatedStorage.Packages._Index:FindFirstChild("sleitnick_net@0.2.0")
-        if netFolder and netFolder:FindFirstChild("net") then
-            local net = netFolder.net
-            local buyWeather = net:FindFirstChild("RF/PurchaseWeatherEvent")
-            if buyWeather then
-                buyWeather:InvokeServer(weatherName)
-                return true
-            else
-                warn("[BUY WEATHER] PurchaseWeatherEvent not found!")
-                return false
+    -- Dropdown untuk multi-select
+    local weatherDropdown = buyTab:AddDropdown("BuyWeather", {
+        Title = "Buy Weather",
+        Description = "Select weather to purchase",
+        Values = {
+            "Cloudy (20,000)",
+            "Wind (10,000)",
+            "Snow (15,000)",
+            "Storm (35,000)",
+            "Shark Hunt (300,000)"
+        },
+        Multi = true,
+        Default = {},
+        Search = true,
+        Callback = function(Value)
+            selectedWeathersForAuto = {}
+            for WeatherDisplay, State in next, Value do
+                if State then
+                    table.insert(selectedWeathersForAuto, WeatherDisplay)
+                end
             end
-        else
-            warn("[BUY WEATHER] Network folder not found!")
+        end
+    })
+
+    local function buyWeatherNow(weatherDisplayValue)
+        if weatherDisplayValue == "" then
+            warn("[BUY WEATHER] No weather selected!")
             return false
         end
-    end)
-    if not success then
-        warn("[BUY WEATHER] Error: " .. tostring(error))
-        return false
-    end
-    return true
-end
-
--- Button untuk manual buy
-local BuyWeatherButton = buyTab:AddButton({
-    Title = "Buy Weather",
-    Description = "Purchase selected weather",
-    Callback = function()
-        if selectedWeatherForAuto ~= "Select Weather..." then
-            buyWeatherNow(selectedWeatherForAuto)
-        else
-            warn("[BUY WEATHER] Please select a weather first!")
-        end
-    end
-})
-
--- Toggle untuk Auto Buy Weather (5 menit sekali)
-local AutoBuyWeatherToggle = buyTab:AddToggle("AutoBuyWeather", {
-    Title = "Auto Buy Weather",
-    Description = "Auto purchase selected weather every 5 minutes",
-    Default = false,
-    Callback = function(Value)
-        isAutoBuyWeatherActive = Value
         
-        if Value then
-            if not autoBuyWeatherThread then
-                autoBuyWeatherThread = spawn(function()
-                    while isAutoBuyWeatherActive do
-                        -- Tunggu 5 menit (300 detik)
-                        local remainingTime = 300
-                        while remainingTime > 0 and isAutoBuyWeatherActive do
-                            task.wait(1)
-                            remainingTime = remainingTime - 1
+        local weatherName
+        if weatherDisplayValue:find("Cloudy") then
+            weatherName = "Cloudy"
+        elseif weatherDisplayValue:find("Wind") then
+            weatherName = "Wind"
+        elseif weatherDisplayValue:find("Snow") then
+            weatherName = "Snow"
+        elseif weatherDisplayValue:find("Storm") then
+            weatherName = "Storm"
+        elseif weatherDisplayValue:find("Shark Hunt") then
+            weatherName = "Shark Hunt"
+        end
+        
+        if not weatherName then
+            warn("[BUY WEATHER] Invalid weather selected!")
+            return false
+        end
+        
+        local success, error = pcall(function()
+            local ReplicatedStorage = game:GetService("ReplicatedStorage")
+            local netFolder = ReplicatedStorage.Packages._Index:FindFirstChild("sleitnick_net@0.2.0")
+            if netFolder and netFolder:FindFirstChild("net") then
+                local net = netFolder.net
+                local buyWeather = net:FindFirstChild("RF/PurchaseWeatherEvent")
+                if buyWeather then
+                    buyWeather:InvokeServer(weatherName)
+                    return true
+                else
+                    warn("[BUY WEATHER] PurchaseWeatherEvent not found!")
+                    return false
+                end
+            else
+                warn("[BUY WEATHER] Network folder not found!")
+                return false
+            end
+        end)
+        
+        if not success then
+            warn("[BUY WEATHER] Error: " .. tostring(error))
+            return false
+        end
+        return true
+    end
+
+    -- Button untuk manual buy (membeli semua yang dipilih)
+    local BuyWeatherButton = buyTab:AddButton({
+        Title = "Buy Weather",
+        Description = "Purchase all selected weathers",
+        Callback = function()
+            if #selectedWeathersForAuto > 0 then
+                for _, weatherDisplay in ipairs(selectedWeathersForAuto) do
+                    buyWeatherNow(weatherDisplay)
+                    task.wait(0.5) -- Delay antar purchase
+                end
+            else
+                warn("[BUY WEATHER] Please select at least one weather!")
+            end
+        end
+    })
+
+    -- Toggle untuk Auto Buy Weather (3 menit sekali)
+    local AutoBuyWeatherToggle = buyTab:AddToggle("AutoBuyWeather", {
+        Title = "Auto Buy Weather",
+        Description = "Auto purchase selected weathers every 3 minutes",
+        Default = false,
+        Callback = function(Value)
+            isAutoBuyWeatherActive = Value
+            
+            if Value then
+                if not autoBuyWeatherThread then
+                    autoBuyWeatherThread = spawn(function()
+                        -- Beli langsung saat pertama kali aktif
+                        if #selectedWeathersForAuto > 0 then
+                            for _, weatherDisplay in ipairs(selectedWeathersForAuto) do
+                                buyWeatherNow(weatherDisplay)
+                                task.wait(0.5)
+                            end
                         end
                         
-                        -- Jika masih active, lakukan buy
-                        if isAutoBuyWeatherActive and selectedWeatherForAuto ~= "Select Weather..." then
-                            buyWeatherNow(selectedWeatherForAuto)
+                        -- Loop auto buy setiap 3 menit
+                        while isAutoBuyWeatherActive do
+                            -- Tunggu 3 menit (180 detik)
+                            local remainingTime = 180
+                            while remainingTime > 0 and isAutoBuyWeatherActive do
+                                task.wait(1)
+                                remainingTime = remainingTime - 1
+                            end
+                            
+                            -- Jika masih active, lakukan buy semua yang dipilih
+                            if isAutoBuyWeatherActive and #selectedWeathersForAuto > 0 then
+                                for _, weatherDisplay in ipairs(selectedWeathersForAuto) do
+                                    buyWeatherNow(weatherDisplay)
+                                    task.wait(0.5)
+                                end
+                            end
                         end
-                    end
-                end)
+                    end)
+                end
+            else
+                if autoBuyWeatherThread then
+                    autoBuyWeatherThread = nil
+                end
+                isAutoBuyWeatherActive = false
             end
-        else
+        end
+    })
+
+    -- Cleanup saat player respawn
+    local Players = game:GetService("Players")
+    local playerInstance = Players.LocalPlayer
+
+    if playerInstance then
+        playerInstance.CharacterRemoving:Connect(function()
+            isAutoBuyWeatherActive = false
             if autoBuyWeatherThread then
                 autoBuyWeatherThread = nil
             end
-            isAutoBuyWeatherActive = false
-        end
+            if Options then
+                pcall(function() if Options.AutoBuyWeather then Options.AutoBuyWeather:SetValue(false) end end)
+            end
+        end)
+        
+        playerInstance.CharacterAdded:Connect(function()
+            task.wait(3)
+            -- Auto restart jika sebelumnya aktif
+            if Options and Options.AutoBuyWeather and Options.AutoBuyWeather.Value == true then
+                Options.AutoBuyWeather:SetValue(false)
+                task.wait(1)
+                Options.AutoBuyWeather:SetValue(true)
+            end
+        end)
     end
-})
-
--- Cleanup saat player respawn
-local Players = game:GetService("Players")
-local playerInstance = Players.LocalPlayer
-
-if playerInstance then
-    playerInstance.CharacterRemoving:Connect(function()
-        isAutoBuyWeatherActive = false
-        if autoBuyWeatherThread then
-            autoBuyWeatherThread = nil
-        end
-        if Options then
-            pcall(function() if Options.AutoBuyWeather then Options.AutoBuyWeather:SetValue(false) end end)
-        end
-    end)
-    
-    playerInstance.CharacterAdded:Connect(function()
-        wait(3)
-        -- Auto restart jika sebelumnya aktif
-        if Options and Options.AutoBuyWeather and Options.AutoBuyWeather.Value == true then
-            Options.AutoBuyWeather:SetValue(false)
-            wait(1)
-            Options.AutoBuyWeather:SetValue(true)
-        end
-    end)
-end
     
     -- Buy Rod Section
     buyTab:AddSection("Fishing Equipment")
@@ -2502,7 +2515,7 @@ end
                 
                 -- Reset to default after purchase
                 spawn(function()
-                    wait(0.1)
+                    task.wait(0.1)
                     Options.BuyRod:SetValue("Select Rod...")
                 end)
             end
@@ -2568,7 +2581,7 @@ end
                 
                 -- Reset to default after purchase
                 spawn(function()
-                    wait(0.1)
+                    task.wait(0.1)
                     Options.BuyBait:SetValue("Select Bait...")
                 end)
             end
@@ -4361,4 +4374,3 @@ Window:SelectTab(1)
 AutoConfig:Initialize(Fluent)
 end
 
---rwa

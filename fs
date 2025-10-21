@@ -863,23 +863,23 @@ local fixstuck = Tabs.Fishing:AddButton({
     end,
 })
 
-local SellFishButton = Tabs.Fishing:AddButton({
-   Title = "Sell All Fish",
-   Description = "Sell all fish in inventory",
-   Callback = function()
-      local success, error = pcall(function()
-         local ReplicatedStorage = game:GetService("ReplicatedStorage")
-         local netFolder = ReplicatedStorage.Packages._Index:FindFirstChild("sleitnick_net@0.2.0")
-         if netFolder and netFolder:FindFirstChild("net") then
-            local net = netFolder.net
-            local sellAllItems = net:FindFirstChild("RF/SellAllItems")
-            if sellAllItems then
-               sellAllItems:InvokeServer()
-            end
-         end
-      end)
-   end,
-})
+-- local SellFishButton = Tabs.Fishing:AddButton({
+--    Title = "Sell All Fish",
+--    Description = "Sell all fish in inventory",
+--    Callback = function()
+--       local success, error = pcall(function()
+--          local ReplicatedStorage = game:GetService("ReplicatedStorage")
+--          local netFolder = ReplicatedStorage.Packages._Index:FindFirstChild("sleitnick_net@0.2.0")
+--          if netFolder and netFolder:FindFirstChild("net") then
+--             local net = netFolder.net
+--             local sellAllItems = net:FindFirstChild("RF/SellAllItems")
+--             if sellAllItems then
+--                sellAllItems:InvokeServer()
+--             end
+--          end
+--       end)
+--    end,
+-- })
 
 local isSellAllFishV2Active = false
 local sellAllFishV2Thread = nil

@@ -186,7 +186,7 @@ local AutoConfig = {} do
     end
 end
 local Window = Fluent:CreateWindow({
-    Title = "#DJSTEST - FISH IT V.14",
+    Title = "#DJSTEST - FISH IT V.15",
     SubTitle = "",
     Search = false, -- optional and default true
     Icon = "", -- optional
@@ -545,35 +545,6 @@ do
             end
         end
     })
-    
-    -- Anti AFK
-    local antiAfkConnection = nil
-    local isAntiAfkActive = false
-    
-    local antiAfkToggle = Tabs.Player:AddToggle("AntiAfk", {
-        Title = "Anti AFK",
-        Description = "Prevent getting kicked for being idle",
-        Default = false,
-        Callback = function(Value)
-            if Value then
-                if not isAntiAfkActive then
-                    local VirtualUser = game:GetService('VirtualUser')
-                    antiAfkConnection = game:GetService('Players').LocalPlayer.Idled:Connect(function()
-                        VirtualUser:CaptureController()
-                        VirtualUser:ClickButton2(Vector2.new())
-                    end)
-                    isAntiAfkActive = true
-                end
-            else
-                if antiAfkConnection and isAntiAfkActive then
-                    antiAfkConnection:Disconnect()
-                    antiAfkConnection = nil
-                    isAntiAfkActive = false
-                end
-            end
-        end
-    })
-   
 end
 do
 local isAutoFishActive = false
@@ -582,19 +553,8 @@ local isAutoPerfectActive = false
 local isAutoAmazingActive = false
 local toolRefreshInterval = 300
 local lastToolRefreshTime = 0
-
--- V2 Variables with respawn protection
-local isAutoFishV2Active = false
-local fishingV2DelayTime = 0
-local fishingControllerModule = nil
-local lastToolRefreshTimeV2 = 0
-local toolRefreshIntervalV2 = 300
-local autoFishV2Thread = nil -- Track main thread
-local characterConnection = nil -- Track character respawn
-
--- Global variables untuk instant restart system
-local fishingCompletionConnection = nil
-local isWaitingForCompletion = false
+local noAnimationMode = false
+local noDelayMode = false
 
 local function equipFishingTool()
    local success, error = pcall(function()
@@ -643,7 +603,6 @@ local function unequipFishingTool()
    return success
 end
 
--- Check if player character is valid and alive
 local function isPlayerValid()
     local player = game.Players.LocalPlayer
     if not player then return false end
@@ -696,14 +655,22 @@ local function performFishingCycle()
              requestFishing:InvokeServer(randomX, randomY)
          end
      end
-     task.wait(fishingDelay)
-     local fishingCompleted = net:FindFirstChild("RE/FishingCompleted")
-     if fishingCompleted then
-         fishingCompleted:FireServer()
-         
-         local currentTime = tick()
-         if currentTime - lastToolRefreshTime >= toolRefreshInterval then
-             lastToolRefreshTime = currentTime
+     if noDelayMode then
+         -- Langsung selesaikan fishing
+         local fishingCompleted = net:FindFirstChild("RE/FishingCompleted")
+         if fishingCompleted then
+             fishingCompleted:FireServer()
+         end
+     else
+         task.wait(fishingDelay)
+         local fishingCompleted = net:FindFirstChild("RE/FishingCompleted")
+         if fishingCompleted then
+             fishingCompleted:FireServer()
+             
+             local currentTime = tick()
+             if currentTime - lastToolRefreshTime >= toolRefreshInterval then
+                 lastToolRefreshTime = currentTime
+             end
          end
      end
  end)
@@ -713,8 +680,10 @@ local function performFishingCycle()
 end
 
 Tabs.Fishing:AddSection("Auto Fishing V1")
+
 local isInstantReelActive = false
 local instantReelConnection = nil
+
 local function startInstantReel()
     if instantReelConnection then
         instantReelConnection:Disconnect()
@@ -736,9 +705,23 @@ local function startInstantReel()
             local netFolder = ReplicatedStorage.Packages._Index:FindFirstChild("sleitnick_net@0.2.0")
             if netFolder and netFolder:FindFirstChild("net") then
                 local net = netFolder.net
+                
+                -- Spam FishingCompleted untuk instant reel
                 local fishingCompleted = net:FindFirstChild("RE/FishingCompleted")
                 if fishingCompleted then
                     fishingCompleted:FireServer()
+                end
+                
+                -- TAMBAHAN: Spam RequestFishingMinigameStarted untuk force bite
+                local requestFishing = net:FindFirstChild("RF/RequestFishingMinigameStarted")
+                if requestFishing and isAutoPerfectActive then
+                    pcall(function()
+                        requestFishing:InvokeServer(0, 1)
+                    end)
+                elseif requestFishing and isAutoAmazingActive then
+                    pcall(function()
+                        requestFishing:InvokeServer(-139.6379699707, 0.87694226394928)
+                    end)
                 end
             end
         end)
@@ -747,15 +730,42 @@ local function startInstantReel()
         end
     end)
 end
+
 local function stopInstantReel()
     if instantReelConnection then
         instantReelConnection:Disconnect()
         instantReelConnection = nil
     end
 end
+
+local NoDelayToggle = Tabs.Fishing:AddToggle("NoDelay", {
+    Title = "X3 Instant",
+    Description = "",
+    Default = false,
+    Callback = function(Value)
+        noDelayMode = Value
+    end,
+})
+
+local NoAnimationToggle = Tabs.Fishing:AddToggle("NoAnimation", {
+    Title = "No Animation",
+    Description = "Disables fishing animations",
+    Default = false,
+    Callback = function(Value)
+        noAnimationMode = Value
+        -- Disable animations jika mode aktif
+        if Value then
+            local AnimationController = require(game:GetService("ReplicatedStorage").Controllers.AnimationController)
+            if AnimationController then
+                AnimationController:DestroyActiveAnimationTracks()
+            end
+        end
+    end,
+})
+
 local FishingDelaySlider = Tabs.Fishing:AddSlider("FishingDelayv1", {
     Title = "Fishing Delay V1",
-    Description = "Default 0",
+    Description = "Default 0 (Ignored if No Delay is ON)",
     Default = 0,
     Min = 0,
     Max = 10,
@@ -764,6 +774,7 @@ local FishingDelaySlider = Tabs.Fishing:AddSlider("FishingDelayv1", {
         fishingDelay = Value
     end
 })
+
 local AutoFishingToggle = Tabs.Fishing:AddToggle("AutoFishing", {
    Title = "Auto Fishing V1",
    Description = "Automatically fish",
@@ -779,11 +790,23 @@ local AutoFishingToggle = Tabs.Fishing:AddToggle("AutoFishing", {
                spawn(function()
                   while isAutoFishActive do
                      if not isAutoFishActive then break end 
+                     
+                     -- Disable animations jika no animation mode aktif
+                     if noAnimationMode then
+                        local AnimationController = require(game:GetService("ReplicatedStorage").Controllers.AnimationController)
+                        if AnimationController then
+                            AnimationController:DestroyActiveAnimationTracks()
+                        end
+                     end
+                     
                      performFishingCycle()
                      startInstantReel()
+                     
+                     -- Loop delay yang lebih cepat jika no delay aktif
+                     local loopDelay = noDelayMode and 0.01 or 0.1
                      for i = 1, 10 do
                         if not isAutoFishActive then break end
-                        wait(0.1)
+                        wait(loopDelay)
                      end
                   end
                end)
@@ -800,6 +823,7 @@ local AutoFishingToggle = Tabs.Fishing:AddToggle("AutoFishing", {
       end
    end,
 })
+
 local AutoPerfectToggle = Tabs.Fishing:AddToggle("AutoPerfect", {
  Title = "Auto Perfect",
  Description = "Perfect catch every time",
@@ -825,6 +849,7 @@ local AutoAmazingToggle = Tabs.Fishing:AddToggle("AutoAmazing", {
      end
  end,
 })
+
 local fixstuck = Tabs.Fishing:AddButton({
     Title = "Fix Stuck",
     Description = "Stuck Animation",
@@ -837,6 +862,7 @@ local fixstuck = Tabs.Fishing:AddButton({
         
     end,
 })
+
 local SellFishButton = Tabs.Fishing:AddButton({
    Title = "Sell All Fish",
    Description = "Sell all fish in inventory",
@@ -854,8 +880,10 @@ local SellFishButton = Tabs.Fishing:AddButton({
       end)
    end,
 })
+
 local isSellAllFishV2Active = false
 local sellAllFishV2Thread = nil
+
 local function performSellAllFish()
     local success, error = pcall(function()
         local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -872,6 +900,7 @@ local function performSellAllFish()
         warn("[SELL ALL FISH V2] Error: " .. tostring(error))
     end
 end
+
 local SellAllFishV2Toggle = Tabs.Fishing:AddToggle("SellAllFishV2", {
     Title = "Auto Sell All Fish V2",
     Description = "Auto sell all fish every 15 minutes",
@@ -899,6 +928,7 @@ local SellAllFishV2Toggle = Tabs.Fishing:AddToggle("SellAllFishV2", {
         end
     end,
 })
+
 local Players = game:GetService("Players")
 local playerInstance = Players.LocalPlayer
 if playerInstance then
@@ -919,7 +949,19 @@ if playerInstance then
             Options.SellAllFishV2:SetValue(true)
         end
     end)
-end
+-- V2 Variables with respawn protection
+local isAutoFishV2Active = false
+local fishingV2DelayTime = 0
+local fishingControllerModule = nil
+local lastToolRefreshTimeV2 = 0
+local toolRefreshIntervalV2 = 300
+local autoFishV2Thread = nil -- Track main thread
+local characterConnection = nil -- Track character respawn
+
+-- Global variables untuk instant restart system
+local fishingCompletionConnection = nil
+local isWaitingForCompletion = false
+
 Tabs.Fishing:AddSection("Auto Fishing V2")
 local function resetFishingController()
     fishingControllerModule = nil
@@ -985,12 +1027,8 @@ local function startFishingCycleOnly()
         end
         
         local screenCenter = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2)
-        
-        -- Langsung start tanpa check cooldown untuk speed maksimal
-        -- (cooldown check akan dilakukan oleh controller sendiri)
         controller:RequestChargeFishingRod(screenCenter, true, true)
-        isWaitingForCompletion = true -- Set flag bahwa sedang tunggu completion
-        
+        isWaitingForCompletion = true 
         return true
     end)
     
@@ -1001,8 +1039,6 @@ local function startFishingCycleOnly()
     end
     return success
 end
-
--- Function untuk monitor dan auto-click selama fishing (lebih agresif)
 local function monitorFishingProcess()
     spawn(function()
         while isAutoFishV2Active and isWaitingForCompletion do
@@ -1015,7 +1051,6 @@ local function monitorFishingProcess()
                 if controller then
                     local currentGUID = controller:GetCurrentGUID()
                     if currentGUID then
-                        -- Click multiple times untuk ensure minigame completion
                         for i = 1, 2 do
                             controller:RequestFishingMinigameClick()
                         end
@@ -1023,7 +1058,7 @@ local function monitorFishingProcess()
                 end
             end)
             
-            task.wait(0.03) -- Very fast clicking seperti original tapi lebih cepat
+            task.wait(0.01) 
         end
     end)
 end
@@ -1069,7 +1104,8 @@ local function setupCompletionListener()
                                 if delayTime > 0 then
                                     task.wait(delayTime)
                                 else
-                                    task.wait(0.05) -- Minimal delay untuk server response
+                                    task.wait(0.01) -- Minimal delay untuk server response
+                                    print('sini')
                                 end
                                 
                                 -- Start cycle baru immediately
@@ -1162,10 +1198,20 @@ local function stopAutoFishingV2()
         unequipFishingTool()
     end)
 end
-
+local fishingV2DelaySlider = Tabs.Fishing:AddSlider("FishingV2Delay", {
+    Title = "Fishing Delay V2",
+    Description = "Delay between fishing cycles (seconds)",
+    Default = 0,
+    Min = 0,
+    Max = 10,
+    Rounding = 1,
+    Callback = function(Value)
+        fishingV2DelayTime = tonumber(Value) or 0
+    end
+})
 local autoFishV2Toggle = Tabs.Fishing:AddToggle("AutoFishingV2", {
     Title = "Auto Fishing V2",
-    Description = "automatically Fishing",
+    Description = "Instant restart after completion",
     Default = false,
     Callback = function(Value)
         if Value then
@@ -1179,63 +1225,6 @@ local autoFishV2Toggle = Tabs.Fishing:AddToggle("AutoFishingV2", {
         else
             if isAutoFishV2Active then
                 stopAutoFishingV2()
-            end
-        end
-    end
-})
-local fishingV2DelaySlider = Tabs.Fishing:AddSlider("FishingV2Delay", {
-    Title = "Fishing Delay V2",
-    Description = "Delay between fishing cycles (seconds)",
-    Default = 0,
-    Min = 0,
-    Max = 10,
-    Rounding = 1,
-    Callback = function(Value)
-        fishingV2DelayTime = tonumber(Value) or 0
-    end
-})
-
--- Auto Click V2 with respawn protection
-local isAutoClickV2Active = false
-local autoClickV2Thread = nil
-
-local autoClickV2Toggle = Tabs.Fishing:AddToggle("AutoClickV2", {
-    Title = "Auto Click",
-    Description = "For auto fishing v2",
-    Default = false,
-    Callback = function(Value)
-        isAutoClickV2Active = Value
-        if Value then
-            autoClickV2Thread = spawn(function()
-                while isAutoClickV2Active do
-                    if not isPlayerValid() then
-                        if Options and Options.AutoClickV2 then
-                            Options.AutoClickV2:SetValue(false)
-                        end
-                        break
-                    end
-                    
-                    local success, error = pcall(function()
-                        local controller = getFishingController()
-                        if controller then
-                            local currentGUID = controller:GetCurrentGUID()
-                            if currentGUID then
-                                for i = 1, 3 do
-                                    controller:RequestFishingMinigameClick()
-                                    task.wait(0.05)
-                                end
-                            end
-                        end
-                    end)
-                    if not success then
-                        warn("[AUTO CLICK V2] Error: " .. tostring(error))
-                    end
-                    task.wait(0.05)
-                end
-            end)
-        else
-            if autoClickV2Thread then
-                autoClickV2Thread = nil
             end
         end
     end
@@ -1367,7 +1356,6 @@ local selectedFarmMethodV2 = "V1"
 local isAutoFarmV2Active = false
 local checkpointPosition = nil
 local hasCheckpoint = false
-
 local CheckpointInput = Tabs.Fishing:AddInput("CheckpointInput", {
     Title = "Don't touch this!",
     Description = "Checkpoint Status",
@@ -1376,6 +1364,7 @@ local CheckpointInput = Tabs.Fishing:AddInput("CheckpointInput", {
     Numeric = false,
     Finished = false,
     Callback = function(Value)
+        -- Parse coordinate string back to CFrame if valid
         if Value and Value ~= "" then
             local coords = {}
             for num in Value:gmatch("([%-%d%.]+)") do
@@ -1447,7 +1436,6 @@ local function startAutoFarmV2()
                 local distance = (currentPos - checkpointPos).Magnitude
                 if distance > 50 then
                     player.Character.HumanoidRootPart.CFrame = checkpointPosition
-                    -- refresh toggle
                     if selectedFarmMethodV2 == "V1" then
                         Options.AutoFishing:SetValue(false)
                         wait(1)
@@ -1463,12 +1451,13 @@ local function startAutoFarmV2()
     end)
     return true
 end
+
 local FarmMethodV2Dropdown = Tabs.Fishing:AddDropdown("FarmMethodV2", {
     Title = "Select Auto Fishing",
     Description = "Choose fishing method for Auto Farm V2",
     Values = {"V1", "V2"},
     Multi = false,
-    Search = false,
+    Search = false, 
     Default = 1,
 })
 FarmMethodV2Dropdown:OnChanged(function(Value)
@@ -1501,10 +1490,8 @@ local AutoFarmV2Toggle = Tabs.Fishing:AddToggle("AutoFarmV2", {
         end
     end,
 })
-
--- Enhanced respawn protection for Auto Farm V2
 spawn(function()
-    wait(5)
+    wait(5) -- tunggu config dan checkpoint input benar2 loaded
     if Options.AutoFarmV2 and Options.AutoFarmV2.Value == true then
         if hasCheckpoint and checkpointPosition then
             Options.AutoFarmV2:SetValue(false)
@@ -1517,7 +1504,7 @@ spawn(function()
 end)
 
 spawn(function()
-    wait(3)
+    wait(3) -- Wait untuk config loading selesai
     local inputValue = Options.CheckpointInput and Options.CheckpointInput.Value or ""
     if inputValue ~= "" then
         local coords = {}
@@ -1571,9 +1558,9 @@ if player then
     end)
 end
 end
+end
 do
     local teleportTab = Tabs.Teleport
-    -- Player Teleport Section
     local currentPlayerList = {}
     local isDropdownInitialized = false
     local lastSelectedOption = "Select a player..."
@@ -4374,3 +4361,4 @@ Window:SelectTab(1)
 AutoConfig:Initialize(Fluent)
 end
 
+--rwa

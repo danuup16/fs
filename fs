@@ -545,6 +545,34 @@ do
             end
         end
     })
+    
+    -- Anti AFK
+    local antiAfkConnection = nil
+    local isAntiAfkActive = false
+    
+    local antiAfkToggle = Tabs.Player:AddToggle("AntiAfk", {
+        Title = "Anti AFK",
+        Description = "Prevent getting kicked for being idle",
+        Default = false,
+        Callback = function(Value)
+            if Value then
+                if not isAntiAfkActive then
+                    local VirtualUser = game:GetService('VirtualUser')
+                    antiAfkConnection = game:GetService('Players').LocalPlayer.Idled:Connect(function()
+                        VirtualUser:CaptureController()
+                        VirtualUser:ClickButton2(Vector2.new())
+                    end)
+                    isAntiAfkActive = true
+                end
+            else
+                if antiAfkConnection and isAntiAfkActive then
+                    antiAfkConnection:Disconnect()
+                    antiAfkConnection = nil
+                    isAntiAfkActive = false
+                end
+            end
+        end
+    })
 end
 do
 local isAutoFishActive = false

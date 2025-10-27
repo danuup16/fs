@@ -186,7 +186,7 @@ local AutoConfig = {} do
     end
 end
 local Window = Fluent:CreateWindow({
-    Title = "#DJSTEST - FISH IT V.15",
+    Title = "#DJSTEST - FISH IT V.16",
     SubTitle = "",
     Search = false, -- optional and default true
     Icon = "", -- optional
@@ -4533,3 +4533,4 @@ Window:SelectTab(1)
 AutoConfig:Initialize(Fluent)
 end
 
+--rwa

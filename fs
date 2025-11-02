@@ -186,7 +186,7 @@ local AutoConfig = {} do
     end
 end
 local Window = Fluent:CreateWindow({
-    Title = "#DJSTEST - FISH IT V.15",
+    Title = "#DJSTEST - FISH IT V.17",
     SubTitle = "",
     Search = false, -- optional and default true
     Icon = "", -- optional
@@ -676,8 +676,8 @@ local function showProfile()
 end
 
 local hideProfileToggle = Tabs.Player:AddToggle("HideProfile", {
-    Title = "Hide Profile",
-    Description = "Change your overhead name display",
+    Title = "Hide Name",
+    Description = "Change your name display",
     Default = false,
     Callback = function(Value)
         isHideProfileActive = Value
